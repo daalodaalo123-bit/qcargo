@@ -18,7 +18,8 @@ import {
   Mail,
   Share2,
   Camera,
-  MessageCircle
+  MessageCircle,
+  MapPin
 } from 'lucide-react';
 
 export default function Home() {
