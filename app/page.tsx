@@ -279,6 +279,14 @@ export default function Home() {
                 </div>
                 <div className="text-[11px] font-bold text-slate-900 leading-tight uppercase tracking-tight">Hargeisa, Somaliland<br/>Curruba Mall</div>
               </li>
+              <li className="flex items-center gap-4">
+                <a href="https://wa.me/252633901811" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 group">
+                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                    <MessageCircle size={18} />
+                  </div>
+                  <div className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">WhatsApp: +252 63 390 1811</div>
+                </a>
+              </li>
             </ul>
           </div>
         </div>
