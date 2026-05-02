@@ -147,7 +147,7 @@ export default function ShipmentsPage() {
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex flex-col">
-                      <span className="text-xs font-bold text-slate-600">Guangzhou → Mogadishu</span>
+                      <span className="text-xs font-bold text-slate-600">Guangzhou → Hargeisa</span>
                       <span className="text-[10px] font-bold text-slate-400 uppercase mt-0.5 tracking-wider">{ship.batch}</span>
                     </div>
                   </td>

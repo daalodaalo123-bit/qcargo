@@ -129,7 +129,7 @@ export default function NewExpensePage() {
               <input 
                 type="text" 
                 className="search-input" 
-                placeholder="e.g. Mogadishu Port Authority"
+                placeholder="e.g. Hargeisa Port Authority"
                 value={formData.vendor}
                 onChange={(e) => setFormData({...formData, vendor: e.target.value})}
               />

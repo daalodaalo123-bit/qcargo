@@ -65,7 +65,7 @@ export default function AccountingPage() {
   ];
 
   const bills = [
-    { id: 'BIL-901', vendor: 'Mogadishu Port', date: '2024-05-15', due: '2024-05-30', amount: 1200.00, status: 'PAID' },
+    { id: 'BIL-901', vendor: 'Hargeisa Port', date: '2024-05-15', due: '2024-05-30', amount: 1200.00, status: 'PAID' },
     { id: 'BIL-902', vendor: 'Air Cargo Fuel', date: '2024-05-18', due: '2024-06-01', amount: 4500.00, status: 'PENDING' },
   ];
 

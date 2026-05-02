@@ -26,9 +26,9 @@ export default function BatchesPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   const batches = [
-    { id: '1', batchId: 'FLT-2024-001', type: 'AIR', origin: 'China', destination: 'Somalia', status: 'IN_TRANSIT', shipments: 45, weight: '850kg', arrival: '2024-06-01' },
-    { id: '2', batchId: 'CTN-2024-042', type: 'SEA', origin: 'China', destination: 'Somalia', status: 'LOADING', shipments: 120, weight: '45.5 CBM', arrival: '2024-06-15' },
-    { id: '3', batchId: 'FLT-2024-002', type: 'AIR', origin: 'China', destination: 'Somalia', status: 'ARRIVED', shipments: 32, weight: '620kg', arrival: '2024-05-20' },
+    { id: '1', batchId: 'FLT-2024-001', type: 'AIR', origin: 'China', destination: 'Somaliland', status: 'IN_TRANSIT', shipments: 45, weight: '850kg', arrival: '2024-06-01' },
+    { id: '2', batchId: 'CTN-2024-042', type: 'SEA', origin: 'China', destination: 'Somaliland', status: 'LOADING', shipments: 120, weight: '45.5 CBM', arrival: '2024-06-15' },
+    { id: '3', batchId: 'FLT-2024-002', type: 'AIR', origin: 'China', destination: 'Somaliland', status: 'ARRIVED', shipments: 32, weight: '620kg', arrival: '2024-05-20' },
   ];
 
   return (

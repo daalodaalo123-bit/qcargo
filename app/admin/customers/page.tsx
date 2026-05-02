@@ -26,7 +26,7 @@ export default function CustomersPage() {
   const customers = [
     { id: '1', name: 'Mustafe Ismail', phone: '+252 63 777 8986', city: 'Hargeisa', totalShipments: 12, totalSpent: 4500.00, balance: 0.00, status: 'VIP' },
     { id: '2', name: 'Sahra Hassan', phone: '+252 63 444 2211', city: 'Berbera', totalShipments: 3, totalSpent: 850.00, balance: 150.00, status: 'ACTIVE' },
-    { id: '3', name: 'Ahmed Ali', phone: '+252 61 555 1234', city: 'Mogadishu', totalShipments: 28, totalSpent: 12400.00, balance: 0.00, status: 'VIP' },
+    { id: '3', name: 'Ahmed Ali', phone: '+252 61 555 1234', city: 'Hargeisa', totalShipments: 28, totalSpent: 12400.00, balance: 0.00, status: 'VIP' },
   ];
 
   return (

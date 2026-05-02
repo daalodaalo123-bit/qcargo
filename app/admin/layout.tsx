@@ -122,7 +122,7 @@ export default function AdminLayout({
             <div className="w-px h-6 bg-slate-100" />
             <div className="flex items-center gap-3">
               <p className="text-[10px] font-black text-slate-400 uppercase text-right leading-none">
-                Mogadishu Office<br />
+                Hargeisa Office<br />
                 <span className="text-slate-900 font-bold">Main Branch</span>
               </p>
               <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">

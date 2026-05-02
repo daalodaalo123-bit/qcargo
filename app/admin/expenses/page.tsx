@@ -23,7 +23,7 @@ export default function ExpensesPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   const expenses = [
-    { id: 'EXP-001', batchId: 'DUR-2024-001', category: 'Customs', vendor: 'Mogadishu Port Authority', amount: 1250.00, date: '2024-05-15', status: 'PAID' },
+    { id: 'EXP-001', batchId: 'DUR-2024-001', category: 'Customs', vendor: 'Hargeisa Port Authority', amount: 1250.00, date: '2024-05-15', status: 'PAID' },
     { id: 'EXP-002', batchId: 'DUR-2024-002', category: 'Trucking', vendor: 'Local Transport Co', amount: 450.00, date: '2024-05-16', status: 'PAID' },
     { id: 'EXP-003', batchId: 'DUR-2024-001', category: 'Warehousing', vendor: 'Durdur GZ Warehouse', amount: 800.00, date: '2024-05-18', status: 'PENDING' },
     { id: 'EXP-004', batchId: 'DUR-2024-003', category: 'Sourcing', vendor: 'Agent Lee', amount: 300.00, date: '2024-05-20', status: 'PAID' },

@@ -28,7 +28,7 @@ export default function NewBatchPage() {
     customerName: '',
     goods: '',
     origin: 'Guangzhou, China',
-    destination: 'Mogadishu, Somalia',
+    destination: 'Hargeisa, Somaliland',
     estimatedArrival: '',
     totalWeight: 0,
     totalCBM: 0,

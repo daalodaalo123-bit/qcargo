@@ -95,38 +95,36 @@ export default function Home() {
             {/* Visual element: Abstract cargo cards */}
             <div className="relative z-10 space-y-6">
               <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl shadow-blue-900/10 border border-slate-100 transform -rotate-3 hover:rotate-0 transition-transform duration-700">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-                    <Plane size={24} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Air Freight</p>
-                    <p className="font-black text-slate-900">Guangzhou to Mogadishu</p>
-                  </div>
+                <div className="flex items-center gap-2 mb-6">
+                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                  <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">China → Hargeisa</span>
                 </div>
-                <div className="flex justify-between items-end">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Est. Arrival</p>
-                    <p className="text-sm font-bold text-emerald-500">5-7 Working Days</p>
+                <h3 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">Express Air Freight</h3>
+                <p className="text-sm font-medium text-slate-500 leading-relaxed mb-8">
+                  The fastest way to get your cargo home. Twice-weekly flights with full tracking.
+                </p>
+                <div className="flex items-center gap-4 py-4 border-t border-slate-50">
+                  <div className="text-center px-4 border-r border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Duration</p>
+                    <p className="text-sm font-black text-slate-900">2 Weeks</p>
                   </div>
                   <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded">EXPRESS</span>
                 </div>
               </div>
 
               <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl shadow-emerald-900/10 border border-slate-100 transform rotate-3 hover:rotate-0 transition-transform duration-700 translate-x-12">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
-                    <Ship size={24} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sea Freight</p>
-                    <p className="font-black text-slate-900">Master Container LCL</p>
-                  </div>
+                <div className="flex items-center gap-2 mb-6">
+                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                  <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Guangzhou → Hargeisa</span>
                 </div>
-                <div className="flex justify-between items-end">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Frequency</p>
-                    <p className="text-sm font-bold text-slate-600">Monthly Departure</p>
+                <h3 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">Premium Sea Freight</h3>
+                <p className="text-sm font-medium text-slate-500 leading-relaxed mb-8">
+                  Cost-effective solutions for large shipments and bulky commercial goods.
+                </p>
+                <div className="flex items-center gap-4 py-4 border-t border-slate-50">
+                  <div className="text-center px-4 border-r border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Duration</p>
+                    <p className="text-sm font-black text-slate-900">30-45 Days</p>
                   </div>
                   <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded">ECONOMY</span>
                 </div>
