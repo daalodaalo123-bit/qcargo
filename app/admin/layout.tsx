@@ -1,5 +1,4 @@
-'use client';
-
+import { useState } from 'react';
 import { 
   LayoutDashboard, 
   Package, 
@@ -14,7 +13,9 @@ import {
   Globe,
   Bell,
   Settings,
-  User
+  User,
+  Menu,
+  X
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -26,6 +27,8 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname();
   const isLoginPage = pathname === '/admin/login';
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   if (isLoginPage) return <>{children}</>;
 
@@ -42,27 +45,39 @@ export default function AdminLayout({
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans">
+      {/* Sidebar Overlay (Mobile) */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-72 bg-slate-900 flex flex-col sticky top-0 h-screen overflow-y-auto">
-        <div className="p-8">
+      <aside className={`
+        fixed inset-y-0 left-0 w-72 bg-slate-900 flex flex-col z-50 transition-transform duration-300 lg:sticky lg:translate-x-0
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <div className="p-8 flex items-center justify-between">
           <Link href="/admin" className="text-2xl font-black text-white tracking-tighter flex items-center gap-2">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <Globe size={18} />
             </div>
             DURDUR<span className="text-blue-600">CARGO</span>
           </Link>
-          <div className="mt-2 px-1 py-0.5 bg-blue-600/10 rounded w-fit">
-            <p className="text-[9px] text-blue-400 font-black uppercase tracking-[0.2em]">Master Control Panel</p>
-          </div>
+          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-500 hover:text-white">
+            <X size={20} />
+          </button>
         </div>
 
-        <nav className="flex-1 px-4 py-4 space-y-1.5">
+        <nav className="flex-1 px-4 py-4 space-y-1.5 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href));
             return (
               <Link
                 key={item.name}
                 href={item.href}
+                onClick={() => setIsSidebarOpen(false)}
                 className={`flex items-center justify-between px-4 py-3.5 rounded-2xl text-sm font-bold transition-all group ${
                   isActive 
                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' 
@@ -86,7 +101,7 @@ export default function AdminLayout({
               <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-black text-white text-xs border-2 border-white/20">
                 AD
               </div>
-              <div>
+              <div className="hidden sm:block">
                 <p className="text-xs font-black text-white">Admin User</p>
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Lead Logistics</p>
               </div>
@@ -107,22 +122,30 @@ export default function AdminLayout({
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col min-w-0">
         {/* Top Navbar */}
-        <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-10 sticky top-0 z-40 backdrop-blur-md bg-white/80">
+        <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-4 md:px-10 sticky top-0 z-40 backdrop-blur-md bg-white/80">
           <div className="flex items-center gap-4">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">System Status</span>
-            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase">
-              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-              Connected to Atlas
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-2 text-slate-600 hover:bg-slate-50 rounded-xl"
+            >
+              <Menu size={24} />
+            </button>
+            <div className="hidden sm:flex items-center gap-4">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">System Status</span>
+              <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase">
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                Connected
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2 text-slate-400 hover:text-slate-600 cursor-pointer transition-colors">
-              <span className="text-[10px] font-black uppercase tracking-widest">Global Search</span>
+          
+          <div className="flex items-center gap-4 md:gap-6">
+            <div className="hidden md:flex items-center gap-2 text-slate-400 hover:text-slate-600 cursor-pointer transition-colors">
+              <span className="text-[10px] font-black uppercase tracking-widest">Search</span>
               <div className="px-1.5 py-0.5 bg-slate-100 rounded text-[9px] font-black border border-slate-200">⌘K</div>
             </div>
-            <div className="w-px h-6 bg-slate-100" />
             <div className="flex items-center gap-3">
               <p className="text-[10px] font-black text-slate-400 uppercase text-right leading-none">
                 Hargeisa Office<br />
@@ -136,7 +159,7 @@ export default function AdminLayout({
         </header>
 
         {/* Page Content */}
-        <div className="p-10 flex-1">
+        <div className="p-4 md:p-10 flex-1 overflow-x-hidden">
           {children}
         </div>
       </main>

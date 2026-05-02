@@ -19,11 +19,14 @@ import {
   Share2,
   Camera,
   MessageCircle,
-  MapPin
+  MapPin,
+  Menu,
+  X
 } from 'lucide-react';
 
 export default function Home() {
   const [trackingId, setTrackingId] = useState('');
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900 overflow-x-hidden">
@@ -42,10 +45,30 @@ export default function Home() {
             <a href="#about" className="hover:text-blue-600 transition-colors">About Us</a>
             <Link href="/admin/login" className="text-blue-600">Agent Access</Link>
           </div>
-          <Link href="/tracking" className="hidden md:block btn btn-primary !rounded-xl !px-6 !py-2.5 !text-xs shadow-lg shadow-blue-600/20">
-            Track Shipment
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/tracking" className="hidden sm:block btn btn-primary !rounded-xl !px-6 !py-2.5 !text-xs shadow-lg shadow-blue-600/20">
+              Track Shipment
+            </Link>
+            <button 
+              onClick={() => setIsMobileOpen(!isMobileOpen)}
+              className="md:hidden p-2 text-slate-600 hover:bg-slate-50 rounded-xl transition-all"
+            >
+              {isMobileOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
         </div>
+
+        {/* Mobile Menu */}
+        {isMobileOpen && (
+          <div className="md:hidden bg-white border-b border-slate-100 animate-in slide-in-from-top duration-300">
+            <div className="px-6 py-8 flex flex-col gap-6">
+              <a href="#services" onClick={() => setIsMobileOpen(false)} className="text-sm font-black uppercase tracking-widest text-slate-600">Services</a>
+              <a href="#tracking" onClick={() => setIsMobileOpen(false)} className="text-sm font-black uppercase tracking-widest text-slate-600">Tracking</a>
+              <Link href="/tracking" onClick={() => setIsMobileOpen(false)} className="text-sm font-black uppercase tracking-widest text-blue-600">Track Shipment</Link>
+              <Link href="/admin/login" onClick={() => setIsMobileOpen(false)} className="text-sm font-black uppercase tracking-widest text-slate-400">Agent Access</Link>
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Hero Section */}
@@ -192,7 +215,7 @@ export default function Home() {
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
             {[
-              { title: 'Air Freight', desc: 'Express deliveries for high-value and urgent goods. 5-7 days from Guangzhou to Mogadishu.', icon: Plane, color: 'text-blue-600', bg: 'bg-blue-50' },
+              { title: 'Air Freight', desc: 'Express deliveries for high-value and urgent goods. 2 weeks from Guangzhou to Hargeisa.', icon: Plane, color: 'text-blue-600', bg: 'bg-blue-50' },
               { title: 'Sea Freight', desc: 'Economical shipping for large batches and bulky items. Monthly container departures.', icon: Ship, color: 'text-emerald-600', bg: 'bg-emerald-50' },
               { title: 'Sourcing', desc: 'Professional sourcing agents in China helping you find the best factories and prices.', icon: Search, color: 'text-amber-600', bg: 'bg-amber-50' }
             ].map((service, i) => (
