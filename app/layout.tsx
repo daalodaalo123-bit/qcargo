@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   description: "Fast, reliable sea and air cargo sourcing to Somalia and beyond.",
 };
 
+import { AuthProvider } from "./AuthProvider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -21,9 +23,11 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
       </head>
       <body className="antialiased selection:bg-blue-100 selection:text-blue-900">
-        <div className="min-h-screen flex flex-col">
-          {children}
-        </div>
+        <AuthProvider>
+          <div className="min-h-screen flex flex-col">
+            {children}
+          </div>
+        </AuthProvider>
       </body>
     </html>
   );

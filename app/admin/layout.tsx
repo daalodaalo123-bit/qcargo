@@ -25,6 +25,9 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const isLoginPage = pathname === '/admin/login';
+
+  if (isLoginPage) return <>{children}</>;
 
   const navItems = [
     { name: 'Dashboard', icon: LayoutDashboard, href: '/admin' },
