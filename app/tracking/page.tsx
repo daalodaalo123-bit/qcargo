@@ -22,8 +22,6 @@ import {
   Globe,
   Mail,
   Phone,
-  InstagramIcon,
-  FacebookIcon,
   Share2,
   Camera
 } from 'lucide-react';
