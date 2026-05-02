@@ -1,22 +1,36 @@
 'use client';
 
 import { useState } from 'react';
-import { Globe, Lock, User, Eye, EyeOff, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Globe, Lock, User, Eye, EyeOff, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
+import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
 export default function AdminLoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulation of secure login
-    setTimeout(() => {
+    setError('');
+
+    const res = await signIn('credentials', {
+      username,
+      password,
+      redirect: false,
+    });
+
+    if (res?.error) {
+      setError('Invalid credentials. Please check your access key.');
+      setLoading(false);
+    } else {
       router.push('/admin');
-    }, 1500);
+    }
   };
 
   return (
@@ -40,6 +54,12 @@ export default function AdminLoginPage() {
         </div>
 
         <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-10 shadow-2xl">
+          {error && (
+            <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-3 text-rose-500 text-xs font-bold animate-in fade-in zoom-in-95">
+              <AlertCircle size={18} />
+              {error}
+            </div>
+          )}
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Agent Identifier</label>
@@ -49,6 +69,8 @@ export default function AdminLoginPage() {
                   type="text" 
                   required
                   placeholder="Username or Email"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all font-bold"
                 />
               </div>
@@ -62,6 +84,8 @@ export default function AdminLoginPage() {
                   type={showPassword ? 'text' : 'password'} 
                   required
                   placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-12 text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all font-bold"
                 />
                 <button 
