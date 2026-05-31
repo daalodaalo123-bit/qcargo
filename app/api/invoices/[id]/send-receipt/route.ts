@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongoose';
-import Invoice from '@/lib/models/Invoice';
+import Invoice, { type IInvoiceItem } from '@/lib/models/Invoice';
 import { deliverReceiptWhatsApp } from '@/lib/deliver-receipt-whatsapp';
 import { BRAND_NAME } from '@/lib/brand';
 
@@ -35,7 +35,7 @@ export async function POST(
         paymentDate: invoice.paymentDate,
         freightType: invoice.freightType,
         goodsSummary: invoice.goodsSummary,
-        items: invoice.items.map((it) => ({
+        items: invoice.items.map((it: IInvoiceItem) => ({
           description: it.description,
           qty: it.qty,
           price: it.price,
