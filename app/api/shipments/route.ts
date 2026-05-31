@@ -1,0 +1,74 @@
+// app/api/shipments/route.ts
+import { NextResponse } from 'next/server';
+import { connectDB } from '@/lib/mongoose';
+import Shipment from '@/lib/models/Shipment';
+import { Batch } from '@/lib/models/Batch';
+
+export const dynamic = 'force-dynamic';
+
+export async function GET() {
+  try {
+    await connectDB();
+    const shipments = await Shipment.find({}).sort({ createdAt: -1 });
+    return NextResponse.json(shipments);
+  } catch (err: any) {
+    console.error('Error fetching shipments:', err);
+    return NextResponse.json({ error: 'Failed to fetch shipments', details: err.message }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    await connectDB();
+    const body = await request.json();
+    
+    // Create new shipment document
+    const shipment = new Shipment(body);
+    await shipment.save();
+
+    // If batch is assigned, we should update the shipments count on the Batch model
+    if (body.batch && body.batch !== 'UNASSIGNED') {
+      const count = await Shipment.countDocuments({ batch: body.batch });
+      await Batch.findOneAndUpdate(
+        { batchId: body.batch },
+        { shipments: count }
+      );
+    }
+
+    return NextResponse.json(shipment, { status: 201 });
+  } catch (err: any) {
+    console.error('Error creating shipment:', err);
+    return NextResponse.json({ error: 'Failed to create shipment', details: err.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    await connectDB();
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) {
+      return NextResponse.json({ error: 'Shipment ID is required' }, { status: 400 });
+    }
+    
+    const shipment = await Shipment.findByIdAndDelete(id);
+    if (!shipment) {
+      return NextResponse.json({ error: 'Shipment not found' }, { status: 404 });
+    }
+    
+    // Decrement batch shipments count
+    if (shipment.batch && shipment.batch !== 'UNASSIGNED') {
+      const count = await Shipment.countDocuments({ batch: shipment.batch });
+      await Batch.findOneAndUpdate(
+        { batchId: shipment.batch },
+        { shipments: count }
+      );
+    }
+    
+    return NextResponse.json({ success: true, message: 'Shipment deleted successfully' });
+  } catch (err: any) {
+    console.error('Error deleting shipment:', err);
+    return NextResponse.json({ error: 'Failed to delete shipment', details: err.message }, { status: 500 });
+  }
+}
+

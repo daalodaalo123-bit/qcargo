@@ -32,7 +32,7 @@ export default function TrackingPage({ searchParams }: { searchParams: { q?: str
   const [showResult, setShowResult] = useState(!!searchParams.q);
 
   const mockShipment = {
-    id: trackingId || "DUR-2024-KM-901",
+    id: trackingId || "QC-2024-KM-901",
     customer: "Ahmed Ali",
     goods: "Mixed Electronics & Household Goods",
     status: "IN_TRANSIT",
@@ -46,7 +46,7 @@ export default function TrackingPage({ searchParams }: { searchParams: { q?: str
       { status: 'Arrived at Berbera Port', location: 'Somaliland', date: 'June 12 (Est.)', completed: false, current: false },
       { status: 'In Transit - Indian Ocean', location: 'At Sea', date: 'May 20, 2024', completed: true, current: true },
       { status: 'Departed Nansha Port', location: 'Guangzhou, China', date: 'May 12, 2024', completed: true, current: false },
-      { status: 'Consolidated & Loaded', location: 'Durdur Warehouse, GZ', date: 'May 10, 2024', completed: true, current: false },
+      { status: 'Consolidated & Loaded', location: 'Q Cargo Warehouse, GZ', date: 'May 10, 2024', completed: true, current: false },
       { status: 'Shipment Received', location: 'Guangzhou, China', date: 'May 08, 2024', completed: true, current: false },
     ]
   };
@@ -66,11 +66,9 @@ export default function TrackingPage({ searchParams }: { searchParams: { q?: str
       {/* Navigation Header */}
       <nav className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Link href="/" className="text-2xl font-black tracking-tighter flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
-              <Globe size={20} />
-            </div>
-            DURDUR<span className="text-blue-600">CARGO</span>
+          <Link href="/" className="text-2xl font-black tracking-tighter flex items-center gap-3">
+            <img src="/logo-black.jpg" className="h-9 w-auto rounded-lg object-contain" alt="Q Cargo" />
+            <span>Q<span className="text-blue-600">CARGO</span></span>
           </Link>
           <div className="hidden md:flex gap-10 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
             <Link href="/" className="hover:text-blue-600 transition-colors">Home</Link>
@@ -98,7 +96,7 @@ export default function TrackingPage({ searchParams }: { searchParams: { q?: str
             <form onSubmit={handleTrack} className="relative max-w-2xl mx-auto">
               <input 
                 type="text" 
-                placeholder="Enter Tracking Number (e.g. DUR-2024-KM-901)"
+                placeholder="Enter Tracking Number (e.g. QC-2024-KM-901)"
                 className="w-full py-6 px-8 rounded-[2rem] bg-white border-none shadow-2xl shadow-blue-900/10 text-lg font-bold placeholder:text-slate-300 focus:ring-4 focus:ring-blue-100 transition-all"
                 value={trackingId}
                 onChange={(e) => setTrackingId(e.target.value)}
@@ -294,14 +292,12 @@ export default function TrackingPage({ searchParams }: { searchParams: { q?: str
       <footer className="bg-slate-50 py-24 mt-20">
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-16 mb-20">
           <div className="md:col-span-1">
-            <Link href="/" className="text-2xl font-black tracking-tighter flex items-center gap-2 mb-8">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
-                <Globe size={20} />
-              </div>
-              DURDUR<span className="text-blue-600">CARGO</span>
+            <Link href="/" className="text-2xl font-black tracking-tighter flex items-center gap-3 mb-8">
+              <img src="/logo-black.jpg" className="h-9 w-auto rounded-lg object-contain" alt="Q Cargo" />
+              <span>Q<span className="text-blue-600">CARGO</span></span>
             </Link>
             <p className="text-sm font-medium text-slate-500 leading-relaxed mb-8">
-              Durdur Cargo is a premier logistics provider specializing in sourcing and transportation between China and East Africa.
+              Q Cargo is a premier logistics provider specializing in sourcing and transportation between China and East Africa.
             </p>
             <div className="flex gap-4">
               <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-blue-600 transition-all cursor-pointer">
@@ -349,13 +345,13 @@ export default function TrackingPage({ searchParams }: { searchParams: { q?: str
                 <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
                   <Mail size={18} />
                 </div>
-                <div className="text-sm font-bold text-slate-900 leading-none">durdur.shipping@gmail.com</div>
+                <div className="text-sm font-bold text-slate-900 leading-none">qcargoshipping@gmail.com</div>
               </li>
               <li className="flex items-center gap-4">
                 <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
                   <MapPin size={18} />
                 </div>
-                <div className="text-[11px] font-bold text-slate-900 leading-tight uppercase tracking-tight">Hargeisa, Somaliland<br/>Curruba Mall</div>
+                <div className="text-[11px] font-bold text-slate-900 leading-tight uppercase tracking-tight">Hargeisa, Somaliland<br/>Hadhwanaag Mall</div>
               </li>
               <li className="flex items-center gap-4">
                 <a href="https://wa.me/252633901811" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 group">
@@ -371,7 +367,7 @@ export default function TrackingPage({ searchParams }: { searchParams: { q?: str
         
         <div className="max-w-7xl mx-auto px-6 pt-12 border-t border-slate-200 text-center">
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em]">
-            © 2024 Durdur Cargo Logistics Ltd. All rights reserved.
+            © 2024 Q Cargo Logistics Ltd. All rights reserved.
           </p>
         </div>
       </footer>

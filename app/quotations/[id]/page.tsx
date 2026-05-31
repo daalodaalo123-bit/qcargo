@@ -28,7 +28,7 @@ export default function PublicQuotation({ params }: { params: { id: string } }) 
             <p>ID: {quotation.id}</p>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>DURDUR CARGO</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>Q CARGO</div>
             <p>Date: {quotation.date}</p>
           </div>
         </div>

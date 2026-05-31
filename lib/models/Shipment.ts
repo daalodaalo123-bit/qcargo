@@ -1,0 +1,77 @@
+import mongoose, { Document, Schema } from 'mongoose';
+
+export interface IShipmentItem {
+  description: string;
+  qty: number;
+  weight?: number;
+  cbm?: number;
+  value?: number;
+}
+
+export interface ICourierPackage {
+  courier: string;
+  trackingNumber: string;
+  goods: string;
+  qty: number;
+}
+
+export interface IShipment extends Document {
+  shipmentNumber: string;
+  customer: string;
+  phone: string;
+  type: 'AIR' | 'SEA';
+  status: 'PENDING' | 'IN_TRANSIT' | 'ARRIVED';
+  payment: 'PAID' | 'UNPAID';
+  total: number;
+  batch: string;
+  date: string;
+  weight?: number;
+  cbm?: number;
+  rate?: number;
+  customs?: number;
+  discount?: number;
+  paymentMethod?: string;
+  paidAmount?: number;
+  notes?: string;
+  items: IShipmentItem[];
+  courierPackages: ICourierPackage[];
+}
+
+const ShipmentItemSchema = new Schema<IShipmentItem>({
+  description: { type: String, required: true },
+  qty: { type: Number, required: true, default: 1 },
+  weight: { type: Number },
+  cbm: { type: Number },
+  value: { type: Number },
+});
+
+const CourierPackageSchema = new Schema<ICourierPackage>({
+  courier: { type: String },
+  trackingNumber: { type: String },
+  goods: { type: String },
+  qty: { type: Number, default: 1 },
+});
+
+const ShipmentSchema = new Schema<IShipment>({
+  shipmentNumber: { type: String, required: true, unique: true },
+  customer: { type: String, required: true },
+  phone: { type: String, required: true },
+  type: { type: String, enum: ['AIR', 'SEA'], required: true },
+  status: { type: String, enum: ['PENDING', 'IN_TRANSIT', 'ARRIVED'], default: 'PENDING' },
+  payment: { type: String, enum: ['PAID', 'UNPAID'], default: 'UNPAID' },
+  total: { type: Number, required: true },
+  batch: { type: String, default: 'UNASSIGNED' },
+  date: { type: String, required: true },
+  weight: { type: Number },
+  cbm: { type: Number },
+  rate: { type: Number },
+  customs: { type: Number },
+  discount: { type: Number },
+  paymentMethod: { type: String },
+  paidAmount: { type: Number },
+  notes: { type: String },
+  items: [ShipmentItemSchema],
+  courierPackages: [CourierPackageSchema],
+}, { timestamps: true });
+
+export default mongoose.models.Shipment || mongoose.model<IShipment>('Shipment', ShipmentSchema);

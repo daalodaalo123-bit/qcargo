@@ -12,8 +12,14 @@ const handler = NextAuth({
       async authorize(credentials) {
         // This is where you would check the database for the user
         // For now, we allow access with a default admin account
-        if (credentials?.username === "admin" && credentials?.password === "durdur2024") {
-          return { id: "1", name: "Admin Agent", email: "admin@durdurcargo.com" };
+        const isUserValid = credentials?.username === "admin" || 
+                            credentials?.username === "admin@durdurcargo.com" || 
+                            credentials?.username === "admin@qcargo.com";
+        const isPasswordValid = credentials?.password === "durdur2024" || 
+                                credentials?.password === "qcargo2024";
+
+        if (isUserValid && isPasswordValid) {
+          return { id: "1", name: "Admin Agent", email: "admin@qcargo.com" };
         }
         return null;
       }

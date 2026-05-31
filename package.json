@@ -3,15 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "clear-db": "ts-node scripts/clear-db.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
     "cloudinary": "^2.10.0",
+    "dotenv": "^17.4.2",
     "lucide-react": "^1.14.0",
-    "mongoose": "^9.6.1",
+    "mongoose": "^9.6.3",
     "next": "16.2.4",
     "next-auth": "^4.24.14",
     "react": "19.2.4",
@@ -20,7 +21,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.4",
-    "@types/node": "^20",
+    "@types/node": "^20.19.41",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.5.0",
@@ -28,6 +29,7 @@
     "eslint-config-next": "16.2.4",
     "postcss": "^8.5.13",
     "tailwindcss": "^4.2.4",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }

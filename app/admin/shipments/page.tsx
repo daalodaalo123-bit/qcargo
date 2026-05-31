@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Plus, 
   Search, 
@@ -23,28 +23,98 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+interface Shipment {
+  id: string;
+  shipmentNumber: string;
+  customer: string;
+  type: 'AIR' | 'SEA';
+  status: 'ARRIVED' | 'IN_TRANSIT' | 'PENDING';
+  payment: 'PAID' | 'UNPAID';
+  total: number;
+  batch: string;
+  date: string;
+}
+
+const DEFAULT_SHIPMENTS: Shipment[] = [
+  { id: '1', shipmentNumber: 'AIR-2024-KM-901', customer: 'Khadar Mohamed', type: 'AIR', status: 'ARRIVED', payment: 'PAID', total: 245.50, batch: 'FLT-2024-001', date: '2026-05-18' },
+  { id: '2', shipmentNumber: 'SEA-2024-AD-312', customer: 'Abdi Dahir', type: 'SEA', status: 'IN_TRANSIT', payment: 'UNPAID', total: 1200.00, batch: 'CTN-2024-042', date: '2026-05-15' },
+  { id: '3', shipmentNumber: 'AIR-2024-ZA-505', customer: 'Zahra Ahmed', type: 'AIR', status: 'PENDING', payment: 'PAID', total: 450.00, batch: 'FLT-2024-002', date: '2026-05-20' },
+];
+
 export default function ShipmentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [shipments, setShipments] = useState<Shipment[]>([]);
 
-  const shipments = [
-    { id: '1', shipmentNumber: 'AIR-2024-KM-901', customer: 'Khadar Mohamed', type: 'AIR', status: 'ARRIVED', payment: 'PAID', total: 245.50, batch: 'FLT-2024-001', date: '2024-05-18' },
-    { id: '2', shipmentNumber: 'SEA-2024-AD-312', customer: 'Abdi Dahir', type: 'SEA', status: 'IN_TRANSIT', payment: 'UNPAID', total: 1200.00, batch: 'CTN-2024-042', date: '2024-05-15' },
-    { id: '3', shipmentNumber: 'AIR-2024-ZA-505', customer: 'Zahra Ahmed', type: 'AIR', status: 'PENDING', payment: 'PAID', total: 450.00, batch: 'FLT-2024-002', date: '2024-05-20' },
-  ];
+  // Load shipments from DB
+  const loadShipments = async () => {
+    try {
+      const res = await fetch('/api/shipments');
+      if (!res.ok) throw new Error('Failed to load shipments');
+      const data = await res.json();
+      setShipments(data.map((s: any) => ({ ...s, id: s._id || s.id })));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    loadShipments();
+  }, []);
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Are you sure you want to delete this shipment?')) {
+      try {
+        const res = await fetch(`/api/shipments?id=${id}`, {
+          method: 'DELETE',
+        });
+        if (!res.ok) throw new Error('Failed to delete shipment');
+        setShipments(prev => prev.filter(s => s.id !== id));
+        alert('Shipment deleted successfully!');
+      } catch (err: any) {
+        console.error(err);
+        alert(`Error deleting shipment: ${err.message}`);
+      }
+    }
+  };
+
+  const handleExport = () => {
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + ["Shipment Number,Customer,Type,Status,Payment,Total USD,Batch,Date"].join(",") + "\n"
+      + shipments.map(s => `"${s.shipmentNumber}","${s.customer}","${s.type}","${s.status}","${s.payment}",${s.total},"${s.batch}","${s.date}"`).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "durdur_shipments.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const filteredShipments = shipments.filter(ship => 
+    ship.shipmentNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    ship.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    ship.batch.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="admin-container">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Shipment Manifest</h1>
-          <p className="text-slate-500 font-medium">Global tracking and individual package management</p>
+          <h1 className="text-3xl font-black text-slate-100 tracking-tight">Shipment Manifests</h1>
+          <p className="text-slate-400 font-medium">Global tracking and individual package management</p>
         </div>
         <div className="flex gap-3 w-full md:w-auto">
-          <button className="flex-1 md:flex-none btn bg-white border border-slate-200 text-slate-600 flex items-center justify-center gap-2 hover:bg-slate-50 shadow-sm">
+          <button 
+            onClick={handleExport}
+            className="flex-1 md:flex-none btn bg-white border border-slate-800 text-slate-300 flex items-center justify-center gap-2 hover:bg-slate-800 shadow-sm"
+          >
             <Download size={18} />
-            Manifest PDF
+            Export Manifest CSV
           </button>
-          <Link href="/admin/shipments/new" className="flex-1 md:flex-none btn btn-primary flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20">
+          <Link 
+            href="/admin/shipments/new"
+            className="flex-1 md:flex-none btn btn-primary flex items-center justify-center gap-2 shadow-lg shadow-[#F15D38]/20"
+          >
             <Plus size={18} />
             New Shipment
           </Link>
@@ -55,67 +125,67 @@ export default function ShipmentsPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
         <div className="shipment-card">
           <div className="flex items-center justify-between mb-4">
-            <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
+            <div className="p-2 rounded-xl bg-[#F15D38]/10 text-[#F15D38]">
               <Package size={20} />
             </div>
-            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg">Live</span>
+            <span className="text-xs font-bold text-[#F15D38] bg-[#F15D38]/10 px-2 py-0.5 rounded-lg">Live</span>
           </div>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Shipments</p>
-          <h3 className="text-2xl font-black text-slate-900">1,240</h3>
+          <h3 className="text-2xl font-black text-slate-100">{shipments.length}</h3>
         </div>
         <div className="shipment-card">
           <div className="flex items-center justify-between mb-4">
-            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+            <div className="p-2 rounded-xl bg-emerald-950/30 text-emerald-400 border border-emerald-800/20">
               <CheckCircle2 size={20} />
             </div>
           </div>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Delivered</p>
-          <h3 className="text-2xl font-black text-slate-900">892</h3>
+          <h3 className="text-2xl font-black text-slate-100">{shipments.filter(s => s.status === 'ARRIVED').length}</h3>
         </div>
         <div className="shipment-card">
           <div className="flex items-center justify-between mb-4">
-            <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
+            <div className="p-2 rounded-xl bg-amber-950/30 text-amber-400 border border-amber-800/20">
               <Clock size={20} />
             </div>
           </div>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">In Transit</p>
-          <h3 className="text-2xl font-black text-slate-900">348</h3>
+          <h3 className="text-2xl font-black text-slate-100">{shipments.filter(s => s.status === 'IN_TRANSIT').length}</h3>
         </div>
         <div className="shipment-card">
           <div className="flex items-center justify-between mb-4">
-            <div className="p-2 rounded-xl bg-rose-50 text-rose-600">
+            <div className="p-2 rounded-xl bg-rose-950/30 text-rose-400 border border-rose-800/20">
               <DollarSign size={20} />
             </div>
           </div>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pending Payment</p>
-          <h3 className="text-2xl font-black text-slate-900">$12,500</h3>
+          <h3 className="text-2xl font-black text-slate-100">${shipments.filter(s => s.payment === 'UNPAID').reduce((acc, s) => acc + s.total, 0).toLocaleString()}</h3>
         </div>
       </div>
 
       {/* Filters & Search */}
       <div className="flex flex-col md:flex-row gap-4 mb-8">
         <div className="relative flex-1 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#F15D38] transition-colors" size={20} />
           <input 
             type="text" 
-            placeholder="Search Shipment #, Customer, or Phone..." 
+            placeholder="Search Shipment #, Customer, or Batch..." 
             className="search-input !pl-12 w-full"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <button className="btn bg-white border border-slate-200 text-slate-600 flex items-center gap-2 hover:bg-slate-50 px-6">
+        <button className="btn bg-white border border-slate-800 text-slate-300 flex items-center gap-2 hover:bg-slate-800 px-6">
           <Filter size={18} />
           Filters
         </button>
       </div>
 
       {/* Shipments Table */}
-      <div className="shipment-card !p-0 overflow-hidden border-none shadow-xl shadow-slate-200/50">
+      <div className="shipment-card !p-0 overflow-hidden border border-slate-800 shadow-xl shadow-slate-950/20">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="bg-slate-50/50 border-b border-slate-100">
+              <tr className="bg-slate-900/40 border-b border-slate-800">
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Shipment / Customer</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Type</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Route & Batch</th>
@@ -124,50 +194,50 @@ export default function ShipmentsPage() {
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
-              {shipments.map((ship) => (
-                <tr key={ship.id} className="hover:bg-slate-50/30 transition-all group">
+            <tbody className="divide-y divide-slate-800">
+              {filteredShipments.map((ship) => (
+                <tr key={ship.id} className="hover:bg-slate-800/30 transition-all group">
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${ship.type === 'AIR' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                      <div className={`p-2 rounded-lg ${ship.type === 'AIR' ? 'bg-[#F15D38]/10 text-[#F15D38] border border-[#F15D38]/20' : 'bg-emerald-950/30 text-emerald-400 border border-emerald-800/20'}`}>
                         {ship.type === 'AIR' ? <Plane size={18} /> : <Ship size={18} />}
                       </div>
                       <div className="flex flex-col">
-                        <span className="font-mono text-sm font-black text-slate-900">{ship.shipmentNumber}</span>
+                        <span className="font-mono text-sm font-black text-slate-100">{ship.shipmentNumber}</span>
                         <span className="text-xs font-bold text-slate-400">{ship.customer}</span>
                       </div>
                     </div>
                   </td>
                   <td className="px-8 py-6">
                     <span className={`text-[10px] font-black px-3 py-1 rounded-full ${
-                      ship.type === 'AIR' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
+                      ship.type === 'AIR' ? 'bg-[#F15D38]/10 text-[#F15D38] border border-[#F15D38]/20' : 'bg-emerald-950/30 text-emerald-400 border border-emerald-800/20'
                     }`}>
                       {ship.type} FREIGHT
                     </span>
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex flex-col">
-                      <span className="text-xs font-bold text-slate-600">Guangzhou → Hargeisa</span>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase mt-0.5 tracking-wider">{ship.batch}</span>
+                      <span className="text-xs font-bold text-slate-300">China → Somaliland</span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase mt-0.5 tracking-wider">{ship.batch}</span>
                     </div>
                   </td>
                   <td className="px-8 py-6">
                     <span className={`inline-flex items-center gap-1.5 text-[10px] font-black px-3 py-1 rounded-full ${
-                      ship.status === 'ARRIVED' ? 'bg-emerald-50 text-emerald-600' : 
-                      ship.status === 'IN_TRANSIT' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'
+                      ship.status === 'ARRIVED' ? 'bg-emerald-950/30 text-emerald-400 border border-emerald-800/20' : 
+                      ship.status === 'IN_TRANSIT' ? 'bg-[#F15D38]/10 text-[#F15D38] border border-[#F15D38]/20' : 'bg-amber-950/30 text-amber-400 border border-amber-800/20'
                     }`}>
                       <div className={`w-1.5 h-1.5 rounded-full ${
                         ship.status === 'ARRIVED' ? 'bg-emerald-500' : 
-                        ship.status === 'IN_TRANSIT' ? 'bg-blue-500' : 'bg-slate-400'
+                        ship.status === 'IN_TRANSIT' ? 'bg-[#F15D38]' : 'bg-amber-500'
                       }`} />
                       {ship.status}
                     </span>
                   </td>
                   <td className="px-8 py-6 text-right">
                     <div className="flex flex-col items-end">
-                      <span className="font-black text-slate-900">${ship.total.toFixed(2)}</span>
+                      <span className="font-black text-slate-100">${ship.total.toFixed(2)}</span>
                       <span className={`text-[9px] font-black px-2 py-0.5 rounded mt-1 ${
-                        ship.payment === 'PAID' ? 'text-emerald-600 bg-emerald-50' : 'text-rose-600 bg-rose-50'
+                        ship.payment === 'PAID' ? 'text-emerald-400 bg-emerald-950/30 border border-emerald-800/20' : 'text-rose-400 bg-rose-950/30 border border-rose-800/20'
                       }`}>
                         {ship.payment}
                       </span>
@@ -175,16 +245,29 @@ export default function ShipmentsPage() {
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Link href={`/admin/shipments/${ship.id}`} className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg transition-colors" title="Edit Shipment">
+                      <button 
+                        onClick={() => alert('Editing shipment...')}
+                        className="p-2 hover:bg-slate-800 text-slate-400 hover:text-slate-100 rounded-lg transition-colors" 
+                        title="Edit Shipment"
+                      >
                         <Pencil size={16} />
-                      </Link>
-                      <button className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors" title="Delete Shipment">
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(ship.id)}
+                        className="p-2 hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-lg transition-colors" 
+                        title="Delete Shipment"
+                      >
                         <Trash2 size={16} />
                       </button>
                     </div>
                   </td>
                 </tr>
               ))}
+              {filteredShipments.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-8 py-10 text-center text-xs font-bold text-slate-500">No shipments found.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

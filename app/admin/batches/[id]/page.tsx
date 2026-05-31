@@ -1,86 +1,384 @@
-import Link from 'next/link';
+'use client';
 
-export default function BatchDetail({ params }: { params: { id: string } }) {
-  // Mock data for management
-  const batch = {
-    id: params.id || 'DUR-2024-001',
-    customer: 'Ahmed Ali',
-    goods: 'Electronics & Accessories',
-    type: 'SEA',
-    status: 'IN_TRANSIT',
-    trackingNumbers: ['TRK7788221', 'TRK9900331'],
-    expenses: [
-      { id: 1, desc: 'Port Fees', amount: 300 },
-      { id: 2, desc: 'Local Delivery', amount: 150 },
-    ]
+import { useState, useEffect, use } from 'react';
+import { 
+  ArrowLeft, Save, Package, Hash, Truck, DollarSign, 
+  Plus, Trash2, CheckCircle2, User, Scale, Box, Calendar, FileText
+} from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+
+export default function BatchDetail({ params }: { params: Promise<{ id: string }> | { id: string } }) {
+  const router = useRouter();
+  
+  // Handle promise or direct object params in modern Next.js
+  const resolvedParams = params && 'then' in params ? use(params) : params;
+  const id = resolvedParams?.id;
+
+  const [loading, setLoading] = useState(true);
+  const [batch, setBatch] = useState<any>(null);
+  const [shipments, setShipments] = useState<any[]>([]);
+  const [status, setStatus] = useState('IN_TRANSIT');
+  const [arrivalDate, setArrivalDate] = useState('');
+  
+  const [trackingNumbers, setTrackingNumbers] = useState<string[]>(['TRK7788221', 'TRK9900331']);
+  const [newTracking, setNewTracking] = useState('');
+  const [expenses, setExpenses] = useState([
+    { id: 1, desc: 'Port Fees', amount: 300 },
+    { id: 2, desc: 'Local Delivery', amount: 150 },
+  ]);
+
+  const totalExpenses = expenses.reduce((acc, e) => acc + e.amount, 0);
+
+  useEffect(() => {
+    if (!id) return;
+    const fetchBatchDetails = async () => {
+      try {
+        const res = await fetch(`/api/batches?id=${id}`);
+        if (!res.ok) throw new Error('Failed to fetch batch');
+        const data = await res.json();
+        setBatch(data);
+        setStatus(data.status || 'IN_TRANSIT');
+        setArrivalDate(data.arrival || '');
+        setShipments(data.shipmentsList || []);
+      } catch (err) {
+        console.error('Error fetching batch detail:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchBatchDetails();
+  }, [id]);
+
+  const handleAddTracking = () => {
+    if (newTracking.trim()) {
+      setTrackingNumbers([...trackingNumbers, newTracking.trim()]);
+      setNewTracking('');
+    }
   };
 
-  return (
-    <div className="container" style={{ padding: '3rem 0' }}>
-      <Link href="/admin" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '0.875rem' }}>← Back to Dashboard</Link>
+  const handleRemoveTracking = (index: number) => {
+    setTrackingNumbers(trackingNumbers.filter((_, i) => i !== index));
+  };
+
+  const handleSave = async () => {
+    try {
+      const res = await fetch(`/api/batches?id=${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status,
+          arrival: arrivalDate
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to update batch');
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '1.5rem 0 3rem' }}>
-        <div>
-          <h1 style={{ fontSize: '2.5rem' }}>Batch: {batch.id}</h1>
-          <p style={{ color: 'var(--text-muted)' }}>Managing shipment for <strong>{batch.customer}</strong></p>
+      alert(`Batch updated successfully!`);
+      router.push('/admin/batches');
+    } catch (err: any) {
+      console.error(err);
+      alert(`Error saving changes: ${err.message}`);
+    }
+  };
+
+  const statusColors: Record<string, string> = {
+    PENDING: 'bg-amber-950/30 text-amber-400 border border-amber-800/20',
+    LOADING: 'bg-indigo-950/30 text-indigo-400 border border-indigo-800/20',
+    IN_TRANSIT: 'bg-[#F15D38]/10 text-[#F15D38] border border-[#F15D38]/20',
+    ARRIVED: 'bg-emerald-950/30 text-emerald-400 border border-emerald-800/20',
+    DELIVERED: 'bg-slate-900 text-slate-400 border border-slate-800',
+  };
+
+  if (loading) {
+    return (
+      <div className="admin-container min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#F15D38] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-400 font-bold uppercase tracking-wider text-xs">Loading Live Batch Data...</p>
         </div>
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          <button className="btn btn-outline">Print Label</button>
-          <button className="btn btn-primary">Save Changes</button>
+      </div>
+    );
+  }
+
+  if (!batch) {
+    return (
+      <div className="admin-container">
+        <div className="shipment-card text-center py-10">
+          <p className="text-slate-400 font-bold">Batch not found or failed to load.</p>
+          <button onClick={() => router.back()} className="mt-4 btn btn-primary py-2 px-6">
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="admin-container pb-20">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-10">
+        <div className="flex items-center gap-4">
+          <button onClick={() => router.back()} className="p-2 hover:bg-slate-800 rounded-lg text-slate-300 transition-colors">
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h1 className="text-3xl font-black text-slate-100 tracking-tight flex items-center gap-3">
+              <Package className="text-[#F15D38]" size={28} />
+              Batch: {batch.batchId}
+            </h1>
+            <p className="text-slate-400 font-medium">Manage shipment manifest, tracking, and expenses</p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <Link href="/admin/batches" className="btn bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700">
+            Cancel
+          </Link>
+          <button onClick={handleSave} className="btn btn-primary flex items-center gap-2 shadow-lg shadow-[#F15D38]/20">
+            <Save size={16} /> Save Changes
+          </button>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          {/* Status Update */}
-          <div className="card">
-            <h3 style={{ marginBottom: '1.5rem' }}>Update Status</h3>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <select className="form-input" defaultValue={batch.status}>
-                <option value="PENDING">Pending</option>
-                <option value="IN_TRANSIT">In Transit</option>
-                <option value="ARRIVED">Arrived</option>
-                <option value="DELIVERED">Delivered</option>
-              </select>
-              <button className="btn btn-primary">Update</button>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left column */}
+        <div className="lg:col-span-2 space-y-8">
+          
+          {/* Dynamic Manifest Status Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="shipment-card">
+              <div className="flex items-center justify-between mb-2">
+                <Box size={20} className="text-[#F15D38]" />
+                <span className="text-[10px] font-black text-[#F15D38] bg-[#F15D38]/10 px-2 py-0.5 rounded uppercase tracking-wider">Automated</span>
+              </div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Consolidated Cartons</p>
+              <h3 className="text-2xl font-black text-slate-100">{batch.totalCartons || 0} Cartons</h3>
+            </div>
+            <div className="shipment-card">
+              <div className="flex items-center justify-between mb-2">
+                <Scale size={20} className="text-emerald-400" />
+                <span className="text-[10px] font-black text-emerald-400 bg-emerald-950/30 px-2 py-0.5 rounded uppercase tracking-wider">Automated</span>
+              </div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Weight / Load</p>
+              <h3 className="text-2xl font-black text-slate-100">{batch.weight || '0 KG'}</h3>
+            </div>
+            <div className="shipment-card">
+              <div className="flex items-center justify-between mb-2">
+                <Truck size={20} className="text-indigo-400" />
+                <span className="text-[10px] font-black text-indigo-400 bg-indigo-950/30 px-2 py-0.5 rounded uppercase tracking-wider">Automated</span>
+              </div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Linked Shipments</p>
+              <h3 className="text-2xl font-black text-slate-100">{shipments.length} {shipments.length === 1 ? 'Shipment' : 'Shipments'}</h3>
             </div>
           </div>
 
-          {/* Tracking Numbers */}
-          <div className="card">
-            <h3 style={{ marginBottom: '1.5rem' }}>Trucking Numbers</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {batch.trackingNumbers.map((num, i) => (
-                <div key={i} style={{ display: 'flex', gap: '0.5rem' }}>
-                  <input type="text" className="form-input" defaultValue={num} />
-                  <button className="btn btn-outline" style={{ color: 'red' }}>×</button>
-                </div>
-              ))}
-              <button className="btn btn-outline" style={{ borderStyle: 'dashed' }}>+ Add Number</button>
+          {/* Status & Schedule Update */}
+          <div className="shipment-card">
+            <div className="flex items-center gap-2 mb-6 pb-4 border-b border-slate-800/40">
+              <Truck size={20} className="text-[#F15D38]" />
+              <h3 className="text-sm font-bold text-slate-200 uppercase tracking-widest">Shipment Status & Routing</h3>
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Flight / Container Status</label>
+                <div className="flex items-center gap-4">
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                    className="search-input flex-1"
+                  >
+                    <option value="LOADING">Loading</option>
+                    <option value="IN_TRANSIT">In Transit</option>
+                    <option value="ARRIVED">Arrived</option>
+                  </select>
+                  <span className={`text-[10px] font-black px-4 py-2.5 rounded-xl uppercase tracking-widest border ${statusColors[status] || statusColors.PENDING}`}>
+                    {status.replace('_', ' ')}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Estimated Date of Arrival</label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                  <input 
+                    type="date" 
+                    value={arrivalDate} 
+                    onChange={(e) => setArrivalDate(e.target.value)} 
+                    className="search-input !pl-10 w-full"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Shipments inside this Batch */}
+          <div className="shipment-card">
+            <div className="flex items-center gap-2 mb-6 pb-4 border-b border-slate-800/40">
+              <FileText size={20} className="text-[#F15D38]" />
+              <h3 className="text-sm font-bold text-slate-200 uppercase tracking-widest">Consolidated Shipments List</h3>
+            </div>
+            {shipments.length === 0 ? (
+              <div className="text-center py-10 bg-[#0B0F19] rounded-2xl border border-slate-800/50">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">No shipments assigned to this batch yet.</p>
+                <p className="text-[10px] text-slate-600 mt-1">Add shipments to this batch using the Shipment Entry form.</p>
+              </div>
+            ) : (
+              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {shipments.map((s) => {
+                  let cartons = 0;
+                  if (s.courierPackages && s.courierPackages.length > 0) {
+                    cartons = s.courierPackages.reduce((sum: number, p: any) => sum + (p.qty || 1), 0);
+                  } else if (s.items && s.items.length > 0) {
+                    cartons = s.items.reduce((sum: number, it: any) => sum + (it.qty || 1), 0);
+                  } else {
+                    cartons = 1;
+                  }
+                  
+                  return (
+                    <div key={s.id} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 bg-[#0B0F19] rounded-2xl border border-slate-800 hover:border-slate-700/60 transition-all gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${s.type === 'AIR' ? 'bg-[#F15D38]/10 text-[#F15D38]' : 'bg-emerald-950/30 text-emerald-400'}`}>
+                          {s.type === 'AIR' ? <PlaneIcon size={16} /> : <ShipIcon size={16} />}
+                        </div>
+                        <div>
+                          <div className="font-mono text-sm font-black text-slate-100">{s.shipmentNumber}</div>
+                          <div className="text-[10px] text-slate-400 font-bold flex items-center gap-1.5 mt-0.5">
+                            <User size={10} /> {s.customer} 
+                            <span className="text-slate-600">•</span>
+                            <span>{cartons} {cartons === 1 ? 'Carton' : 'Cartons'}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t border-slate-800/40 md:border-0 pt-3 md:pt-0">
+                        <div className="text-right">
+                          <div className="text-xs font-black text-slate-300">
+                            {s.type === 'AIR' ? `${s.weight || 0} KG` : `${s.cbm || 0} CBM`}
+                          </div>
+                          <div className="text-[9px] font-black uppercase text-slate-500 mt-0.5">Loads</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs font-black text-[#F15D38]">${s.total?.toFixed(2)}</div>
+                          <div className={`text-[8px] font-black px-1.5 py-0.5 rounded-md mt-0.5 inline-block ${s.payment === 'PAID' ? 'text-emerald-400 bg-emerald-950/20 border border-emerald-800/20' : 'text-rose-400 bg-rose-950/20 border border-rose-800/20'}`}>
+                            {s.payment}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          {/* Expenses Quick View */}
-          <div className="card">
-            <h3 style={{ marginBottom: '1.5rem' }}>Expenses</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {batch.expenses.map(exp => (
-                <div key={exp.id} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
-                  <span>{exp.desc}</span>
-                  <span style={{ fontWeight: 700 }}>${exp.amount}</span>
+        {/* Right sidebar */}
+        <div className="space-y-8">
+          
+          {/* Tracking Numbers */}
+          <div className="shipment-card">
+            <div className="flex items-center gap-2 mb-6 pb-4 border-b border-slate-800/40">
+              <Hash size={20} className="text-[#F15D38]" />
+              <h3 className="text-sm font-bold text-slate-200 uppercase tracking-widest">Tracking Numbers</h3>
+            </div>
+            <div className="space-y-3 mb-6">
+              {trackingNumbers.map((num, i) => (
+                <div key={i} className="flex gap-3">
+                  <input
+                    type="text"
+                    defaultValue={num}
+                    className="search-input font-mono flex-1"
+                  />
+                  <button
+                    onClick={() => handleRemoveTracking(i)}
+                    className="p-2.5 bg-rose-950/30 text-rose-400 hover:bg-rose-950/50 border border-rose-800/20 rounded-xl transition-colors"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               ))}
-              <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '0.5rem', fontSize: '1.125rem', fontWeight: 800 }}>
-                <span>Total</span>
-                <span>$450</span>
-              </div>
-              <button className="btn btn-outline" style={{ marginTop: '1rem', width: '100%' }}>Add Expense</button>
+            </div>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={newTracking}
+                onChange={(e) => setNewTracking(e.target.value)}
+                placeholder="Add tracking number..."
+                className="search-input font-mono flex-1 !py-2.5 !text-xs"
+                onKeyDown={(e) => e.key === 'Enter' && handleAddTracking()}
+              />
+              <button
+                onClick={handleAddTracking}
+                className="px-4 py-2 border-2 border-dashed border-slate-700 hover:border-[#F15D38] text-slate-400 hover:text-[#F15D38] rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+              >
+                <Plus size={14} /> Add
+              </button>
             </div>
           </div>
+
+          {/* Expenses */}
+          <div className="shipment-card">
+            <div className="flex items-center gap-2 mb-6 pb-4 border-b border-slate-800/40">
+              <DollarSign size={20} className="text-[#F15D38]" />
+              <h3 className="text-sm font-bold text-slate-200 uppercase tracking-widest">Batch Expenses</h3>
+            </div>
+            <div className="space-y-3 mb-4">
+              {expenses.map((exp) => (
+                <div key={exp.id} className="flex justify-between items-center py-2 border-b border-slate-800/30">
+                  <span className="text-xs text-slate-300 font-medium">{exp.desc}</span>
+                  <span className="font-bold text-slate-100 text-sm">${exp.amount}</span>
+                </div>
+              ))}
+              <div className="flex justify-between items-center pt-2">
+                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Total</span>
+                <span className="text-lg font-black text-[#F15D38]">${totalExpenses}</span>
+              </div>
+            </div>
+            <button
+              onClick={() => alert('Add expense modal...')}
+              className="w-full mt-2 py-3 border-2 border-dashed border-slate-800 hover:border-[#F15D38] text-slate-500 hover:text-[#F15D38] rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+            >
+              <Plus size={14} /> Add Expense
+            </button>
+          </div>
+
+          {/* Quick Info */}
+          <div className="bg-[#131B2E] border border-slate-800 rounded-2xl p-6">
+            <div className="flex items-center gap-3 text-emerald-400 mb-4">
+              <CheckCircle2 size={20} />
+              <h4 className="font-bold text-slate-200 text-sm">Quick Actions</h4>
+            </div>
+            <div className="space-y-2">
+              <button onClick={() => alert('Printing label...')} className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-colors">
+                🖨️ Print Manifest Label
+              </button>
+              <Link href="/admin/expenses/new" className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-colors flex items-center justify-center">
+                💸 Log New Expense
+              </Link>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
+  );
+}
+
+// Custom icons to avoid importing Plane / Ship from Lucide which may collide or differ
+function PlaneIcon({ size = 16 }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3.5c-.5-.5-2.5 0-4 1.5L13.5 8.5 5.3 6.7c-.9-.2-1.7.3-1.9 1.1-.2.8.2 1.6 1 1.9l8.6 3.1-4.7 4.7-3.6-.9c-.6-.2-1.2.1-1.5.6-.3.5-.2 1.2.2 1.6l2 2c.4.4 1 .5 1.5.2c.5-.3.8-.9.6-1.5l-.9-3.6 4.7-4.7 3.1 8.6c.3.8 1.1 1.2 1.9 1c.8-.2 1.3-1 1.1-1.9z"/>
+    </svg>
+  );
+}
+
+function ShipIcon({ size = 16 }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 21h20"/>
+      <path d="M19.3 14.8C21.1 13.5 22 11.7 22 10c0-3.9-3.1-7-7-7-3 0-5.6 1.9-6.6 4.5C7.2 7.1 6.1 7 5 7c-2.8 0-5 2.2-5 5 0 1.2.4 2.3 1.1 3.2L3 21h18l-1.7-6.2z"/>
+      <path d="M14 3v4"/>
+      <path d="M10 7v4"/>
+    </svg>
   );
 }

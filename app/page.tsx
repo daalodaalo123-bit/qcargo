@@ -29,15 +29,13 @@ export default function Home() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-white font-sans text-slate-900 overflow-x-hidden">
+    <div className="min-h-screen bg-[#0B0F19] font-sans text-slate-100 overflow-x-hidden">
       {/* Premium Navigation */}
-      <nav className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50">
+      <nav className="bg-[#0B0F19] border-b border-slate-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Link href="/" className="text-2xl font-black tracking-tighter flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
-              <Globe size={20} />
-            </div>
-            DURDUR<span className="text-blue-600">CARGO</span>
+          <Link href="/" className="text-2xl font-black tracking-tighter flex items-center gap-3">
+            <img src="/logo-black.jpg" className="h-9 w-auto rounded-lg object-contain" alt="Q Cargo" />
+            <span>Q<span className="text-blue-600">CARGO</span></span>
           </Link>
           <div className="hidden md:flex gap-10 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
             <a href="#services" className="hover:text-blue-600 transition-colors">Services</a>
@@ -117,7 +115,7 @@ export default function Home() {
           <div className="relative mt-12 lg:mt-0">
             {/* Visual element: Abstract cargo cards - Now stacked on mobile */}
             <div className="relative z-10 space-y-4 md:space-y-6 max-w-md mx-auto">
-              <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-xl md:shadow-2xl shadow-blue-900/10 border border-slate-100 sm:-rotate-3 sm:hover:rotate-0 transition-transform duration-700">
+              <div className="bg-[#131B2E] p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-xl md:shadow-2xl shadow-blue-900/10 border border-slate-100 sm:-rotate-3 sm:hover:rotate-0 transition-transform duration-700">
                 <div className="flex items-center gap-2 mb-4 md:mb-6">
                   <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
                   <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">China → Hargeisa</span>
@@ -135,7 +133,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-xl md:shadow-2xl shadow-emerald-900/10 border border-slate-100 sm:rotate-3 sm:hover:rotate-0 transition-transform duration-700 sm:translate-x-12">
+              <div className="bg-[#131B2E] p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-xl md:shadow-2xl shadow-emerald-900/10 border border-slate-100 sm:rotate-3 sm:hover:rotate-0 transition-transform duration-700 sm:translate-x-12">
                 <div className="flex items-center gap-2 mb-4 md:mb-6">
                   <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                   <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Guangzhou → Hargeisa</span>
@@ -206,7 +204,7 @@ export default function Home() {
       </section>
 
       {/* Services Grid */}
-      <section id="services" className="py-20 md:py-32 bg-white">
+      <section id="services" className="py-20 md:py-32 bg-[#131B2E]">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16 md:mb-20">
             <h2 className="text-3xl md:text-4xl font-black text-slate-900 mb-4 tracking-tight">Full-Spectrum Logistics</h2>
@@ -236,17 +234,15 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-slate-50 py-24">
+      <footer className="bg-[#131B2E] py-24">
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-16 mb-20">
           <div className="md:col-span-1">
-            <Link href="/" className="text-2xl font-black tracking-tighter flex items-center gap-2 mb-8">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
-                <Globe size={20} />
-              </div>
-              DURDUR<span className="text-blue-600">CARGO</span>
+            <Link href="/" className="text-2xl font-black tracking-tighter flex items-center gap-3 mb-8">
+              <img src="/logo-black.jpg" className="h-9 w-auto rounded-lg object-contain" alt="Q Cargo" />
+              <span>Q<span className="text-blue-600">CARGO</span></span>
             </Link>
             <p className="text-sm font-medium text-slate-500 leading-relaxed mb-8">
-              Durdur Cargo is a premier logistics provider specializing in sourcing and transportation between China and East Africa.
+              Q Cargo is a premier logistics provider specializing in sourcing and transportation between China and East Africa.
             </p>
             <div className="flex gap-4">
               <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-blue-600 transition-all cursor-pointer">
@@ -294,13 +290,13 @@ export default function Home() {
                 <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
                   <Mail size={18} />
                 </div>
-                <div className="text-sm font-bold text-slate-900 leading-none">durdur.shipping@gmail.com</div>
+                <div className="text-sm font-bold text-slate-900 leading-none">qcargoshipping@gmail.com</div>
               </li>
               <li className="flex items-center gap-4">
                 <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
                   <MapPin size={18} />
                 </div>
-                <div className="text-[11px] font-bold text-slate-900 leading-tight uppercase tracking-tight">Hargeisa, Somaliland<br/>Curruba Mall</div>
+                <div className="text-[11px] font-bold text-slate-900 leading-tight uppercase tracking-tight">Hargeisa, Somaliland<br/>Hadhwanaag Mall</div>
               </li>
               <li className="flex items-center gap-4">
                 <a href="https://wa.me/252633901811" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 group">
@@ -316,7 +312,7 @@ export default function Home() {
         
         <div className="max-w-7xl mx-auto px-6 pt-12 border-t border-slate-200 text-center">
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em]">
-            © 2024 Durdur Cargo Logistics Ltd. All rights reserved.
+            © 2024 Q Cargo Logistics Ltd. All rights reserved.
           </p>
         </div>
       </footer>
