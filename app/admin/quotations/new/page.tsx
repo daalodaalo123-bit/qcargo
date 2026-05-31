@@ -16,7 +16,14 @@ import {
 
 interface QuotationItem {
   description: string;
+  qty: string;
   price: string;
+}
+
+function lineTotal(item: QuotationItem): number {
+  const qty = parseFloat(item.qty) || 0;
+  const price = parseFloat(item.price) || 0;
+  return qty * price;
 }
 
 export default function NewQuotation() {
@@ -25,13 +32,13 @@ export default function NewQuotation() {
   // State variables
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
-  const [items, setItems] = useState<QuotationItem[]>([{ description: '', price: '' }]);
+  const [items, setItems] = useState<QuotationItem[]>([{ description: '', qty: '1', price: '' }]);
   const [estimatedPrice, setEstimatedPrice] = useState('');
   const [freightType, setFreightType] = useState('SEA');
 
   // Sum item prices to estimate total price
   useEffect(() => {
-    const total = items.reduce((acc, item) => acc + (parseFloat(item.price) || 0), 0);
+    const total = items.reduce((acc, item) => acc + lineTotal(item), 0);
     if (total > 0) {
       setEstimatedPrice(total.toString());
     }
@@ -49,8 +56,8 @@ export default function NewQuotation() {
 
     const priceNum = parseFloat(estimatedPrice) || 0;
     const goodsText = items
-      .filter(it => it.description)
-      .map(it => it.description)
+      .filter(it => it.description.trim())
+      .map(it => `${it.qty || 1}x ${it.description}`)
       .join(', ') || 'General Cargo';
 
     const payload = {
@@ -61,10 +68,11 @@ export default function NewQuotation() {
       date: new Date().toISOString().split('T')[0],
       status,
       type: freightType.toUpperCase() as 'AIR' | 'SEA',
-      items: items.filter(it => it.description).map(it => ({
-        description: it.description,
-        price: parseFloat(it.price) || 0
-      }))
+      items: items.filter(it => it.description.trim()).map(it => ({
+        description: it.description.trim(),
+        qty: parseFloat(it.qty) || 1,
+        price: parseFloat(it.price) || 0,
+      })),
     };
 
     try {
@@ -94,10 +102,13 @@ export default function NewQuotation() {
     await handleSaveQuotation('SENT');
 
     const itemsText = items
-      .filter(it => it.description && it.price)
-      .map((it, i) => `${i + 1}. ${it.description} - $${it.price}`)
+      .filter(it => it.description.trim() && it.price)
+      .map((it, i) => {
+        const total = lineTotal(it);
+        return `${i + 1}. ${it.description} (${it.qty || 1} × $${it.price}) = $${total.toFixed(2)}`;
+      })
       .join('\n');
-    const message = `Asc ${customerName}, Durdur Cargo waxa kaaga soo dirtay qiimaha:\n${itemsText}\nWaxaan kaala soo xiriiri doonaa si aad u xaqiijiso dalabkaaga.`;
+    const message = `Asc ${customerName}, Q CARGO waxa kaaga soo dirtay qiimaha:\n${itemsText}\nWaxaan kaala soo xiriiri doonaa si aad u xaqiijiso dalabkaaga.`;
 
     try {
       const res = await fetch('/api/whatsapp/send', {
@@ -114,7 +125,7 @@ export default function NewQuotation() {
     }
   };
 
-  const addItem = () => setItems([...items, { description: '', price: '' }]);
+  const addItem = () => setItems([...items, { description: '', qty: '1', price: '' }]);
   
   const updateItem = (index: number, field: keyof QuotationItem, value: string) => {
     const newItems = items.map((item, i) => (i === index ? { ...item, [field]: value } : item));
@@ -179,26 +190,58 @@ export default function NewQuotation() {
               <Package size={18} className="text-[#F15D38]" />
               <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">Description of Goods</h3>
             </div>
-            {/* Dynamic items list */}
+            <div className="hidden sm:grid sm:grid-cols-12 gap-4 mb-2 px-1">
+              <span className="sm:col-span-6 text-[10px] font-bold text-slate-500 uppercase">Good Name</span>
+              <span className="sm:col-span-2 text-[10px] font-bold text-slate-500 uppercase">Qty</span>
+              <span className="sm:col-span-3 text-[10px] font-bold text-slate-500 uppercase">Price (USD)</span>
+              <span className="sm:col-span-1" />
+            </div>
             {items.map((item, idx) => (
-              <div key={idx} className="flex gap-4 mb-3 items-center">
-                <input
-                  type="text"
-                  placeholder="Item description"
-                  className="search-input flex-1"
-                  value={item.description}
-                  onChange={e => updateItem(idx, 'description', e.target.value)}
-                />
-                <input
-                  type="number"
-                  placeholder="Price"
-                  className="search-input w-28"
-                  value={item.price}
-                  onChange={e => updateItem(idx, 'price', e.target.value)}
-                />
-                <button type="button" onClick={() => removeItem(idx)} className="text-rose-500 hover:text-rose-400 p-2 hover:bg-rose-950/20 rounded-lg">
-                  <X size={18} />
-                </button>
+              <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-4 mb-4 p-4 bg-[#0B0F19] rounded-xl border border-slate-800/80 items-end">
+                <div className="sm:col-span-6">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 sm:sr-only">Good Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Solar panels"
+                    className="search-input !py-2.5 min-w-0"
+                    value={item.description}
+                    onChange={e => updateItem(idx, 'description', e.target.value)}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 sm:sr-only">Qty</label>
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="1"
+                    className="search-input !py-2.5 min-w-0"
+                    value={item.qty}
+                    onChange={e => updateItem(idx, 'qty', e.target.value)}
+                  />
+                </div>
+                <div className="sm:col-span-3">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 sm:sr-only">Price (USD)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="0.00"
+                    className="search-input !py-2.5 min-w-0"
+                    value={item.price}
+                    onChange={e => updateItem(idx, 'price', e.target.value)}
+                  />
+                </div>
+                <div className="sm:col-span-1 flex sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => removeItem(idx)}
+                    disabled={items.length === 1}
+                    className="text-rose-500 hover:text-rose-400 p-2 hover:bg-rose-950/20 rounded-lg disabled:opacity-30 disabled:pointer-events-none"
+                    aria-label="Remove item"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
               </div>
             ))}
             <button 

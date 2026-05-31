@@ -14,11 +14,12 @@ import {
   Send,
   Download,
   TrendingUp,
-  Pencil,
   Trash2,
-  Calendar
+  Calendar,
+  DollarSign
 } from 'lucide-react';
 import Link from 'next/link';
+import RecordPaymentModal, { type PaymentQuotation } from './RecordPaymentModal';
 
 interface Quotation {
   id: string;
@@ -27,20 +28,23 @@ interface Quotation {
   goods: string;
   price: number;
   date: string;
-  status: 'SENT' | 'DRAFT' | 'ACCEPTED' | 'EXPIRED';
+  status: 'SENT' | 'DRAFT' | 'APPROVED' | 'REJECTED';
+  paymentStatus: 'UNPAID' | 'PARTIAL' | 'PAID';
+  amountPaid: number;
   type: 'AIR' | 'SEA';
 }
 
 const DEFAULT_QUOTATIONS: Quotation[] = [
-  { id: 'q1', customer: 'Hassan Ahmed', phone: '+252 63 777 8986', goods: '50 Cartons Electronics', price: 1450.00, date: '2026-05-30', status: 'SENT', type: 'AIR' },
-  { id: 'q2', customer: 'Sahra Ismail', phone: '+252 63 444 2211', goods: '20 Sets Kitchenware', price: 850.00, date: '2026-05-29', status: 'DRAFT', type: 'SEA' },
-  { id: 'q3', customer: 'Abdi Dahir', phone: '+252 61 555 1234', goods: 'Textile Rolls (China)', price: 3200.00, date: '2026-05-28', status: 'ACCEPTED', type: 'SEA' },
-  { id: 'q4', customer: 'Mustafe Mohamed', phone: '+252 63 777 8986', goods: 'Spare Parts - Batch 09', price: 650.00, date: '2026-05-27', status: 'EXPIRED', type: 'AIR' },
+  { id: 'q1', customer: 'Hassan Ahmed', phone: '+252 63 777 8986', goods: '50 Cartons Electronics', price: 1450.00, date: '2026-05-30', status: 'SENT', paymentStatus: 'UNPAID', amountPaid: 0, type: 'AIR' },
+  { id: 'q2', customer: 'Sahra Ismail', phone: '+252 63 444 2211', goods: '20 Sets Kitchenware', price: 850.00, date: '2026-05-29', status: 'DRAFT', paymentStatus: 'UNPAID', amountPaid: 0, type: 'SEA' },
+  { id: 'q3', customer: 'Abdi Dahir', phone: '+252 61 555 1234', goods: 'Textile Rolls (China)', price: 3200.00, date: '2026-05-28', status: 'APPROVED', paymentStatus: 'PAID', amountPaid: 3200, type: 'SEA' },
+  { id: 'q4', customer: 'Mustafe Mohamed', phone: '+252 63 777 8986', goods: 'Spare Parts - Batch 09', price: 650.00, date: '2026-05-27', status: 'REJECTED', paymentStatus: 'UNPAID', amountPaid: 0, type: 'AIR' },
 ];
 
 export default function QuotationsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [paymentQuote, setPaymentQuote] = useState<PaymentQuotation | null>(null);
 
   // Load quotations from MongoDB
   const loadQuotations = async () => {
@@ -56,6 +60,8 @@ export default function QuotationsPage() {
         price: q.price || q.total || 0,
         date: q.date,
         status: q.status || 'SENT',
+        paymentStatus: q.paymentStatus || 'UNPAID',
+        amountPaid: q.amountPaid || 0,
         type: q.type || 'AIR'
       })));
     } catch (e) {
@@ -85,7 +91,7 @@ export default function QuotationsPage() {
       alert(`No phone number for ${quote.customer}. Please add a phone number.`);
       return;
     }
-    const message = `Asc ${quote.customer}, Durdur Cargo quotation:\nGoods: ${quote.goods}\nEstimate: $${quote.price}\nFreight: ${quote.type} Cargo\nContact us to confirm your order.`;
+    const message = `Asc ${quote.customer}, Q CARGO quotation:\nGoods: ${quote.goods}\nEstimate: $${quote.price}\nFreight: ${quote.type} Cargo\nContact us to confirm your order.`;
     try {
       const res = await fetch('/api/whatsapp/send', {
         method: 'POST',
@@ -107,7 +113,7 @@ export default function QuotationsPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "durdur_quotations_export.csv");
+    link.setAttribute("download", "qcargo_quotations_export.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -126,7 +132,7 @@ export default function QuotationsPage() {
   const activeQuotesCount = quotations.filter(q => q.status === 'SENT' || q.status === 'DRAFT').length;
   const pendingReplyCount = quotations.filter(q => q.status === 'SENT').length;
   const conversionRate = quotations.length > 0 
-    ? Math.round((quotations.filter(q => q.status === 'ACCEPTED').length / quotations.length) * 100)
+    ? Math.round((quotations.filter(q => q.status === 'APPROVED').length / quotations.length) * 100)
     : 0;
 
   return (
@@ -241,24 +247,59 @@ export default function QuotationsPage() {
                     </div>
                   </td>
                   <td className="px-8 py-6">
-                    <span className={`inline-flex items-center gap-1.5 text-[10px] font-black px-3 py-1 rounded-full ${
-                      quote.status === 'ACCEPTED' ? 'bg-emerald-950/30 text-emerald-400 border border-emerald-800/20' : 
-                      quote.status === 'SENT' ? 'bg-[#F15D38]/15 text-[#F15D38] border border-[#F15D38]/20' : 
-                      quote.status === 'EXPIRED' ? 'bg-rose-950/30 text-rose-400 border border-rose-800/20' : 'bg-slate-900 text-slate-400 border border-slate-800'
-                    }`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${
-                        quote.status === 'ACCEPTED' ? 'bg-emerald-500' : 
-                        quote.status === 'SENT' ? 'bg-[#F15D38]' : 
-                        quote.status === 'EXPIRED' ? 'bg-rose-500' : 'bg-slate-400'
-                      }`} />
-                      {quote.status}
-                    </span>
+                    <div className="flex flex-col gap-1.5">
+                      <span className={`inline-flex items-center gap-1.5 text-[10px] font-black px-3 py-1 rounded-full w-fit ${
+                        quote.status === 'APPROVED' ? 'bg-emerald-950/30 text-emerald-400 border border-emerald-800/20' : 
+                        quote.status === 'SENT' ? 'bg-[#F15D38]/15 text-[#F15D38] border border-[#F15D38]/20' : 
+                        quote.status === 'REJECTED' ? 'bg-rose-950/30 text-rose-400 border border-rose-800/20' : 'bg-slate-900 text-slate-400 border border-slate-800'
+                      }`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${
+                          quote.status === 'APPROVED' ? 'bg-emerald-500' : 
+                          quote.status === 'SENT' ? 'bg-[#F15D38]' : 
+                          quote.status === 'REJECTED' ? 'bg-rose-500' : 'bg-slate-400'
+                        }`} />
+                        {quote.status}
+                      </span>
+                      {quote.paymentStatus !== 'UNPAID' && (
+                        <span className={`inline-flex items-center gap-1.5 text-[9px] font-black px-2 py-0.5 rounded-full w-fit ${
+                          quote.paymentStatus === 'PAID'
+                            ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-700/30'
+                            : 'bg-amber-950/40 text-amber-300 border border-amber-700/30'
+                        }`}>
+                          {quote.paymentStatus === 'PAID' ? 'PAID FULL' : `PARTIAL · $${quote.amountPaid}`}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-8 py-6 text-right">
                     <span className="font-black text-slate-100 text-lg">${quote.price.toLocaleString()}</span>
+                    {quote.paymentStatus === 'PARTIAL' && (
+                      <p className="text-[10px] font-bold text-amber-400 mt-0.5">
+                        ${Math.max(0, quote.price - quote.amountPaid).toFixed(2)} due
+                      </p>
+                    )}
                   </td>
                   <td className="px-8 py-6">
-                    <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center justify-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                      {quote.paymentStatus !== 'PAID' && quote.status !== 'REJECTED' && (
+                        <button
+                          onClick={() => setPaymentQuote({
+                            id: quote.id,
+                            customer: quote.customer,
+                            phone: quote.phone,
+                            goods: quote.goods,
+                            price: quote.price,
+                            date: quote.date,
+                            type: quote.type,
+                            amountPaid: quote.amountPaid,
+                            paymentStatus: quote.paymentStatus,
+                          })}
+                          className="p-2 hover:bg-emerald-950/30 text-slate-400 hover:text-emerald-400 rounded-lg transition-colors"
+                          title={quote.paymentStatus === 'PARTIAL' ? 'Record another payment' : 'Record payment & send receipt'}
+                        >
+                          <DollarSign size={16} />
+                        </button>
+                      )}
                       <button 
                         onClick={() => handleSendToCustomer(quote)}
                         className="p-2 hover:bg-[#F15D38]/10 text-slate-400 hover:text-[#F15D38] rounded-lg transition-colors" 
@@ -284,6 +325,12 @@ export default function QuotationsPage() {
           </table>
         </div>
       </div>
+
+      <RecordPaymentModal
+        quote={paymentQuote}
+        onClose={() => setPaymentQuote(null)}
+        onSuccess={loadQuotations}
+      />
     </div>
   );
 }

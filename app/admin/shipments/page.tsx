@@ -22,18 +22,14 @@ import {
   Download
 } from 'lucide-react';
 import Link from 'next/link';
+import EditShipmentModal, { type ShipmentRow } from './EditShipmentModal';
+import RecordShipmentPaymentModal, { type PaymentShipment } from './RecordShipmentPaymentModal';
 
-interface Shipment {
-  id: string;
-  shipmentNumber: string;
-  customer: string;
-  type: 'AIR' | 'SEA';
-  status: 'ARRIVED' | 'IN_TRANSIT' | 'PENDING';
-  payment: 'PAID' | 'UNPAID';
-  total: number;
-  batch: string;
-  date: string;
-}
+type Shipment = ShipmentRow & {
+  paymentStatus?: 'UNPAID' | 'PARTIAL' | 'PAID';
+  amountPaid?: number;
+  goods?: string;
+};
 
 const DEFAULT_SHIPMENTS: Shipment[] = [
   { id: '1', shipmentNumber: 'AIR-2024-KM-901', customer: 'Khadar Mohamed', type: 'AIR', status: 'ARRIVED', payment: 'PAID', total: 245.50, batch: 'FLT-2024-001', date: '2026-05-18' },
@@ -44,6 +40,8 @@ const DEFAULT_SHIPMENTS: Shipment[] = [
 export default function ShipmentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [editingShipment, setEditingShipment] = useState<Shipment | null>(null);
+  const [paymentShipment, setPaymentShipment] = useState<PaymentShipment | null>(null);
 
   // Load shipments from DB
   const loadShipments = async () => {
@@ -51,7 +49,39 @@ export default function ShipmentsPage() {
       const res = await fetch('/api/shipments');
       if (!res.ok) throw new Error('Failed to load shipments');
       const data = await res.json();
-      setShipments(data.map((s: any) => ({ ...s, id: s._id || s.id })));
+      setShipments(
+        data.map((s: Record<string, unknown>) => {
+          const total = Number(s.total) || 0;
+          const amountPaid = Number(s.amountPaid ?? s.paidAmount) || 0;
+          let paymentStatus = (s.paymentStatus as Shipment['paymentStatus']) || 'UNPAID';
+          if (!s.paymentStatus) {
+            if (s.payment === 'PAID' || amountPaid >= total - 0.01) paymentStatus = 'PAID';
+            else if (amountPaid > 0) paymentStatus = 'PARTIAL';
+          }
+          const items = Array.isArray(s.items) ? (s.items as { description?: string }[]) : [];
+          const goods =
+            items
+              .map((it) => it.description)
+              .filter(Boolean)
+              .join(', ') || String(s.shipmentNumber || 'Cargo');
+          return {
+            id: String(s._id || s.id),
+            shipmentNumber: String(s.shipmentNumber || ''),
+            customer: String(s.customer || ''),
+            phone: s.phone ? String(s.phone) : '',
+            type: (s.type as Shipment['type']) || 'SEA',
+            status: (s.status as Shipment['status']) || 'PENDING',
+            payment: (s.payment as Shipment['payment']) || 'UNPAID',
+            paymentStatus,
+            amountPaid: paymentStatus === 'PAID' && amountPaid === 0 ? total : amountPaid,
+            total,
+            batch: String(s.batch || 'UNASSIGNED'),
+            date: String(s.date || ''),
+            notes: s.notes ? String(s.notes) : '',
+            goods,
+          };
+        })
+      );
     } catch (e) {
       console.error(e);
     }
@@ -84,7 +114,7 @@ export default function ShipmentsPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "durdur_shipments.csv");
+    link.setAttribute("download", "qcargo_shipments.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -158,7 +188,16 @@ export default function ShipmentsPage() {
             </div>
           </div>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pending Payment</p>
-          <h3 className="text-2xl font-black text-slate-100">${shipments.filter(s => s.payment === 'UNPAID').reduce((acc, s) => acc + s.total, 0).toLocaleString()}</h3>
+          <h3 className="text-2xl font-black text-slate-100">
+            $
+            {shipments
+              .reduce((acc, s) => {
+                if (s.paymentStatus === 'PAID') return acc;
+                const paid = s.amountPaid || 0;
+                return acc + Math.max(0, s.total - paid);
+              }, 0)
+              .toLocaleString()}
+          </h3>
         </div>
       </div>
 
@@ -237,16 +276,55 @@ export default function ShipmentsPage() {
                     <div className="flex flex-col items-end">
                       <span className="font-black text-slate-100">${ship.total.toFixed(2)}</span>
                       <span className={`text-[9px] font-black px-2 py-0.5 rounded mt-1 ${
-                        ship.payment === 'PAID' ? 'text-emerald-400 bg-emerald-950/30 border border-emerald-800/20' : 'text-rose-400 bg-rose-950/30 border border-rose-800/20'
+                        ship.paymentStatus === 'PAID'
+                          ? 'text-emerald-400 bg-emerald-950/30 border border-emerald-800/20'
+                          : ship.paymentStatus === 'PARTIAL'
+                            ? 'text-amber-400 bg-amber-950/30 border border-amber-800/20'
+                            : 'text-rose-400 bg-rose-950/30 border border-rose-800/20'
                       }`}>
-                        {ship.payment}
+                        {ship.paymentStatus === 'PAID'
+                          ? 'PAID'
+                          : ship.paymentStatus === 'PARTIAL'
+                            ? `PARTIAL · $${(ship.amountPaid || 0).toFixed(0)}`
+                            : 'UNPAID'}
                       </span>
+                      {ship.paymentStatus === 'PARTIAL' && (
+                        <p className="text-[10px] font-bold text-amber-400 mt-0.5">
+                          ${Math.max(0, ship.total - (ship.amountPaid || 0)).toFixed(2)} due
+                        </p>
+                      )}
                     </div>
                   </td>
                   <td className="px-8 py-6">
-                    <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center justify-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                      {ship.paymentStatus !== 'PAID' && (
+                        <button
+                          onClick={() =>
+                            setPaymentShipment({
+                              id: ship.id,
+                              shipmentNumber: ship.shipmentNumber,
+                              customer: ship.customer,
+                              phone: ship.phone,
+                              goods: ship.shipmentNumber,
+                              total: ship.total,
+                              date: ship.date,
+                              type: ship.type,
+                              amountPaid: ship.amountPaid,
+                              paymentStatus: ship.paymentStatus,
+                            })
+                          }
+                          className="p-2 hover:bg-emerald-950/30 text-slate-400 hover:text-emerald-400 rounded-lg transition-colors"
+                          title={
+                            ship.paymentStatus === 'PARTIAL'
+                              ? 'Record another payment & send receipt'
+                              : 'Record payment & send receipt'
+                          }
+                        >
+                          <DollarSign size={16} />
+                        </button>
+                      )}
                       <button 
-                        onClick={() => alert('Editing shipment...')}
+                        onClick={() => setEditingShipment(ship)}
                         className="p-2 hover:bg-slate-800 text-slate-400 hover:text-slate-100 rounded-lg transition-colors" 
                         title="Edit Shipment"
                       >
@@ -272,6 +350,18 @@ export default function ShipmentsPage() {
           </table>
         </div>
       </div>
+
+      <EditShipmentModal
+        shipment={editingShipment}
+        onClose={() => setEditingShipment(null)}
+        onSaved={loadShipments}
+      />
+
+      <RecordShipmentPaymentModal
+        shipment={paymentShipment}
+        onClose={() => setPaymentShipment(null)}
+        onSuccess={loadShipments}
+      />
     </div>
   );
 }

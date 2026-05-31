@@ -98,7 +98,7 @@ export default function CustomersPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "durdur_crm_customers.csv");
+    link.setAttribute("download", "qcargo_crm_customers.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

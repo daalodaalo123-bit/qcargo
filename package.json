@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "dev": "next dev",
     "clear-db": "ts-node scripts/clear-db.ts",
     "build": "next build",
     "start": "next start",
@@ -15,6 +16,7 @@
     "mongoose": "^9.6.3",
     "next": "16.2.4",
     "next-auth": "^4.24.14",
+    "pdf-lib": "^1.17.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.8.1"

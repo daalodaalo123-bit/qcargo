@@ -176,6 +176,20 @@ function SearchCombobox({
   );
 }
 
+interface CargoLine {
+  description: string;
+  qty: number;
+  weight: number;
+  cbm: number;
+}
+
+const emptyCargoLine = (): CargoLine => ({
+  description: '',
+  qty: 1,
+  weight: 0,
+  cbm: 0,
+});
+
 /* ─────────────────────────────────────────────
    Main New Shipment Page
 ───────────────────────────────────────────── */
@@ -186,15 +200,10 @@ export default function NewShipmentPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [courierPackages, setCourierPackages] = useState([
-    { courier: '', trackingNumber: '', goods: '', qty: 1 }
-  ]);
-  const [items, setItems] = useState([
-    { description: '', qty: 1, weight: 0, cbm: 0, value: 0 }
-  ]);
+  const [cargoLines, setCargoLines] = useState<CargoLine[]>([emptyCargoLine()]);
   const [formData, setFormData] = useState({
     customerName: '', phone: '', batchId: 'UNASSIGNED',
-    weight: 0, cbm: 0, rate: 0, customs: 0, discount: 0,
+    weight: 0, cbm: 0, rate: 0, customs: 0, tax: 0, discount: 0,
     paymentMethod: 'ZAAD', paidAmount: 0, notes: ''
   });
 
@@ -222,16 +231,22 @@ export default function NewShipmentPage() {
     loadData();
   }, []);
 
-  // Auto-calculate total weight/CBM when items change
+  // Auto-calculate total weight/CBM from cargo lines
   useEffect(() => {
-    const totalWeight = items.reduce((acc, item) => acc + (Number(item.weight) || 0) * (Number(item.qty) || 1), 0);
-    const totalCbm = items.reduce((acc, item) => acc + (Number(item.cbm) || 0) * (Number(item.qty) || 1), 0);
-    setFormData(prev => ({ ...prev, weight: totalWeight, cbm: totalCbm }));
-  }, [items]);
+    const totalWeight = cargoLines.reduce(
+      (acc, line) => acc + (Number(line.weight) || 0) * (Number(line.qty) || 1),
+      0
+    );
+    const totalCbm = cargoLines.reduce(
+      (acc, line) => acc + (Number(line.cbm) || 0) * (Number(line.qty) || 1),
+      0
+    );
+    setFormData((prev) => ({ ...prev, weight: totalWeight, cbm: totalCbm }));
+  }, [cargoLines]);
 
   // Computed values
   const freightTotal = shipmentType === 'AIR' ? formData.weight * formData.rate : formData.cbm * formData.rate;
-  const grandTotal = freightTotal + formData.customs - formData.discount;
+  const grandTotal = freightTotal + formData.customs + formData.tax - formData.discount;
   const balance = grandTotal - formData.paidAmount;
 
   // Build combobox options
@@ -268,10 +283,15 @@ export default function NewShipmentPage() {
     }
   };
 
-  const addPackage = () => setCourierPackages([...courierPackages, { courier: '', trackingNumber: '', goods: '', qty: 1 }]);
-  const removePackage = (i: number) => setCourierPackages(courierPackages.filter((_, idx) => idx !== i));
-  const addItem = () => setItems([...items, { description: '', qty: 1, weight: 0, cbm: 0, value: 0 }]);
-  const removeItem = (i: number) => setItems(items.filter((_, idx) => idx !== i));
+  const addCargoLine = () => setCargoLines([...cargoLines, emptyCargoLine()]);
+  const removeCargoLine = (i: number) =>
+    setCargoLines(cargoLines.length > 1 ? cargoLines.filter((_, idx) => idx !== i) : [emptyCargoLine()]);
+
+  const updateCargoLine = (index: number, field: keyof CargoLine, value: string | number) => {
+    const next = [...cargoLines];
+    next[index] = { ...next[index], [field]: value };
+    setCargoLines(next);
+  };
 
   const handleSave = async () => {
     if (!formData.customerName.trim()) { alert('Please enter or select a customer name'); return; }
@@ -294,12 +314,21 @@ export default function NewShipmentPage() {
       cbm: formData.cbm,
       rate: formData.rate,
       customs: formData.customs,
+      tax: formData.tax,
       discount: formData.discount,
       paymentMethod: formData.paymentMethod,
       paidAmount: formData.paidAmount,
       notes: formData.notes,
-      items: items.filter(it => it.description.trim() !== ''),
-      courierPackages: courierPackages.filter(pkg => pkg.trackingNumber.trim() !== '')
+      items: cargoLines
+        .filter((line) => line.description.trim())
+        .map((line) => ({
+          description: line.description.trim(),
+          qty: line.qty || 1,
+          weight: line.weight || 0,
+          cbm: line.cbm || 0,
+          value: 0,
+        })),
+      courierPackages: [],
     };
 
     try {
@@ -448,98 +477,108 @@ export default function NewShipmentPage() {
                     onChange={(e) => setFormData({ ...formData, customs: Number(e.target.value) })} />
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* ── Cargo Itemized Entry ── */}
-          <div className="shipment-card">
-            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-800/40">
-              <div className="flex items-center gap-2">
-                <Box size={18} className="text-[#F15D38]" />
-                <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">Cargo Itemized Entry</h3>
-              </div>
-              <button type="button" onClick={addItem} className="btn bg-[#F15D38]/10 text-[#F15D38] border border-[#F15D38]/20 hover:bg-[#F15D38]/20 py-2 px-4 text-xs font-bold flex items-center gap-2">
-                <Plus size={14} /> Add Item
-              </button>
-            </div>
-            <div className="space-y-4">
-              {items.map((item, index) => (
-                <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-5 bg-[#0B0F19] rounded-2xl border border-slate-800 relative group">
-                  <button type="button" onClick={() => removeItem(index)}
-                    className="absolute -right-2 -top-2 p-1.5 bg-[#131B2E] border border-slate-700 text-rose-500 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Trash2 size={14} />
-                  </button>
-                  <div className="md:col-span-4">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Item Description</label>
-                    <input type="text" className="search-input !py-2 !px-3" placeholder="e.g. Shoes, Cosmetics"
-                      value={item.description} onChange={(e) => { const u = [...items]; u[index].description = e.target.value; setItems(u); }} />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Qty</label>
-                    <input type="number" className="search-input !py-2 !px-3" placeholder="1"
-                      value={item.qty} onChange={(e) => { const u = [...items]; u[index].qty = Number(e.target.value); setItems(u); }} />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Weight (KG)</label>
-                    <input type="number" className="search-input !py-2 !px-3" placeholder="0"
-                      disabled={shipmentType !== 'AIR'}
-                      value={item.weight} onChange={(e) => { const u = [...items]; u[index].weight = Number(e.target.value); setItems(u); }} />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">CBM</label>
-                    <input type="number" className="search-input !py-2 !px-3" placeholder="0"
-                      disabled={shipmentType !== 'SEA'}
-                      value={item.cbm} onChange={(e) => { const u = [...items]; u[index].cbm = Number(e.target.value); setItems(u); }} />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Value ($)</label>
-                    <input type="number" className="search-input !py-2 !px-3" placeholder="0"
-                      value={item.value} onChange={(e) => { const u = [...items]; u[index].value = Number(e.target.value); setItems(u); }} />
-                  </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Tax</label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                  <input type="number" className="search-input !pl-10" value={formData.tax}
+                    onChange={(e) => setFormData({ ...formData, tax: Number(e.target.value) })} />
                 </div>
-              ))}
+              </div>
             </div>
           </div>
 
-          {/* ── Courier Packages ── */}
+          {/* ── Cargo (itemized) ── */}
           <div className="shipment-card">
-            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-800/40">
+            <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-800/40">
               <div className="flex items-center gap-2">
                 <Package size={18} className="text-[#F15D38]" />
-                <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">Courier Packages</h3>
+                <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">Cargo</h3>
               </div>
-              <button type="button" onClick={addPackage} className="btn bg-[#F15D38]/10 text-[#F15D38] border border-[#F15D38]/20 hover:bg-[#F15D38]/20 py-2 px-4 text-xs font-bold flex items-center gap-2">
-                <Plus size={14} /> Add Package
+              <button
+                type="button"
+                onClick={addCargoLine}
+                className="btn bg-[#F15D38]/10 text-[#F15D38] border border-[#F15D38]/20 hover:bg-[#F15D38]/20 py-2 px-4 text-xs font-bold flex items-center gap-2"
+              >
+                <Plus size={14} /> Add Row
               </button>
             </div>
-            <div className="space-y-4">
-              {courierPackages.map((pkg, index) => (
-                <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-5 bg-[#0B0F19] rounded-2xl border border-slate-800 relative group">
-                  <button type="button" onClick={() => removePackage(index)}
-                    className="absolute -right-2 -top-2 p-1.5 bg-[#131B2E] border border-slate-700 text-rose-500 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+
+            <div className="hidden md:grid md:grid-cols-12 gap-3 mb-2 px-1">
+              <span className="md:col-span-6 text-[10px] font-bold text-slate-500 uppercase">Goods</span>
+              <span className="md:col-span-2 text-[10px] font-bold text-slate-500 uppercase">Qty</span>
+              <span className="md:col-span-3 text-[10px] font-bold text-slate-500 uppercase">
+                {shipmentType === 'AIR' ? 'Weight (KG)' : 'CBM'}
+              </span>
+              <span className="md:col-span-1" />
+            </div>
+
+            <div className="space-y-3">
+              {cargoLines.map((line, index) => (
+                <div
+                  key={index}
+                  className="grid grid-cols-1 md:grid-cols-12 gap-3 p-4 bg-[#0B0F19] rounded-2xl border border-slate-800 relative group"
+                >
+                  <button
+                    type="button"
+                    onClick={() => removeCargoLine(index)}
+                    className="absolute -right-2 -top-2 p-1.5 bg-[#131B2E] border border-slate-700 text-rose-500 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity md:col-span-1"
+                    aria-label="Remove row"
+                  >
                     <Trash2 size={14} />
                   </button>
+                  <div className="md:col-span-6">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 md:sr-only">Goods</label>
+                    <input
+                      type="text"
+                      className="search-input !py-2 !px-3 min-w-0"
+                      placeholder="e.g. Shoes, bags"
+                      value={line.description}
+                      onChange={(e) => updateCargoLine(index, 'description', e.target.value)}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 md:sr-only">Qty</label>
+                    <input
+                      type="number"
+                      min={1}
+                      className="search-input !py-2 !px-3 min-w-0"
+                      value={line.qty}
+                      onChange={(e) => updateCargoLine(index, 'qty', Number(e.target.value))}
+                    />
+                  </div>
                   <div className="md:col-span-3">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Courier</label>
-                    <input type="text" className="search-input !py-2 !px-3" placeholder="SF / ZTO / EMS"
-                      value={pkg.courier} onChange={(e) => { const p = [...courierPackages]; p[index].courier = e.target.value; setCourierPackages(p); }} />
-                  </div>
-                  <div className="md:col-span-5">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tracking Number</label>
-                    <div className="relative">
-                      <Hash className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" size={12} />
-                      <input type="text" className="search-input !py-2 !pl-8" placeholder="Chinese Tracking ID"
-                        value={pkg.trackingNumber} onChange={(e) => { const p = [...courierPackages]; p[index].trackingNumber = e.target.value; setCourierPackages(p); }} />
-                    </div>
-                  </div>
-                  <div className="md:col-span-4">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Goods Description</label>
-                    <input type="text" className="search-input !py-2 !px-3" placeholder="What is in the box?"
-                      value={pkg.goods} onChange={(e) => { const p = [...courierPackages]; p[index].goods = e.target.value; setCourierPackages(p); }} />
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 md:sr-only">
+                      {shipmentType === 'AIR' ? 'Weight (KG)' : 'CBM'}
+                    </label>
+                    {shipmentType === 'AIR' ? (
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        className="search-input !py-2 !px-3 min-w-0"
+                        placeholder="0"
+                        value={line.weight}
+                        onChange={(e) => updateCargoLine(index, 'weight', Number(e.target.value))}
+                      />
+                    ) : (
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        className="search-input !py-2 !px-3 min-w-0"
+                        placeholder="0"
+                        value={line.cbm}
+                        onChange={(e) => updateCargoLine(index, 'cbm', Number(e.target.value))}
+                      />
+                    )}
                   </div>
                 </div>
               ))}
             </div>
+            <p className="text-[10px] text-slate-500 mt-3 font-medium">
+              One row per package — totals for {shipmentType === 'AIR' ? 'weight' : 'volume'} update automatically above.
+            </p>
           </div>
         </div>
 
@@ -556,6 +595,10 @@ export default function NewShipmentPage() {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-slate-400">Customs & Extra</span>
                 <span className="font-bold text-emerald-400">+${formData.customs.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-400">Tax</span>
+                <span className="font-bold text-emerald-400">+${formData.tax.toFixed(2)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-slate-400">Discount</span>

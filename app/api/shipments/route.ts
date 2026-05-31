@@ -42,6 +42,44 @@ export async function POST(request: Request) {
   }
 }
 
+export async function PATCH(request: Request) {
+  try {
+    await connectDB();
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) {
+      return NextResponse.json({ error: 'Shipment ID is required' }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const existing = await Shipment.findById(id);
+    if (!existing) {
+      return NextResponse.json({ error: 'Shipment not found' }, { status: 404 });
+    }
+
+    const oldBatch = existing.batch;
+    const shipment = await Shipment.findByIdAndUpdate(id, body, { new: true, runValidators: true });
+    if (!shipment) {
+      return NextResponse.json({ error: 'Shipment not found' }, { status: 404 });
+    }
+
+    const batchesToUpdate = new Set<string>();
+    if (oldBatch && oldBatch !== 'UNASSIGNED') batchesToUpdate.add(oldBatch);
+    if (shipment.batch && shipment.batch !== 'UNASSIGNED') batchesToUpdate.add(shipment.batch);
+
+    for (const batchId of batchesToUpdate) {
+      const count = await Shipment.countDocuments({ batch: batchId });
+      await Batch.findOneAndUpdate({ batchId }, { shipments: count });
+    }
+
+    return NextResponse.json(shipment);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.error('Error updating shipment:', err);
+    return NextResponse.json({ error: 'Failed to update shipment', details: message }, { status: 500 });
+  }
+}
+
 export async function DELETE(request: Request) {
   try {
     await connectDB();

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { CONTACT_SITE_HOST, CONTACT_SITE_URL } from '@/lib/brand';
 import { 
   Search, 
   MapPin, 
@@ -346,6 +347,21 @@ export default function TrackingPage({ searchParams }: { searchParams: { q?: str
                   <Mail size={18} />
                 </div>
                 <div className="text-sm font-bold text-slate-900 leading-none">qcargoshipping@gmail.com</div>
+              </li>
+              <li className="flex items-center gap-4">
+                <a
+                  href={CONTACT_SITE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-4 group"
+                >
+                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-all">
+                    <Globe size={18} />
+                  </div>
+                  <div className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                    {CONTACT_SITE_HOST}
+                  </div>
+                </a>
               </li>
               <li className="flex items-center gap-4">
                 <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm">

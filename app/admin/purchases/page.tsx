@@ -85,7 +85,7 @@ export default function PurchasesPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "durdur_sourcing_orders.csv");
+    link.setAttribute("download", "qcargo_sourcing_orders.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

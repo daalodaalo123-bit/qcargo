@@ -13,6 +13,7 @@ const handler = NextAuth({
         // This is where you would check the database for the user
         // For now, we allow access with a default admin account
         const isUserValid = credentials?.username === "admin" || 
+                            credentials?.username === "admin@qcargo.com" ||
                             credentials?.username === "admin@durdurcargo.com" || 
                             credentials?.username === "admin@qcargo.com";
         const isPasswordValid = credentials?.password === "durdur2024" || 

@@ -44,11 +44,16 @@ type TabType = 'overview' | 'invoices' | 'bills' | 'accounts' | 'reports';
 
 interface Invoice {
   id: string;
+  mongoId?: string;
   customer: string;
   date: string;
   due: string;
   amount: number;
   status: 'PAID' | 'PARTIAL' | 'UNPAID';
+  paymentMethod?: string;
+  amountPaidThisReceipt?: number;
+  balanceDue?: number;
+  receiptPdfUrl?: string;
 }
 
 interface Bill {
@@ -101,22 +106,38 @@ export default function AccountingPage() {
     }
   };
 
-  // Load invoices from MongoDB (shipments that are unpaid)
+  // Load customer invoices from accounting API (quotation payments + receipts)
   const loadInvoices = async () => {
     try {
-      const res = await fetch('/api/shipments');
-      if (!res.ok) throw new Error('Failed to fetch shipments');
+      const res = await fetch('/api/invoices');
+      if (!res.ok) throw new Error('Failed to fetch invoices');
       const data = await res.json();
-      // Map shipments to invoice format
-      const mapped = data.map((s: any) => ({
-        id: s._id || s.shipmentNumber,
-        customer: s.customer,
-        date: s.date,
-        due: s.date,
-        amount: s.total || 0,
-        status: s.payment === 'PAID' ? 'PAID' : s.paidAmount > 0 ? 'PARTIAL' : 'UNPAID'
+      const mapped = data.map((inv: {
+        _id: string;
+        invoiceNumber: string;
+        customerName: string;
+        paymentDate: string;
+        totalAmount: number;
+        amountPaid?: number;
+        balanceDue?: number;
+        paymentStatus: string;
+        paymentMethod?: string;
+        receiptPdfUrl?: string;
+        createdAt?: string;
+      }) => ({
+        id: inv.invoiceNumber,
+        mongoId: inv._id,
+        customer: inv.customerName,
+        date: inv.paymentDate || inv.createdAt?.split('T')[0] || '',
+        due: inv.paymentDate || '',
+        amount: inv.totalAmount || 0,
+        status: inv.paymentStatus === 'PAID' ? 'PAID' as const : inv.paymentStatus === 'PARTIAL' ? 'PARTIAL' as const : 'UNPAID' as const,
+        paymentMethod: inv.paymentMethod,
+        amountPaidThisReceipt: inv.amountPaid,
+        balanceDue: inv.balanceDue,
+        receiptPdfUrl: inv.receiptPdfUrl,
       }));
-      setInvoices(mapped.length > 0 ? mapped : DEFAULT_INVOICES);
+      setInvoices(mapped.length > 0 ? mapped : []);
     } catch (e) {
       console.error('Error loading invoices:', e);
       setInvoices(DEFAULT_INVOICES);
@@ -195,15 +216,16 @@ export default function AccountingPage() {
     }
   };
 
-  const handleDeleteInvoice = async (id: string) => {
-    if (confirm('Delete this invoice/shipment record?')) {
+  const handleDeleteInvoice = async (inv: Invoice) => {
+    if (confirm('Delete this invoice record?')) {
       try {
-        const res = await fetch(`/api/shipments?id=${id}`, { method: 'DELETE' });
+        const deleteId = inv.mongoId || inv.id;
+        const res = await fetch(`/api/invoices?id=${deleteId}`, { method: 'DELETE' });
         if (!res.ok) throw new Error('Failed to delete');
-        setInvoices(prev => prev.filter(inv => inv.id !== id));
+        setInvoices(prev => prev.filter(i => i.id !== inv.id));
         alert('Invoice deleted.');
-      } catch (err: any) {
-        alert(`Error: ${err.message}`);
+      } catch (err: unknown) {
+        alert(`Error: ${err instanceof Error ? err.message : 'Failed'}`);
       }
     }
   };
@@ -657,7 +679,14 @@ export default function AccountingPage() {
                     .map((inv) => (
                       <tr key={inv.id} className="hover:bg-slate-800/30 transition-all group">
                         <td className="px-8 py-6 font-mono text-sm font-black text-[#F15D38]">{inv.id}</td>
-                        <td className="px-8 py-6 font-bold text-slate-100">{inv.customer}</td>
+                        <td className="px-8 py-6">
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-100">{inv.customer}</span>
+                            {inv.paymentMethod && (
+                              <span className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">{inv.paymentMethod}</span>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-8 py-6 text-xs font-bold text-slate-400">{inv.date}</td>
                         <td className="px-8 py-6 text-xs font-bold text-slate-400">{inv.due}</td>
                         <td className="px-8 py-6">
@@ -672,9 +701,27 @@ export default function AccountingPage() {
                             {inv.status}
                           </span>
                         </td>
-                        <td className="px-8 py-6 text-right font-black text-slate-100">${inv.amount.toLocaleString()}</td>
+                        <td className="px-8 py-6 text-right">
+                          <span className="font-black text-slate-100">${inv.amount.toLocaleString()}</span>
+                          {inv.amountPaidThisReceipt != null && inv.status === 'PARTIAL' && (
+                            <p className="text-[10px] font-bold text-amber-400 mt-0.5">
+                              Paid ${inv.amountPaidThisReceipt.toLocaleString()} · ${(inv.balanceDue ?? 0).toLocaleString()} due
+                            </p>
+                          )}
+                        </td>
                         <td className="px-8 py-6">
                           <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {(inv.receiptPdfUrl || inv.mongoId) && (
+                              <a
+                                href={inv.receiptPdfUrl || `/api/invoices/${inv.mongoId}/pdf`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2 hover:bg-slate-800 text-slate-400 hover:text-slate-100 rounded-lg transition-colors"
+                                title="Download PDF receipt"
+                              >
+                                <Download size={16} />
+                              </a>
+                            )}
                             {inv.status !== 'PAID' && (
                               <button 
                                 onClick={() => handleSettleInvoice(inv.id)}
@@ -685,7 +732,7 @@ export default function AccountingPage() {
                               </button>
                             )}
                             <button 
-                              onClick={() => handleDeleteInvoice(inv.id)}
+                              onClick={() => handleDeleteInvoice(inv)}
                               className="p-2 hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-lg transition-colors" 
                               title="Delete invoice"
                             >

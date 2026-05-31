@@ -2,6 +2,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IQuotationItem {
   description: string;
+  qty: number;
   price: number;
 }
 
@@ -12,12 +13,15 @@ export interface IQuotation extends Document {
   price: number;
   date: string;
   status: 'SENT' | 'DRAFT' | 'APPROVED' | 'REJECTED';
+  paymentStatus: 'UNPAID' | 'PARTIAL' | 'PAID';
+  amountPaid: number;
   type: 'AIR' | 'SEA';
   items: IQuotationItem[];
 }
 
 const QuotationItemSchema = new Schema<IQuotationItem>({
   description: { type: String, required: true },
+  qty: { type: Number, default: 1 },
   price: { type: Number, default: 0 },
 });
 
@@ -28,6 +32,8 @@ const QuotationSchema = new Schema<IQuotation>({
   price: { type: Number, required: true, default: 0 },
   date: { type: String, required: true },
   status: { type: String, enum: ['SENT', 'DRAFT', 'APPROVED', 'REJECTED'], default: 'DRAFT' },
+  paymentStatus: { type: String, enum: ['UNPAID', 'PARTIAL', 'PAID'], default: 'UNPAID' },
+  amountPaid: { type: Number, default: 0 },
   type: { type: String, enum: ['AIR', 'SEA'], default: 'SEA' },
   items: [QuotationItemSchema],
 }, { timestamps: true });

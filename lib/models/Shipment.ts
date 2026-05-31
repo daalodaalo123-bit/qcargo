@@ -22,6 +22,8 @@ export interface IShipment extends Document {
   type: 'AIR' | 'SEA';
   status: 'PENDING' | 'IN_TRANSIT' | 'ARRIVED';
   payment: 'PAID' | 'UNPAID';
+  paymentStatus: 'UNPAID' | 'PARTIAL' | 'PAID';
+  amountPaid: number;
   total: number;
   batch: string;
   date: string;
@@ -29,6 +31,7 @@ export interface IShipment extends Document {
   cbm?: number;
   rate?: number;
   customs?: number;
+  tax?: number;
   discount?: number;
   paymentMethod?: string;
   paidAmount?: number;
@@ -59,6 +62,8 @@ const ShipmentSchema = new Schema<IShipment>({
   type: { type: String, enum: ['AIR', 'SEA'], required: true },
   status: { type: String, enum: ['PENDING', 'IN_TRANSIT', 'ARRIVED'], default: 'PENDING' },
   payment: { type: String, enum: ['PAID', 'UNPAID'], default: 'UNPAID' },
+  paymentStatus: { type: String, enum: ['UNPAID', 'PARTIAL', 'PAID'], default: 'UNPAID' },
+  amountPaid: { type: Number, default: 0 },
   total: { type: Number, required: true },
   batch: { type: String, default: 'UNASSIGNED' },
   date: { type: String, required: true },
@@ -66,6 +71,7 @@ const ShipmentSchema = new Schema<IShipment>({
   cbm: { type: Number },
   rate: { type: Number },
   customs: { type: Number },
+  tax: { type: Number, default: 0 },
   discount: { type: Number },
   paymentMethod: { type: String },
   paidAmount: { type: Number },

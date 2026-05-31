@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       for (const ship of shipments) {
         if (!ship.phone) continue;
         
-        const message = `Asc ${ship.customer}, Durdur Cargo tracking update: Your shipment ${ship.shipmentNumber} in batch ${resolvedBatchId} is now ${status}. Thank you for choosing Durdur Cargo.`;
+        const message = `Asc ${ship.customer}, Q CARGO tracking update: Your shipment ${ship.shipmentNumber} in batch ${resolvedBatchId} is now ${status}. Thank you for choosing Q CARGO.`;
         
         console.log(`Sending WhatsApp to ${ship.phone} (${ship.customer})`);
         const result = await sendWhatsAppMessage(ship.phone, message);

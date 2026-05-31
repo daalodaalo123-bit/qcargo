@@ -92,7 +92,7 @@ export default function AdminDashboard() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
         <div>
           <h1 className="text-3xl font-black text-slate-100 tracking-tight">Admin Dashboard</h1>
-          <p className="text-slate-400 font-medium">Welcome back! Manage the Hargeisa operations of Durdur Cargo today.</p>
+          <p className="text-slate-400 font-medium">Welcome back! Manage the Hargeisa operations of Q CARGO today.</p>
         </div>
         <div className="flex gap-3 w-full md:w-auto">
           <Link href="/admin/batches/new" className="flex-1 md:flex-none btn btn-primary flex items-center justify-center gap-2 shadow-lg shadow-[#F15D38]/20">

@@ -1,0 +1,93 @@
+import { generateReceiptPdf, type ReceiptData } from '@/lib/generate-receipt-pdf';
+import { isCloudinaryConfigured, uploadReceiptPdf } from '@/lib/upload-receipt-pdf';
+import { sendWhatsAppMessage, sendWhatsAppPdf } from '@/lib/whatsapp';
+
+export interface DeliverReceiptInput {
+  phone: string;
+  receiptData: ReceiptData;
+  invoiceNumber: string;
+  invoiceId?: string;
+  caption: string;
+}
+
+export interface DeliverReceiptResult {
+  pdfUrl?: string;
+  pdfAttached: boolean;
+  whatsappSent: boolean;
+  error?: string;
+  steps: { step: string; ok: boolean; detail?: string }[];
+}
+
+async function resolvePublicPdfUrl(
+  pdfBytes: Uint8Array,
+  invoiceNumber: string,
+  invoiceId?: string
+): Promise<string> {
+  if (isCloudinaryConfigured()) {
+    return uploadReceiptPdf(pdfBytes, invoiceNumber);
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '');
+  if (appUrl?.startsWith('https://') && invoiceId) {
+    return `${appUrl}/api/invoices/${invoiceId}/pdf`;
+  }
+
+  throw new Error(
+    'Configure Cloudinary (CLOUDINARY_*) in .env.local so WhatsApp can download the receipt PDF.'
+  );
+}
+
+export async function deliverReceiptWhatsApp(input: DeliverReceiptInput): Promise<DeliverReceiptResult> {
+  const steps: DeliverReceiptResult['steps'] = [];
+  let pdfBytes: Uint8Array;
+
+  try {
+    pdfBytes = await generateReceiptPdf(input.receiptData);
+    steps.push({ step: 'generate_pdf', ok: true, detail: `${pdfBytes.length} bytes` });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'PDF generation failed';
+    steps.push({ step: 'generate_pdf', ok: false, detail: msg });
+    return { pdfAttached: false, whatsappSent: false, error: msg, steps };
+  }
+
+  let pdfUrl: string;
+  try {
+    pdfUrl = await resolvePublicPdfUrl(pdfBytes, input.invoiceNumber, input.invoiceId);
+    steps.push({ step: 'upload_pdf', ok: true, detail: pdfUrl });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'PDF upload failed';
+    steps.push({ step: 'upload_pdf', ok: false, detail: msg });
+    return { pdfAttached: false, whatsappSent: false, error: msg, steps };
+  }
+
+  const pdfResult = await sendWhatsAppPdf({
+    to: input.phone,
+    pdfUrl,
+    filename: `${input.invoiceNumber}.pdf`,
+    caption: input.caption,
+  });
+
+  if (pdfResult.success) {
+    steps.push({ step: 'whatsapp_pdf', ok: true, detail: 'method=' + (pdfResult as { method?: string }).method });
+    return { pdfUrl, pdfAttached: true, whatsappSent: true, steps };
+  }
+
+  const error = pdfResult.error || 'WhatsApp PDF send failed';
+  steps.push({ step: 'whatsapp_pdf', ok: false, detail: error });
+
+  const fallbackText = `${input.caption}\n\nReceipt PDF: ${pdfUrl}`;
+  const textResult = await sendWhatsAppMessage(input.phone, fallbackText);
+  steps.push({
+    step: 'whatsapp_text_fallback',
+    ok: textResult.success,
+    detail: textResult.success ? 'Link sent in text' : textResult.error,
+  });
+
+  return {
+    pdfUrl,
+    pdfAttached: false,
+    whatsappSent: textResult.success,
+    error,
+    steps,
+  };
+}

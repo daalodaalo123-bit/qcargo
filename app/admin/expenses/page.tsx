@@ -32,7 +32,7 @@ interface Expense {
 const DEFAULT_EXPENSES: Expense[] = [
   { id: 'EXP-001', batchId: 'FLT-2024-001', category: 'Customs', vendor: 'Hargeisa Port Authority', amount: 1250.00, date: '2026-05-15', status: 'PAID' },
   { id: 'EXP-002', batchId: 'CTN-2024-042', category: 'Trucking', vendor: 'Berbera local Transport Co', amount: 450.00, date: '2026-05-16', status: 'PAID' },
-  { id: 'EXP-003', batchId: 'FLT-2024-001', category: 'Warehousing', vendor: 'Durdur Cargo GZ Warehouse', amount: 800.00, date: '2026-05-18', status: 'PENDING' },
+  { id: 'EXP-003', batchId: 'FLT-2024-001', category: 'Warehousing', vendor: 'Q CARGO GZ Warehouse', amount: 800.00, date: '2026-05-18', status: 'PENDING' },
   { id: 'EXP-004', batchId: 'FLT-2024-002', category: 'Sourcing', vendor: 'Agent Lee Sourcing', amount: 300.00, date: '2026-05-20', status: 'PAID' },
 ];
 
@@ -85,7 +85,7 @@ export default function ExpensesPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "durdur_expenses_export.csv");
+    link.setAttribute("download", "qcargo_expenses_export.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
