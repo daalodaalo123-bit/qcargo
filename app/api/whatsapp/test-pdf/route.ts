@@ -6,7 +6,7 @@ export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const phone = searchParams.get('phone') || '634845067';
+  const phone = searchParams.get('phone') || '0633901811';
 
   const delivery = await deliverReceiptWhatsApp({
     phone,
@@ -33,6 +33,8 @@ export async function GET(request: Request) {
     message: delivery.pdfAttached
       ? 'Test PDF sent to WhatsApp as file attachment'
       : 'PDF attach failed — see deliverySteps',
+    phoneUsed: phone,
+    hint: 'Use ?phone=0633901811 or ?phone=252633901811 (Somalia: 252 + 9 digits)',
     ...delivery,
   });
 }

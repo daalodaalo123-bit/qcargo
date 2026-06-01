@@ -1,25 +1,56 @@
+/** Somalia WhatsApp: 252 + 9-digit mobile (e.g. 252633901811). */
+const SOMALIA_WHATSAPP_REGEX = /^252[1-9][0-9]{8}$/;
+
+export type PhoneFormatResult =
+  | { ok: true; phone: string }
+  | { ok: false; error: string };
+
+/** Normalize to 252XXXXXXXXX for WAWP chatId, with validation. */
+export function formatSomaliaWhatsAppPhone(rawPhone: string): PhoneFormatResult {
+  let digits = rawPhone.trim().replace(/\D/g, '');
+
+  if (!digits) {
+    return { ok: false, error: 'Phone number is required (e.g. +252 63 390 1811 or 0633901811)' };
+  }
+
+  if (digits.startsWith('00')) {
+    digits = digits.replace(/^0+/, '');
+  }
+
+  if (digits.startsWith('252')) {
+    // Fix 2520633901811 → 252633901811 (extra 0 after country code)
+    if (digits.length === 13 && digits[3] === '0') {
+      digits = '252' + digits.slice(4);
+    }
+    // Fix double country code 252252633...
+    if (digits.startsWith('252252')) {
+      digits = digits.slice(3);
+    }
+  } else if (digits.startsWith('0')) {
+    digits = '252' + digits.slice(1);
+  } else if (digits.length === 9) {
+    digits = '252' + digits;
+  } else if (digits.length === 10) {
+    // 10 digits without leading 0: use last 9 (avoid 252 + 10 = 13 digits → WAWP "Unknown")
+    digits = '252' + digits.slice(-9);
+  } else if (digits.length === 7) {
+    digits = '25263' + digits;
+  }
+
+  if (!SOMALIA_WHATSAPP_REGEX.test(digits)) {
+    return {
+      ok: false,
+      error: `Invalid Somalia number "${rawPhone.trim()}". Use +252 63xxxxxxx or 063xxxxxxx (12 digits: 252 + 9-digit mobile).`,
+    };
+  }
+
+  return { ok: true, phone: digits };
+}
+
+/** @deprecated Prefer formatSomaliaWhatsAppPhone — returns digits or empty string. */
 export function normalizePhone(rawPhone: string): string {
-  let phone = rawPhone.trim().replace(/\D/g, '');
-
-  if (!phone) return phone;
-
-  if (phone.startsWith('252')) {
-    return phone;
-  }
-
-  if (phone.startsWith('0')) {
-    return '252' + phone.substring(1);
-  }
-
-  if (phone.length === 7) {
-    return '25263' + phone;
-  }
-
-  if (phone.length === 9 || phone.length === 10) {
-    return '252' + phone;
-  }
-
-  return phone;
+  const result = formatSomaliaWhatsAppPhone(rawPhone);
+  return result.ok ? result.phone : '';
 }
 
 function wawpCredentials() {
@@ -61,7 +92,11 @@ export async function sendWhatsAppMessage(to: string, message: string) {
   }
 
   const { instanceId, accessToken } = creds;
-  const chatId = `${normalizePhone(to)}@c.us`;
+  const formatted = formatSomaliaWhatsAppPhone(to);
+  if (!formatted.ok) {
+    return { success: false, error: formatted.error };
+  }
+  const chatId = `${formatted.phone}@c.us`;
 
   try {
     const response = await fetch('https://api.wawp.net/v2/send/text', {
@@ -144,7 +179,11 @@ export async function sendWhatsAppPdf(options: SendWhatsAppPdfOptions) {
     return { success: false, error: 'PDF URL must be a public HTTPS link (not localhost)' };
   }
 
-  const chatId = `${normalizePhone(options.to)}@c.us`;
+  const formatted = formatSomaliaWhatsAppPhone(options.to);
+  if (!formatted.ok) {
+    return { success: false, error: formatted.error };
+  }
+  const chatId = `${formatted.phone}@c.us`;
   const filename = options.filename.endsWith('.pdf') ? options.filename : `${options.filename}.pdf`;
   const caption = options.caption.slice(0, 900);
 
