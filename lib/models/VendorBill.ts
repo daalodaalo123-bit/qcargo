@@ -7,6 +7,9 @@ export interface IVendorBill extends Document {
   amount: number;
   status: 'PAID' | 'PENDING' | 'OVERDUE';
   category: string;
+  paymentMethod?: string;
+  batchId?: string;
+  description?: string;
 }
 
 const VendorBillSchema = new Schema<IVendorBill>({
@@ -16,6 +19,9 @@ const VendorBillSchema = new Schema<IVendorBill>({
   amount: { type: Number, required: true, default: 0 },
   status: { type: String, enum: ['PAID', 'PENDING', 'OVERDUE'], default: 'PENDING' },
   category: { type: String, default: 'General' },
+  paymentMethod: { type: String, default: 'CASH' },
+  batchId: { type: String, default: '' },
+  description: { type: String, default: '' },
 }, { timestamps: true });
 
 export default mongoose.models.VendorBill || mongoose.model<IVendorBill>('VendorBill', VendorBillSchema);

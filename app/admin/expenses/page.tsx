@@ -18,6 +18,9 @@ import {
   Pencil
 } from 'lucide-react';
 import Link from 'next/link';
+import ExpenseCharts from './ExpenseCharts';
+import ExpenseFinancialIntel from './ExpenseFinancialIntel';
+import { formatPaymentMethod } from '@/lib/payment-methods';
 
 interface Expense {
   id: string;
@@ -27,13 +30,14 @@ interface Expense {
   amount: number;
   date: string;
   status: 'PAID' | 'PENDING';
+  paymentMethod: string;
 }
 
 const DEFAULT_EXPENSES: Expense[] = [
-  { id: 'EXP-001', batchId: 'FLT-2024-001', category: 'Customs', vendor: 'Hargeisa Port Authority', amount: 1250.00, date: '2026-05-15', status: 'PAID' },
-  { id: 'EXP-002', batchId: 'CTN-2024-042', category: 'Trucking', vendor: 'Berbera local Transport Co', amount: 450.00, date: '2026-05-16', status: 'PAID' },
-  { id: 'EXP-003', batchId: 'FLT-2024-001', category: 'Warehousing', vendor: 'Q CARGO GZ Warehouse', amount: 800.00, date: '2026-05-18', status: 'PENDING' },
-  { id: 'EXP-004', batchId: 'FLT-2024-002', category: 'Sourcing', vendor: 'Agent Lee Sourcing', amount: 300.00, date: '2026-05-20', status: 'PAID' },
+  { id: 'EXP-001', batchId: 'FLT-2024-001', category: 'Customs', vendor: 'Hargeisa Port Authority', amount: 1250.00, date: '2026-05-15', status: 'PAID', paymentMethod: 'ZAAD' },
+  { id: 'EXP-002', batchId: 'CTN-2024-042', category: 'Trucking', vendor: 'Berbera local Transport Co', amount: 450.00, date: '2026-05-16', status: 'PAID', paymentMethod: 'CASH' },
+  { id: 'EXP-003', batchId: 'FLT-2024-001', category: 'Warehousing', vendor: 'Q CARGO GZ Warehouse', amount: 800.00, date: '2026-05-18', status: 'PENDING', paymentMethod: 'WAAFI' },
+  { id: 'EXP-004', batchId: 'FLT-2024-002', category: 'Sourcing', vendor: 'Agent Lee Sourcing', amount: 300.00, date: '2026-05-20', status: 'PAID', paymentMethod: 'EDAHAB' },
 ];
 
 export default function ExpensesPage() {
@@ -46,14 +50,15 @@ export default function ExpensesPage() {
       const res = await fetch('/api/bills');
       if (!res.ok) throw new Error('Failed to load expenses');
       const data = await res.json();
-      setExpenses(data.map((b: any) => ({
-        id: b._id || b.id,
-        batchId: 'GENERAL',
-        category: b.category || 'General',
-        vendor: b.vendor,
-        amount: b.amount,
-        date: b.date,
-        status: b.status === 'PAID' ? 'PAID' : 'PENDING'
+      setExpenses(data.map((b: Record<string, unknown>) => ({
+        id: String(b._id || b.id),
+        batchId: String(b.batchId || 'GENERAL'),
+        category: String(b.category || 'General'),
+        vendor: String(b.vendor || ''),
+        amount: Number(b.amount) || 0,
+        date: String(b.date || ''),
+        status: b.status === 'PAID' ? 'PAID' : 'PENDING',
+        paymentMethod: String(b.paymentMethod || 'CASH'),
       })));
     } catch (e) {
       console.error(e);
@@ -80,8 +85,8 @@ export default function ExpensesPage() {
 
   const handleExport = () => {
     const csvContent = "data:text/csv;charset=utf-8," 
-      + ["Expense ID,Batch ID,Category,Vendor,Amount,Date,Status"].join(",") + "\n"
-      + expenses.map(e => `"${e.id}","${e.batchId}","${e.category}","${e.vendor}",${e.amount},"${e.date}","${e.status}"`).join("\n");
+      + ["Expense ID,Batch ID,Category,Vendor,Amount,Payment Method,Date,Status"].join(",") + "\n"
+      + expenses.map(e => `"${e.id}","${e.batchId}","${e.category}","${e.vendor}",${e.amount},"${formatPaymentMethod(e.paymentMethod)}","${e.date}","${e.status}"`).join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -132,6 +137,8 @@ export default function ExpensesPage() {
         </div>
       </div>
 
+      <ExpenseFinancialIntel expenses={expenses} />
+
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         <div className="shipment-card !bg-slate-900 border border-slate-800 text-white">
@@ -160,6 +167,8 @@ export default function ExpensesPage() {
         </div>
       </div>
 
+      <ExpenseCharts expenses={expenses} />
+
       {/* Filters & Search */}
       <div className="flex flex-col md:flex-row gap-4 mb-8">
         <div className="relative flex-1 group">
@@ -186,6 +195,7 @@ export default function ExpensesPage() {
               <tr className="bg-slate-900/40 border-b border-slate-800">
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Transaction</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Category</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Paid via</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Batch ID</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Status</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Amount</th>
@@ -205,6 +215,12 @@ export default function ExpensesPage() {
                     <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-300 bg-slate-900 border border-slate-800 px-3 py-1 rounded-full">
                       <Tag size={12} className="text-[#F15D38]" />
                       {exp.category}
+                    </span>
+                  </td>
+                  <td className="px-8 py-6">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-300 bg-indigo-950/30 border border-indigo-800/30 px-3 py-1 rounded-full">
+                      <CreditCard size={12} className="text-indigo-400" />
+                      {formatPaymentMethod(exp.paymentMethod)}
                     </span>
                   </td>
                   <td className="px-8 py-6">
@@ -241,7 +257,7 @@ export default function ExpensesPage() {
               ))}
               {filteredExpenses.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-8 py-10 text-center text-xs font-bold text-slate-500">No expense records found.</td>
+                  <td colSpan={7} className="px-8 py-10 text-center text-xs font-bold text-slate-500">No expense records found.</td>
                 </tr>
               )}
             </tbody>

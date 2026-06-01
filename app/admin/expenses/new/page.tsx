@@ -11,9 +11,21 @@ import {
   Hash,
   AlertCircle,
   TrendingDown,
-  Info
+  Info,
+  CreditCard,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { EXPENSE_PAYMENT_METHODS } from '@/lib/payment-methods';
+
+const EXPENSE_CATEGORY_PRESETS = [
+  { value: 'Customs', label: 'Customs & Clearing' },
+  { value: 'Trucking', label: 'Local Trucking' },
+  { value: 'Warehousing', label: 'Warehouse Rent' },
+  { value: 'Sourcing', label: 'Sourcing Agent Fee' },
+  { value: 'Marketing', label: 'Marketing & Ads' },
+  { value: 'Port Taxes', label: 'Berbera Port Taxes / Fees' },
+  { value: 'Other', label: 'Other Expenses' },
+] as const;
 
 export default function NewExpensePage() {
   const router = useRouter();
@@ -37,6 +49,10 @@ export default function NewExpensePage() {
       alert('Please enter a valid expense amount');
       return;
     }
+    if (!formData.category.trim()) {
+      alert('Please enter or select a category');
+      return;
+    }
 
     const payload = {
       vendor: formData.vendor,
@@ -44,7 +60,10 @@ export default function NewExpensePage() {
       due: formData.date,
       amount: parseFloat(formData.amount),
       status: 'PAID',
-      category: formData.category,
+      category: formData.category.trim(),
+      paymentMethod: formData.paymentMethod,
+      batchId: formData.batchId.trim() || 'GENERAL',
+      description: formData.description.trim(),
     };
 
     try {
@@ -109,21 +128,50 @@ export default function NewExpensePage() {
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-3">Category</label>
-                <div className="relative">
-                  <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                  <select 
-                    className="search-input !pl-12 w-full"
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={18} />
+                    <select
+                      className="search-input !pl-12 w-full"
+                      value={
+                        EXPENSE_CATEGORY_PRESETS.some((p) => p.value === formData.category)
+                          ? formData.category
+                          : ''
+                      }
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          setFormData({ ...formData, category: e.target.value });
+                        }
+                      }}
+                    >
+                      <option value="">Quick pick preset…</option>
+                      {EXPENSE_CATEGORY_PRESETS.map((preset) => (
+                        <option key={preset.value} value={preset.value}>
+                          {preset.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    className="search-input w-full"
+                    placeholder="Or type your own category"
                     value={formData.category}
-                    onChange={(e) => setFormData({...formData, category: e.target.value})}
-                  >
-                    <option value="Customs">Customs & Clearing</option>
-                    <option value="Trucking">Local Trucking</option>
-                    <option value="Warehousing">Warehouse Rent</option>
-                    <option value="Sourcing">Sourcing Agent Fee</option>
-                    <option value="Marketing">Marketing & Ads</option>
-                    <option value="Other">Other Expenses</option>
-                  </select>
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    list="expense-category-suggestions"
+                  />
+                  <datalist id="expense-category-suggestions">
+                    {EXPENSE_CATEGORY_PRESETS.map((preset) => (
+                      <option key={preset.value} value={preset.value}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </datalist>
                 </div>
+                <p className="text-[10px] text-slate-500 mt-2 font-medium">
+                  Use the dropdown for common categories, or type any custom name in the field.
+                </p>
               </div>
             </div>
 
@@ -173,6 +221,24 @@ export default function NewExpensePage() {
                 value={formData.vendor}
                 onChange={(e) => setFormData({...formData, vendor: e.target.value})}
               />
+            </div>
+
+            <div className="mb-8">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-3">How we paid</label>
+              <div className="relative">
+                <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={18} />
+                <select
+                  className="search-input !pl-12 w-full"
+                  value={formData.paymentMethod}
+                  onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+                >
+                  {EXPENSE_PAYMENT_METHODS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div>

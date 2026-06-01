@@ -64,6 +64,7 @@ interface Bill {
   amount: number;
   status: 'PAID' | 'PENDING' | 'OVERDUE';
   category: string;
+  paymentMethod?: string;
 }
 
 const DEFAULT_INVOICES: Invoice[] = [
@@ -90,9 +91,10 @@ export default function AccountingPage() {
   const [isAddingBill, setIsAddingBill] = useState(false);
   const [billVendor, setBillVendor] = useState('');
   const [billAmount, setBillAmount] = useState('');
-  const [billCategory, setBillCategory] = useState('Shipping');
+  const [billCategory, setBillCategory] = useState('Port Taxes');
   const [billDueDate, setBillDueDate] = useState('');
   const [billStatus, setBillStatus] = useState<'PENDING' | 'PAID'>('PENDING');
+  const [billPaymentMethod, setBillPaymentMethod] = useState('ZAAD');
 
   // Load bills from MongoDB
   const loadBills = async () => {
@@ -157,6 +159,10 @@ export default function AccountingPage() {
       alert('Please fill out vendor and amount');
       return;
     }
+    if (!billCategory.trim()) {
+      alert('Please enter or select a category');
+      return;
+    }
 
     const newBill = {
       vendor: billVendor,
@@ -164,7 +170,8 @@ export default function AccountingPage() {
       due: billDueDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       amount: parseFloat(billAmount) || 0,
       status: billStatus,
-      category: billCategory
+      category: billCategory.trim(),
+      paymentMethod: billPaymentMethod,
     };
 
     try {
@@ -183,7 +190,8 @@ export default function AccountingPage() {
     // Reset fields
     setBillVendor('');
     setBillAmount('');
-    setBillCategory('Shipping');
+    setBillCategory('Port Taxes');
+    setBillPaymentMethod('ZAAD');
     setBillDueDate('');
     setBillStatus('PENDING');
     setIsAddingBill(false);
@@ -495,17 +503,44 @@ export default function AccountingPage() {
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Operation Expense Category</label>
-                  <select 
-                    className="search-input w-full"
-                    value={billCategory}
-                    onChange={e => setBillCategory(e.target.value)}
-                  >
-                    <option value="Port Taxes">Berbera Port Taxes / Fees</option>
-                    <option value="Freight Fuel">Aviation Freight Fuel</option>
-                    <option value="Truck Dispatch">Truck Loading & Dispatch</option>
-                    <option value="Office Costs">Corporate Operations Costs</option>
-                    <option value="Brokerage">Customs Brokerage Fees</option>
-                  </select>
+                  <div className="space-y-2">
+                    <select
+                      className="search-input w-full"
+                      value={
+                        ['Port Taxes', 'Freight Fuel', 'Truck Dispatch', 'Office Costs', 'Brokerage'].includes(
+                          billCategory
+                        )
+                          ? billCategory
+                          : ''
+                      }
+                      onChange={(e) => {
+                        if (e.target.value) setBillCategory(e.target.value);
+                      }}
+                    >
+                      <option value="">Quick pick preset…</option>
+                      <option value="Port Taxes">Berbera Port Taxes / Fees</option>
+                      <option value="Freight Fuel">Aviation Freight Fuel</option>
+                      <option value="Truck Dispatch">Truck Loading & Dispatch</option>
+                      <option value="Office Costs">Corporate Operations Costs</option>
+                      <option value="Brokerage">Customs Brokerage Fees</option>
+                    </select>
+                    <input
+                      type="text"
+                      required
+                      className="search-input w-full"
+                      placeholder="Or type your own category"
+                      value={billCategory}
+                      onChange={(e) => setBillCategory(e.target.value)}
+                      list="bill-category-suggestions"
+                    />
+                    <datalist id="bill-category-suggestions">
+                      <option value="Port Taxes" />
+                      <option value="Freight Fuel" />
+                      <option value="Truck Dispatch" />
+                      <option value="Office Costs" />
+                      <option value="Brokerage" />
+                    </datalist>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Due Date</label>
@@ -515,6 +550,21 @@ export default function AccountingPage() {
                     value={billDueDate}
                     onChange={e => setBillDueDate(e.target.value)}
                   />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Payment method</label>
+                  <select
+                    className="search-input w-full"
+                    value={billPaymentMethod}
+                    onChange={(e) => setBillPaymentMethod(e.target.value)}
+                  >
+                    <option value="ZAAD">Zaad</option>
+                    <option value="EDAHAB">E-Dahab</option>
+                    <option value="WAAFI">Waafi</option>
+                    <option value="CASH">Cash</option>
+                    <option value="BANK">Bank Transfer</option>
+                    <option value="OTHER">Other</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Initial Bill Status</label>
