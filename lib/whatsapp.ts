@@ -31,6 +31,12 @@ function wawpCredentials() {
   return { instanceId, accessToken };
 }
 
+/** True when WAWP response includes an outgoing document (not plain text). */
+export function wawpResponseHasPdfDocument(data: Record<string, unknown>): boolean {
+  const raw = JSON.stringify(data);
+  return raw.includes('documentMessage') || raw.includes('documentWithCaptionMessage');
+}
+
 function parseWawpResponse(data: Record<string, unknown>, httpOk: boolean): { success: boolean; error?: string } {
   if (!httpOk) {
     const msg = (data.message || data.error || 'WAWP request failed') as string;
@@ -142,9 +148,10 @@ export async function sendWhatsAppPdf(options: SendWhatsAppPdfOptions) {
   const filename = options.filename.endsWith('.pdf') ? options.filename : `${options.filename}.pdf`;
   const caption = options.caption.slice(0, 900);
 
+  // JSON body first — long captions + Cloudinary URLs can exceed query-string limits.
   const attempts = [
-    { label: 'query', useQueryParams: true },
     { label: 'json', useQueryParams: false },
+    { label: 'query', useQueryParams: true },
   ];
 
   let lastError = 'Failed to send PDF via WAWP';
@@ -162,8 +169,14 @@ export async function sendWhatsAppPdf(options: SendWhatsAppPdfOptions) {
       const data = (await response.json()) as Record<string, unknown>;
       const parsed = parseWawpResponse(data, response.ok);
 
-      if (parsed.success) {
+      if (parsed.success && wawpResponseHasPdfDocument(data)) {
         return { success: true, data, method: attempt.label };
+      }
+
+      if (parsed.success && !wawpResponseHasPdfDocument(data)) {
+        lastError = 'WAWP accepted request but response was not a PDF document';
+        console.error(`WAWP PDF no document in response (${attempt.label}):`, data);
+        continue;
       }
 
       lastError = parsed.error || lastError;

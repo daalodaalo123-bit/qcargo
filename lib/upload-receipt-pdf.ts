@@ -15,6 +15,7 @@ export async function uploadReceiptPdf(pdfBytes: Uint8Array, invoiceNumber: stri
   }
 
   const buffer = Buffer.from(pdfBytes);
+  // Do not put ".pdf" in public_id — Cloudinary may block anonymous downloads (401) for some paths.
   const safeId = `${invoiceNumber.replace(/[^a-zA-Z0-9-_]/g, '_')}_${Date.now()}`;
 
   const result = await new Promise<{ secure_url?: string }>((resolve, reject) => {
@@ -24,6 +25,7 @@ export async function uploadReceiptPdf(pdfBytes: Uint8Array, invoiceNumber: stri
         folder: 'qcargo/receipts',
         public_id: safeId,
         access_mode: 'public',
+        type: 'upload',
       },
       (error, uploadResult) => {
         if (error) reject(error);

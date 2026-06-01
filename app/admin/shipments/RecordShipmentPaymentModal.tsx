@@ -112,8 +112,8 @@ export default function RecordShipmentPaymentModal({
       const whatsappNote = data.pdfSent
         ? 'PDF receipt attached on WhatsApp.'
         : data.whatsappSent
-          ? `WhatsApp message sent but NOT as PDF file.\n${data.whatsappError || 'Unknown error'}`
-          : `WhatsApp failed: ${data.whatsappError || 'check WAWP + Cloudinary in .env.local'}`;
+          ? `WhatsApp sent text only (no PDF file).\n${data.whatsappError || 'WAWP could not attach the document.'}`
+          : `WhatsApp failed: ${data.whatsappError || 'Check WAWP_* and CLOUDINARY_* on Vercel (Production env vars).'}`;
 
       alert(
         `${statusLabel}!\n\nInvoice: ${data.invoice.invoiceNumber}\nPaid now: $${data.invoice.amountPaid.toFixed(2)}\n` +

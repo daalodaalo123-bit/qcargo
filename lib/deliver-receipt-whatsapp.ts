@@ -18,22 +18,37 @@ export interface DeliverReceiptResult {
   steps: { step: string; ok: boolean; detail?: string }[];
 }
 
+async function assertPdfUrlReachable(pdfUrl: string): Promise<void> {
+  const res = await fetch(pdfUrl, { method: 'HEAD', redirect: 'follow' });
+  if (!res.ok) {
+    throw new Error(`Receipt PDF URL not reachable (${res.status}). WhatsApp cannot attach the file.`);
+  }
+  const type = res.headers.get('content-type') || '';
+  if (type.includes('text/html')) {
+    throw new Error('Receipt PDF URL returned HTML instead of a PDF file.');
+  }
+}
+
 async function resolvePublicPdfUrl(
   pdfBytes: Uint8Array,
   invoiceNumber: string,
   invoiceId?: string
 ): Promise<string> {
   if (isCloudinaryConfigured()) {
-    return uploadReceiptPdf(pdfBytes, invoiceNumber);
+    const url = await uploadReceiptPdf(pdfBytes, invoiceNumber);
+    await assertPdfUrlReachable(url);
+    return url;
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '');
   if (appUrl?.startsWith('https://') && invoiceId) {
-    return `${appUrl}/api/invoices/${invoiceId}/pdf`;
+    const url = `${appUrl}/api/invoices/${invoiceId}/pdf`;
+    await assertPdfUrlReachable(url);
+    return url;
   }
 
   throw new Error(
-    'Configure Cloudinary (CLOUDINARY_*) in .env.local so WhatsApp can download the receipt PDF.'
+    'Configure Cloudinary (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET) on the server so WhatsApp can download the receipt PDF.'
   );
 }
 
