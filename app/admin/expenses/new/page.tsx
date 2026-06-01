@@ -289,7 +289,7 @@ export default function NewExpensePage() {
               <h4 className="font-bold text-slate-200">Audit Notice</h4>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed font-medium">
-              Recorded expenses directly reduce your net profit in the accounting dashboard. Ensure you have a valid receipt for every transaction.
+              Recorded expenses reduce net margin on the Expenses page (7% revenue + $50/CBM + $1.50/KG minus costs). Keep a valid receipt for every transaction.
             </p>
           </div>
 
