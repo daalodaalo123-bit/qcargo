@@ -42,7 +42,6 @@ export default function Home() {
             <a href="#services" className="hover:text-blue-600 transition-colors">Services</a>
             <a href="#tracking" className="hover:text-blue-600 transition-colors">Tracking</a>
             <a href="#about" className="hover:text-blue-600 transition-colors">About Us</a>
-            <Link href="/admin/login" className="text-blue-600">Agent Access</Link>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/tracking" className="hidden sm:block btn btn-primary !rounded-xl !px-6 !py-2.5 !text-xs shadow-lg shadow-blue-600/20">
@@ -64,7 +63,6 @@ export default function Home() {
               <a href="#services" onClick={() => setIsMobileOpen(false)} className="text-sm font-black uppercase tracking-widest text-slate-600">Services</a>
               <a href="#tracking" onClick={() => setIsMobileOpen(false)} className="text-sm font-black uppercase tracking-widest text-slate-600">Tracking</a>
               <Link href="/tracking" onClick={() => setIsMobileOpen(false)} className="text-sm font-black uppercase tracking-widest text-blue-600">Track Shipment</Link>
-              <Link href="/admin/login" onClick={() => setIsMobileOpen(false)} className="text-sm font-black uppercase tracking-widest text-slate-400">Agent Access</Link>
             </div>
           </div>
         )}

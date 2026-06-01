@@ -75,7 +75,6 @@ export default function TrackingPage({ searchParams }: { searchParams: { q?: str
             <Link href="/" className="hover:text-blue-600 transition-colors">Home</Link>
             <a href="/#services" className="hover:text-blue-600 transition-colors">Services</a>
             <a href="/#about" className="hover:text-blue-600 transition-colors">About</a>
-            <Link href="/admin/login" className="text-blue-600">Agent Access</Link>
           </div>
           <Link href="/tracking" className="hidden md:block btn btn-primary !rounded-xl !px-6 !py-2.5 !text-xs shadow-lg shadow-blue-600/20">
             Track Cargo
