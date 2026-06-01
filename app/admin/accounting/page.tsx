@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -25,7 +25,8 @@ import {
   AlertCircle,
   Trash2,
   User,
-  X
+  X,
+  Pencil,
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -43,6 +44,12 @@ import ExpenseFinancialIntel, {
   type IntelExpense,
   type IntelShipment,
 } from '@/app/admin/expenses/ExpenseFinancialIntel';
+import EditBillModal from '@/app/admin/accounting/EditBillModal';
+import {
+  computeLiveOverview,
+  buildMonthlyFreightChart,
+  buildChartOfAccountsLive,
+} from '@/lib/accounting-summary';
 
 type TabType = 'overview' | 'invoices' | 'bills' | 'accounts' | 'reports';
 
@@ -69,6 +76,7 @@ interface Bill {
   status: 'PAID' | 'PENDING' | 'OVERDUE';
   category: string;
   paymentMethod?: string;
+  batchId?: string;
 }
 
 const DEFAULT_INVOICES: Invoice[] = [
@@ -100,6 +108,7 @@ export default function AccountingPage() {
   const [billDueDate, setBillDueDate] = useState('');
   const [billStatus, setBillStatus] = useState<'PENDING' | 'PAID'>('PENDING');
   const [billPaymentMethod, setBillPaymentMethod] = useState('ZAAD');
+  const [editingBill, setEditingBill] = useState<Bill | null>(null);
 
   // Load bills from MongoDB
   const loadBills = async () => {
@@ -107,7 +116,19 @@ export default function AccountingPage() {
       const res = await fetch('/api/bills');
       if (!res.ok) throw new Error('Failed to fetch bills');
       const data = await res.json();
-      setBills(data.map((b: any) => ({ ...b, id: b._id || b.id })));
+      setBills(
+        data.map((b: Record<string, unknown>) => ({
+          id: String(b._id || b.id),
+          vendor: String(b.vendor || ''),
+          date: String(b.date || ''),
+          due: String(b.due || ''),
+          amount: Number(b.amount) || 0,
+          status: (b.status as Bill['status']) || 'PENDING',
+          category: String(b.category || 'General'),
+          paymentMethod: String(b.paymentMethod || 'CASH'),
+          batchId: String(b.batchId || 'GENERAL'),
+        }))
+      );
     } catch (e) {
       console.error('Error loading bills:', e);
     }
@@ -164,6 +185,7 @@ export default function AccountingPage() {
           type: String(s.type || 'AIR'),
           weight: Number(s.weight) || 0,
           cbm: Number(s.cbm) || 0,
+          batch: String(s.batch || 'UNASSIGNED'),
         }))
       );
     } catch (e) {
@@ -180,7 +202,7 @@ export default function AccountingPage() {
 
   const intelExpenses: IntelExpense[] = bills.map((b) => ({
     id: b.id,
-    batchId: 'GENERAL',
+    batchId: b.batchId || 'GENERAL',
     category: b.category,
     vendor: b.vendor,
     amount: b.amount,
@@ -188,6 +210,112 @@ export default function AccountingPage() {
     status: b.status === 'PAID' ? 'PAID' : 'PENDING',
     paymentMethod: b.paymentMethod || 'CASH',
   }));
+
+  const expenseRows = useMemo(
+    () =>
+      bills.map((b) => ({
+        amount: b.amount,
+        date: b.date,
+        batchId: b.batchId,
+        status: b.status,
+        category: b.category,
+        vendor: b.vendor,
+      })),
+    [bills]
+  );
+
+  const invoiceRows = useMemo(
+    () =>
+      invoices.map((inv) => ({
+        date: inv.date,
+        amount: inv.amount,
+        status: inv.status,
+        amountPaid: inv.amountPaidThisReceipt,
+      })),
+    [invoices]
+  );
+
+  const totalReceivables = invoices
+    .filter((inv) => inv.status !== 'PAID')
+    .reduce((acc, inv) => acc + (inv.balanceDue ?? inv.amount), 0);
+
+  const totalPayables = bills
+    .filter((b) => b.status === 'PENDING')
+    .reduce((acc, b) => acc + b.amount, 0);
+
+  const liveMonth = useMemo(
+    () =>
+      computeLiveOverview(
+        shipments,
+        invoiceRows,
+        expenseRows,
+        totalReceivables,
+        totalPayables,
+        'this_month'
+      ),
+    [shipments, invoiceRows, expenseRows, totalReceivables, totalPayables]
+  );
+
+  const revenueChart = useMemo(() => buildMonthlyFreightChart(shipments), [shipments]);
+
+  const freightAllTime = useMemo(
+    () => shipments.reduce((s, sh) => s + sh.total, 0),
+    [shipments]
+  );
+  const expensesAllTime = useMemo(
+    () => bills.reduce((s, b) => s + b.amount, 0),
+    [bills]
+  );
+
+  const chartOfAccounts = useMemo(
+    () =>
+      buildChartOfAccountsLive(
+        freightAllTime,
+        expensesAllTime,
+        totalReceivables,
+        totalPayables
+      ),
+    [freightAllTime, expensesAllTime, totalReceivables, totalPayables]
+  );
+
+  const money = (n: number) =>
+    `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const handleFiscalExport = () => {
+    const rows = [
+      ['Section', 'Metric', 'Value'],
+      ['This month', 'Freight revenue', String(liveMonth.freightRevenue)],
+      ['This month', 'Cash collected (invoices)', String(liveMonth.cashCollected)],
+      ['This month', 'Expenses', String(liveMonth.expenses)],
+      ['This month', 'Net profit', String(liveMonth.netProfit)],
+      ['This month', 'Net margin %', liveMonth.netMarginPercent?.toFixed(1) ?? ''],
+      ['All time', 'Outstanding invoices', String(totalReceivables)],
+      ['All time', 'Unpaid bills', String(totalPayables)],
+      [],
+      ['Vendor', 'Category', 'Amount', 'Date', 'Status', 'Batch'],
+      ...bills.map((b) => [
+        b.vendor,
+        b.category,
+        String(b.amount),
+        b.date,
+        b.status,
+        b.batchId || '',
+      ]),
+      [],
+      ['Shipment batch', 'Total', 'Type', 'Date'],
+      ...shipments.map((s) => [
+        s.batch || '',
+        String(s.total),
+        s.type || '',
+        s.date,
+      ]),
+    ];
+    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const link = document.createElement('a');
+    link.href = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
+    link.download = `qcargo_accounting_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+  };
 
 
 
@@ -282,42 +410,6 @@ export default function AccountingPage() {
     alert('Invoice marked as PAID!');
   };
 
-  // Recharts Static Data
-  const revenueData = [
-    { name: 'Jan', amount: 4800 },
-    { name: 'Feb', amount: 3900 },
-    { name: 'Mar', amount: 6200 },
-    { name: 'Apr', amount: 5400 },
-    { name: 'May', amount: 7800 },
-    { name: 'Jun', amount: 8900 },
-  ];
-
-  const expensesData = [
-    { name: 'Port Taxes', value: 2500, color: '#F15D38' },
-    { name: 'Freight Fuel', value: 4500, color: '#0d9488' },
-    { name: 'Truck Dispatch', value: 1200, color: '#eab308' },
-    { name: 'Office Costs', value: 950, color: '#6366f1' },
-  ];
-
-  const chartOfAccounts = [
-    { name: 'Berbera Transit Account', type: 'Asset', balance: 24500.00 },
-    { name: 'Accounts Receivable', type: 'Asset', balance: 8400.00 },
-    { name: 'Accounts Payable', type: 'Liability', balance: 5350.00 },
-    { name: 'Service Commission Revenue', type: 'Income', balance: 142000.00 },
-    { name: 'Freight Transport Expenses', type: 'Expense', balance: 68000.00 },
-  ];
-
-  // Calculations
-  const totalReceivables = invoices
-    .filter(inv => inv.status !== 'PAID')
-    .reduce((acc, inv) => acc + inv.amount, 0);
-
-  const totalPayables = bills
-    .filter(b => b.status === 'PENDING')
-    .reduce((acc, b) => acc + b.amount, 0);
-
-  const netAssetCommission = 142000 - 68000 - totalPayables;
-
   return (
     <div className="admin-container pb-20">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
@@ -326,9 +418,13 @@ export default function AccountingPage() {
           <p className="text-slate-400 font-medium font-sans">Global commissions, invoices, and operations bills</p>
         </div>
         <div className="flex gap-3 w-full md:w-auto">
-          <button className="flex-1 md:flex-none btn bg-white border border-slate-800 text-slate-300 flex items-center justify-center gap-2 hover:bg-slate-800 shadow-sm">
+          <button
+            type="button"
+            onClick={handleFiscalExport}
+            className="flex-1 md:flex-none btn bg-white border border-slate-800 text-slate-300 flex items-center justify-center gap-2 hover:bg-slate-800 shadow-sm"
+          >
             <Download size={18} />
-            Fiscal Report
+            Export CSV
           </button>
           {activeTab === 'bills' ? (
             <button 
@@ -357,8 +453,20 @@ export default function AccountingPage() {
         expenses={intelExpenses}
         shipments={shipments}
         showNetMargin
-        description="Spend, freight, and modeled net margin — use the tabs below for invoices and vendor bills."
+        showAccountingExtras
+        hideExpenseTable
+        description="This month: spend, freight, net margin, and efficiency. Tabs below for invoices and bills."
       />
+
+      {editingBill && (
+        <EditBillModal
+          bill={editingBill}
+          onClose={() => setEditingBill(null)}
+          onSaved={(updated) => {
+            setBills((prev) => prev.map((b) => (b.id === updated.id ? { ...b, ...updated } : b)));
+          }}
+        />
+      )}
 
       {/* Tabs Menu */}
       <div className="flex gap-1 p-1 bg-slate-900 border border-slate-800 rounded-[1.5rem] w-fit mb-10 overflow-x-auto max-w-full">
@@ -391,10 +499,10 @@ export default function AccountingPage() {
         <div className="space-y-10 animate-in fade-in duration-300">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {[
-              { label: 'Fiscal Revenue', value: '$142,500', trend: '+18.4%', icon: TrendingUp, color: 'text-[#F15D38]', bg: 'bg-[#F15D38]/10 border border-[#F15D38]/20' },
-              { label: 'Outstanding Invoices', value: `$${totalReceivables.toLocaleString()}`, trend: 'Awaiting', icon: Wallet, color: 'text-amber-400', bg: 'bg-amber-950/20 border border-amber-800/20' },
-              { label: 'Unpaid Vendor Bills', value: `$${totalPayables.toLocaleString()}`, trend: 'Pending', icon: CreditCard, color: 'text-rose-400', bg: 'bg-rose-950/20 border border-rose-800/20' },
-              { label: 'Liquid Net Assets', value: `$${netAssetCommission.toLocaleString()}`, trend: '+15.3%', icon: DollarSign, color: 'text-emerald-400', bg: 'bg-emerald-950/20 border border-emerald-800/20' },
+              { label: 'Freight (this month)', value: money(liveMonth.freightRevenue), trend: 'Live', icon: TrendingUp, color: 'text-[#F15D38]', bg: 'bg-[#F15D38]/10 border border-[#F15D38]/20' },
+              { label: 'Cash in (this month)', value: money(liveMonth.cashCollected), trend: 'Invoices', icon: DollarSign, color: 'text-sky-400', bg: 'bg-sky-950/20 border border-sky-800/20' },
+              { label: 'Outstanding invoices', value: money(totalReceivables), trend: 'Due', icon: Wallet, color: 'text-amber-400', bg: 'bg-amber-950/20 border border-amber-800/20' },
+              { label: 'Net profit (this month)', value: money(liveMonth.netProfit), trend: liveMonth.netMarginPercent != null ? `${liveMonth.netMarginPercent.toFixed(1)}% margin` : '—', icon: TrendingUp, color: liveMonth.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400', bg: 'bg-emerald-950/20 border border-emerald-800/20' },
             ].map((stat) => (
               <div key={stat.label} className={`shipment-card ${stat.bg}`}>
                 <div className="flex justify-between items-start mb-4">
@@ -415,12 +523,12 @@ export default function AccountingPage() {
             {/* Area Chart */}
             <div className="lg:col-span-2 shipment-card border border-slate-800 bg-[#131B2E]">
               <div className="flex justify-between items-center mb-10">
-                <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest">Monthly Logistics Commissions</h3>
-                <span className="px-3 py-1 bg-slate-900 border border-slate-800 text-[10px] font-black uppercase rounded-lg text-[#F15D38]">2026 Fiscal Cycle</span>
+                <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest">Freight revenue (last 6 months)</h3>
+                <span className="px-3 py-1 bg-slate-900 border border-slate-800 text-[10px] font-black uppercase rounded-lg text-[#F15D38]">From shipments</span>
               </div>
               <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={revenueData}>
+                  <AreaChart data={revenueChart}>
                     <defs>
                       <linearGradient id="colorCommission" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#F15D38" stopOpacity={0.25}/>
@@ -708,6 +816,14 @@ export default function AccountingPage() {
                         <td className="px-8 py-6 text-right font-black text-slate-100">${bill.amount.toLocaleString()}</td>
                         <td className="px-8 py-6">
                           <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              type="button"
+                              onClick={() => setEditingBill(bill)}
+                              className="p-2 hover:bg-slate-800 text-slate-400 hover:text-slate-100 rounded-lg transition-colors"
+                              title="Edit bill"
+                            >
+                              <Pencil size={16} />
+                            </button>
                             {bill.status !== 'PAID' && (
                               <button 
                                 onClick={() => handleSettleBill(bill.id)}

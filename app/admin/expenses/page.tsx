@@ -18,8 +18,8 @@ import {
   Pencil
 } from 'lucide-react';
 import Link from 'next/link';
-import ExpenseCharts from './ExpenseCharts';
 import ExpenseFinancialIntel from './ExpenseFinancialIntel';
+import EditBillModal from '@/app/admin/accounting/EditBillModal';
 import { formatPaymentMethod } from '@/lib/payment-methods';
 
 interface Expense {
@@ -29,20 +29,22 @@ interface Expense {
   vendor: string;
   amount: number;
   date: string;
+  due: string;
   status: 'PAID' | 'PENDING';
   paymentMethod: string;
 }
 
 const DEFAULT_EXPENSES: Expense[] = [
-  { id: 'EXP-001', batchId: 'FLT-2024-001', category: 'Customs', vendor: 'Hargeisa Port Authority', amount: 1250.00, date: '2026-05-15', status: 'PAID', paymentMethod: 'ZAAD' },
-  { id: 'EXP-002', batchId: 'CTN-2024-042', category: 'Trucking', vendor: 'Berbera local Transport Co', amount: 450.00, date: '2026-05-16', status: 'PAID', paymentMethod: 'CASH' },
-  { id: 'EXP-003', batchId: 'FLT-2024-001', category: 'Warehousing', vendor: 'Q CARGO GZ Warehouse', amount: 800.00, date: '2026-05-18', status: 'PENDING', paymentMethod: 'WAAFI' },
-  { id: 'EXP-004', batchId: 'FLT-2024-002', category: 'Sourcing', vendor: 'Agent Lee Sourcing', amount: 300.00, date: '2026-05-20', status: 'PAID', paymentMethod: 'EDAHAB' },
+  { id: 'EXP-001', batchId: 'FLT-2024-001', category: 'Customs', vendor: 'Hargeisa Port Authority', amount: 1250.00, date: '2026-05-15', due: '2026-05-15', status: 'PAID', paymentMethod: 'ZAAD' },
+  { id: 'EXP-002', batchId: 'CTN-2024-042', category: 'Trucking', vendor: 'Berbera local Transport Co', amount: 450.00, date: '2026-05-16', due: '2026-05-16', status: 'PAID', paymentMethod: 'CASH' },
+  { id: 'EXP-003', batchId: 'FLT-2024-001', category: 'Warehousing', vendor: 'Q CARGO GZ Warehouse', amount: 800.00, date: '2026-05-18', due: '2026-05-18', status: 'PENDING', paymentMethod: 'WAAFI' },
+  { id: 'EXP-004', batchId: 'FLT-2024-002', category: 'Sourcing', vendor: 'Agent Lee Sourcing', amount: 300.00, date: '2026-05-20', due: '2026-05-20', status: 'PAID', paymentMethod: 'EDAHAB' },
 ];
 
 export default function ExpensesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   // Load expenses from MongoDB (stored as VendorBills)
   const loadExpenses = async () => {
@@ -57,6 +59,7 @@ export default function ExpensesPage() {
         vendor: String(b.vendor || ''),
         amount: Number(b.amount) || 0,
         date: String(b.date || ''),
+        due: String(b.due || b.date || ''),
         status: b.status === 'PAID' ? 'PAID' : 'PENDING',
         paymentMethod: String(b.paymentMethod || 'CASH'),
       })));
@@ -139,6 +142,35 @@ export default function ExpensesPage() {
 
       <ExpenseFinancialIntel expenses={expenses} />
 
+      {editingExpense && (
+        <EditBillModal
+          bill={{
+            ...editingExpense,
+            status: editingExpense.status === 'PAID' ? 'PAID' : 'PENDING',
+          }}
+          onClose={() => setEditingExpense(null)}
+          onSaved={(updated) => {
+            setExpenses((prev) =>
+              prev.map((e) =>
+                e.id === updated.id
+                  ? {
+                      ...e,
+                      vendor: updated.vendor,
+                      amount: updated.amount,
+                      category: updated.category,
+                      date: updated.date,
+                      due: updated.due,
+                      status: updated.status === 'PAID' ? 'PAID' : 'PENDING',
+                      paymentMethod: updated.paymentMethod || e.paymentMethod,
+                      batchId: updated.batchId || e.batchId,
+                    }
+                  : e
+              )
+            );
+          }}
+        />
+      )}
+
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         <div className="shipment-card !bg-slate-900 border border-slate-800 text-white">
@@ -166,8 +198,6 @@ export default function ExpensesPage() {
           </div>
         </div>
       </div>
-
-      <ExpenseCharts expenses={expenses} />
 
       {/* Filters & Search */}
       <div className="flex flex-col md:flex-row gap-4 mb-8">
@@ -241,7 +271,12 @@ export default function ExpensesPage() {
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-2 hover:bg-slate-800 text-slate-400 hover:text-slate-100 rounded-lg transition-colors" title="Edit Expense">
+                      <button
+                        type="button"
+                        onClick={() => setEditingExpense(exp)}
+                        className="p-2 hover:bg-slate-800 text-slate-400 hover:text-slate-100 rounded-lg transition-colors"
+                        title="Edit Expense"
+                      >
                         <Pencil size={16} />
                       </button>
                       <button 

@@ -31,8 +31,15 @@ import {
   dailySpendSeries,
   formatMonthLabel,
 } from '@/lib/expense-analytics';
-import { filterShipmentsByPeriod, computeNetMargin, type ShipmentLike } from '@/lib/net-margin';
+import { filterShipmentsByPeriod, computeNetMargin } from '@/lib/net-margin';
+import {
+  computeRevenueEfficiency,
+  computeBatchMargins,
+  type ShipmentWithBatch,
+} from '@/lib/accounting-summary';
 import NetMarginPanel from './NetMarginPanel';
+import RevenueEfficiencyPanel from '@/app/admin/accounting/RevenueEfficiencyPanel';
+import BatchMarginTable from '@/app/admin/accounting/BatchMarginTable';
 
 export interface IntelExpense {
   id: string;
@@ -45,8 +52,14 @@ export interface IntelExpense {
   paymentMethod: string;
 }
 
-export interface IntelShipment extends ShipmentLike {
+export interface IntelShipment {
   id: string;
+  date: string;
+  total: number;
+  type?: string;
+  weight?: number;
+  cbm?: number;
+  batch?: string;
 }
 
 interface ExpenseFinancialIntelProps {
@@ -54,6 +67,9 @@ interface ExpenseFinancialIntelProps {
   shipments?: IntelShipment[];
   /** Net margin block — accounting page only */
   showNetMargin?: boolean;
+  /** Revenue efficiency + batch table — accounting page only */
+  showAccountingExtras?: boolean;
+  hideExpenseTable?: boolean;
   description?: string;
 }
 
@@ -76,6 +92,8 @@ export default function ExpenseFinancialIntel({
   expenses,
   shipments = [],
   showNetMargin = false,
+  showAccountingExtras = false,
+  hideExpenseTable = false,
   description = 'Period analytics — your existing ledger and charts below stay as they are.',
 }: ExpenseFinancialIntelProps) {
   const [period, setPeriod] = useState<ExpensePeriod>('this_month');
@@ -103,6 +121,19 @@ export default function ExpenseFinancialIntel({
     () => computeNetMargin(periodShipments, stats.total),
     [periodShipments, stats.total]
   );
+
+  const revenueEfficiency = useMemo(
+    () => computeRevenueEfficiency(margin),
+    [margin]
+  );
+
+  const batchMargins = useMemo(() => {
+    const shipmentRows: ShipmentWithBatch[] = periodShipments.map((s) => ({
+      ...s,
+      batch: s.batch || 'UNASSIGNED',
+    }));
+    return computeBatchMargins(shipmentRows, periodExpenses);
+  }, [periodShipments, periodExpenses]);
 
   const changeVsLastMonth = useMemo(() => {
     if (period !== 'this_month') return null;
@@ -215,6 +246,13 @@ export default function ExpenseFinancialIntel({
 
       {showNetMargin && <NetMarginPanel margin={margin} />}
 
+      {showAccountingExtras && (
+        <div className="space-y-4">
+          <RevenueEfficiencyPanel data={revenueEfficiency} />
+          <BatchMarginTable rows={batchMargins} />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 shipment-card border border-slate-800 bg-[#131B2E]">
           <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest mb-6">
@@ -285,6 +323,7 @@ export default function ExpenseFinancialIntel({
 
       <ExpenseCharts expenses={periodExpenses} />
 
+      {!hideExpenseTable && (
       <div className="shipment-card !p-0 overflow-hidden border border-slate-800">
         <div className="px-8 py-5 border-b border-slate-800 bg-slate-900/40">
           <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest">
@@ -325,6 +364,7 @@ export default function ExpenseFinancialIntel({
           </table>
         </div>
       </div>
+      )}
     </section>
   );
 }
