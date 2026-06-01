@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import ExpenseCharts from './ExpenseCharts';
-import ExpenseFinancialIntel, { type IntelShipment } from './ExpenseFinancialIntel';
+import ExpenseFinancialIntel from './ExpenseFinancialIntel';
 import { formatPaymentMethod } from '@/lib/payment-methods';
 
 interface Expense {
@@ -43,28 +43,6 @@ const DEFAULT_EXPENSES: Expense[] = [
 export default function ExpensesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [shipments, setShipments] = useState<IntelShipment[]>([]);
-
-  const loadShipments = async () => {
-    try {
-      const res = await fetch('/api/shipments');
-      if (!res.ok) throw new Error('Failed to load shipments');
-      const data = await res.json();
-      setShipments(
-        data.map((s: Record<string, unknown>) => ({
-          id: String(s._id || s.id),
-          date: String(s.date || ''),
-          total: Number(s.total) || 0,
-          type: String(s.type || 'AIR'),
-          weight: Number(s.weight) || 0,
-          cbm: Number(s.cbm) || 0,
-        }))
-      );
-    } catch (e) {
-      console.error(e);
-      setShipments([]);
-    }
-  };
 
   // Load expenses from MongoDB (stored as VendorBills)
   const loadExpenses = async () => {
@@ -90,7 +68,6 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     loadExpenses();
-    loadShipments();
   }, []);
 
   const handleDelete = async (id: string) => {
@@ -160,7 +137,7 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      <ExpenseFinancialIntel expenses={expenses} shipments={shipments} />
+      <ExpenseFinancialIntel expenses={expenses} />
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">

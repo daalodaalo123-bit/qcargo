@@ -39,6 +39,10 @@ import {
   Bar,
   Cell
 } from 'recharts';
+import ExpenseFinancialIntel, {
+  type IntelExpense,
+  type IntelShipment,
+} from '@/app/admin/expenses/ExpenseFinancialIntel';
 
 type TabType = 'overview' | 'invoices' | 'bills' | 'accounts' | 'reports';
 
@@ -83,6 +87,7 @@ export default function AccountingPage() {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
+  const [shipments, setShipments] = useState<IntelShipment[]>([]);
   
   // Search & Filter
   const [searchTerm, setSearchTerm] = useState('');
@@ -146,10 +151,43 @@ export default function AccountingPage() {
     }
   };
 
+  const loadShipments = async () => {
+    try {
+      const res = await fetch('/api/shipments');
+      if (!res.ok) throw new Error('Failed to load shipments');
+      const data = await res.json();
+      setShipments(
+        data.map((s: Record<string, unknown>) => ({
+          id: String(s._id || s.id),
+          date: String(s.date || ''),
+          total: Number(s.total) || 0,
+          type: String(s.type || 'AIR'),
+          weight: Number(s.weight) || 0,
+          cbm: Number(s.cbm) || 0,
+        }))
+      );
+    } catch (e) {
+      console.error(e);
+      setShipments([]);
+    }
+  };
+
   useEffect(() => {
     loadBills();
     loadInvoices();
+    loadShipments();
   }, []);
+
+  const intelExpenses: IntelExpense[] = bills.map((b) => ({
+    id: b.id,
+    batchId: 'GENERAL',
+    category: b.category,
+    vendor: b.vendor,
+    amount: b.amount,
+    date: b.date,
+    status: b.status === 'PAID' ? 'PAID' : 'PENDING',
+    paymentMethod: b.paymentMethod || 'CASH',
+  }));
 
 
 
@@ -314,6 +352,13 @@ export default function AccountingPage() {
           )}
         </div>
       </div>
+
+      <ExpenseFinancialIntel
+        expenses={intelExpenses}
+        shipments={shipments}
+        showNetMargin
+        description="Spend, freight, and modeled net margin — use the tabs below for invoices and vendor bills."
+      />
 
       {/* Tabs Menu */}
       <div className="flex gap-1 p-1 bg-slate-900 border border-slate-800 rounded-[1.5rem] w-fit mb-10 overflow-x-auto max-w-full">
