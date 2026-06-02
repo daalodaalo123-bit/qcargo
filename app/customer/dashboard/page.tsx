@@ -94,17 +94,17 @@ export default function CustomerDashboardPage() {
   const totalBalance = customer?.currentBalance || 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
+    <div className="min-h-screen bg-[#0B0F19] font-sans text-slate-100">
       {/* Nav */}
-      <nav className="bg-white border-b border-slate-100 sticky top-0 z-40">
+      <nav className="bg-[#0B0F19] border-b border-slate-800 sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="text-xl font-black tracking-tighter flex items-center gap-2">
             <img src="/logo-black.jpg" className="h-8 w-auto rounded-lg object-contain" alt="Q Cargo" />
             <span>Q<span className="text-blue-600">CARGO</span></span>
           </Link>
           <div className="flex items-center gap-3">
-            <span className="hidden sm:block text-sm font-bold text-slate-700">{customer?.name}</span>
-            <button onClick={handleLogout} className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors px-3 py-2 rounded-xl hover:bg-rose-50">
+            <span className="hidden sm:block text-sm font-bold text-slate-300">{customer?.name}</span>
+            <button onClick={handleLogout} className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-rose-400 transition-colors px-3 py-2 rounded-xl hover:bg-rose-950/30">
               <LogOut size={14} /> Logout
             </button>
           </div>

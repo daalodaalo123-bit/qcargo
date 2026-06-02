@@ -50,14 +50,14 @@ export default function CustomerLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-      <nav className="bg-white border-b border-slate-100">
+    <div className="min-h-screen bg-[#0B0F19] flex flex-col font-sans text-slate-100">
+      <nav className="bg-[#0B0F19] border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="text-xl font-black tracking-tighter flex items-center gap-2">
             <img src="/logo-black.jpg" className="h-8 w-auto rounded-lg object-contain" alt="Q Cargo" />
             <span>Q<span className="text-blue-600">CARGO</span></span>
           </Link>
-          <Link href="/tracking" className="text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors">
+          <Link href="/tracking" className="text-xs font-bold text-slate-400 hover:text-blue-400 transition-colors">
             Track Shipment →
           </Link>
         </div>
