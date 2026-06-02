@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongoose';
 import VendorBill from '@/lib/models/VendorBill';
+import { VendorBillSchema, zodError } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,13 @@ export async function POST(request: Request) {
   try {
     await connectDB();
     const body = await request.json();
-    const bill = new VendorBill(body);
+
+    const parsed = VendorBillSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(zodError(parsed.error), { status: 400 });
+    }
+
+    const bill = new VendorBill(parsed.data);
     await bill.save();
     return NextResponse.json(bill, { status: 201 });
   } catch (err: any) {

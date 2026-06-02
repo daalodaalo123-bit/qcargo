@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongoose';
 import Shipment from '@/lib/models/Shipment';
 import { Batch } from '@/lib/models/Batch';
+import { ShipmentSchema, zodError } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,9 +22,14 @@ export async function POST(request: Request) {
   try {
     await connectDB();
     const body = await request.json();
-    
+
+    const parsed = ShipmentSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(zodError(parsed.error), { status: 400 });
+    }
+
     // Create new shipment document
-    const shipment = new Shipment(body);
+    const shipment = new Shipment(parsed.data);
     await shipment.save();
 
     // If batch is assigned, we should update the shipments count on the Batch model

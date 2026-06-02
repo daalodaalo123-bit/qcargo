@@ -69,6 +69,7 @@ export default function AdminLayout({
     { name: 'Expenses', icon: CreditCard, href: '/admin/expenses' },
     { name: 'Accounting', icon: BarChart3, href: '/admin/accounting' },
     { name: 'To-Do List', icon: CheckSquare, href: '/admin/todo' },
+    { name: 'Settings', icon: Settings, href: '/admin/settings' },
   ];
 
   return (

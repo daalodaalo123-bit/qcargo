@@ -93,8 +93,54 @@ const [searchTerm, setSearchTerm] = useState('');
     }
   };
 
-  const handleBulkManifest = () => {
-    alert('Simulating bulk cargo manifest download...');
+  const handleBulkManifest = async () => {
+    try {
+      // Fetch all batches with their shipments
+      const res = await fetch('/api/batches');
+      if (!res.ok) throw new Error('Failed to load batches');
+      const batchData: any[] = await res.json();
+
+      const rows: string[][] = [
+        ['Batch ID', 'Type', 'Status', 'Origin', 'Destination', 'Shipments', 'Weight', 'Arrival'],
+      ];
+
+      for (const b of batchData) {
+        // Fetch shipments for each batch
+        const sRes = await fetch(`/api/batches?id=${b._id || b.id}`);
+        if (!sRes.ok) continue;
+        const bDetail = await sRes.json();
+        const shipments: any[] = bDetail.shipmentsList || [];
+
+        rows.push([b.batchId, b.type, b.status, b.origin, b.destination, String(shipments.length), b.weight, b.arrival || '']);
+
+        // Add shipment detail rows
+        for (const s of shipments) {
+          rows.push([
+            '', '', '', '',
+            `  → ${s.shipmentNumber}`,
+            s.customer,
+            s.type,
+            s.status,
+            s.paymentStatus,
+            `$${s.total}`,
+            s.notes || '',
+          ]);
+        }
+
+        rows.push([]); // blank separator between batches
+      }
+
+      const csv = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `qcargo-manifest-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(`Manifest export failed: ${err.message}`);
+    }
   };
 
   const filteredBatches = batches.filter(batch => 

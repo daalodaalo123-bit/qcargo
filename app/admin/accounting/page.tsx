@@ -282,38 +282,67 @@ export default function AccountingPage() {
     `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const handleFiscalExport = () => {
-    const rows = [
-      ['Section', 'Metric', 'Value'],
-      ['This month', 'Freight revenue', String(liveMonth.freightRevenue)],
-      ['This month', 'Cash collected (invoices)', String(liveMonth.cashCollected)],
-      ['This month', 'Expenses', String(liveMonth.expenses)],
-      ['This month', 'Net profit', String(liveMonth.netProfit)],
-      ['This month', 'Net margin %', liveMonth.netMarginPercent?.toFixed(1) ?? ''],
-      ['All time', 'Outstanding invoices', String(totalReceivables)],
-      ['All time', 'Unpaid bills', String(totalPayables)],
-      [],
-      ['Vendor', 'Category', 'Amount', 'Date', 'Status', 'Batch'],
-      ...bills.map((b) => [
-        b.vendor,
-        b.category,
-        String(b.amount),
-        b.date,
-        b.status,
-        b.batchId || '',
-      ]),
-      [],
-      ['Shipment batch', 'Total', 'Type', 'Date'],
-      ...shipments.map((s) => [
-        s.batch || '',
-        String(s.total),
-        s.type || '',
-        s.date,
-      ]),
-    ];
+    let rows: string[][];
+    let filename: string;
+
+    if (activeTab === 'invoices') {
+      rows = [
+        ['Invoice #', 'Customer', 'Date', 'Due', 'Amount ($)', 'Status', 'Payment Method'],
+        ...invoices.map((inv) => [
+          inv.id,
+          inv.customer,
+          inv.date,
+          inv.due,
+          String(inv.amount),
+          inv.status,
+          inv.paymentMethod || '',
+        ]),
+      ];
+      filename = `qcargo_invoices_${new Date().toISOString().slice(0, 10)}.csv`;
+    } else if (activeTab === 'bills') {
+      rows = [
+        ['Vendor', 'Category', 'Amount ($)', 'Date', 'Due', 'Status', 'Payment Method', 'Batch'],
+        ...bills.map((b) => [
+          b.vendor,
+          b.category,
+          String(b.amount),
+          b.date,
+          b.due,
+          b.status,
+          b.paymentMethod || '',
+          b.batchId || '',
+        ]),
+      ];
+      filename = `qcargo_bills_${new Date().toISOString().slice(0, 10)}.csv`;
+    } else {
+      rows = [
+        ['Section', 'Metric', 'Value'],
+        ['This month', 'Freight revenue', String(liveMonth.freightRevenue)],
+        ['This month', 'Cash collected (invoices)', String(liveMonth.cashCollected)],
+        ['This month', 'Expenses', String(liveMonth.expenses)],
+        ['This month', 'Net profit', String(liveMonth.netProfit)],
+        ['This month', 'Net margin %', liveMonth.netMarginPercent?.toFixed(1) ?? ''],
+        ['All time', 'Outstanding invoices', String(totalReceivables)],
+        ['All time', 'Unpaid bills', String(totalPayables)],
+        [],
+        ['--- INVOICES ---'],
+        ['Invoice #', 'Customer', 'Date', 'Amount ($)', 'Status'],
+        ...invoices.map((inv) => [inv.id, inv.customer, inv.date, String(inv.amount), inv.status]),
+        [],
+        ['--- VENDOR BILLS ---'],
+        ['Vendor', 'Category', 'Amount ($)', 'Date', 'Status', 'Batch'],
+        ...bills.map((b) => [b.vendor, b.category, String(b.amount), b.date, b.status, b.batchId || '']),
+        [],
+        ['--- SHIPMENTS ---'],
+        ['Shipment #', 'Customer', 'Batch', 'Total ($)', 'Type', 'Date', 'Payment'],
+        ...shipments.map((s) => [s.shipmentNumber || '', s.customer || '', s.batch || '', String(s.total), s.type || '', s.date, s.paymentStatus || '']),
+      ];
+      filename = `qcargo_accounting_${new Date().toISOString().slice(0, 10)}.csv`;
+    }
     const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const link = document.createElement('a');
     link.href = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
-    link.download = `qcargo_accounting_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = filename;
     link.click();
   };
 

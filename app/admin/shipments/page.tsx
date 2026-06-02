@@ -39,6 +39,10 @@ const DEFAULT_SHIPMENTS: Shipment[] = [
 
 export default function ShipmentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterPayment, setFilterPayment] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [editingShipment, setEditingShipment] = useState<Shipment | null>(null);
   const [paymentShipment, setPaymentShipment] = useState<PaymentShipment | null>(null);
@@ -120,11 +124,18 @@ export default function ShipmentsPage() {
     document.body.removeChild(link);
   };
 
-  const filteredShipments = shipments.filter(ship => 
-    ship.shipmentNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ship.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ship.batch.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredShipments = shipments.filter(ship => {
+    const matchesSearch =
+      ship.shipmentNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ship.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ship.batch.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = !filterStatus || ship.status === filterStatus;
+    const matchesPayment = !filterPayment || ship.paymentStatus === filterPayment;
+    const shipDate = ship.date ? new Date(ship.date) : null;
+    const matchesFrom = !filterDateFrom || (shipDate && shipDate >= new Date(filterDateFrom));
+    const matchesTo = !filterDateTo || (shipDate && shipDate <= new Date(filterDateTo + 'T23:59:59'));
+    return matchesSearch && matchesStatus && matchesPayment && matchesFrom && matchesTo;
+  });
 
   return (
     <div className="admin-container">
@@ -213,10 +224,36 @@ export default function ShipmentsPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <button className="btn bg-white border border-slate-800 text-slate-300 flex items-center gap-2 hover:bg-slate-800 px-6">
-          <Filter size={18} />
-          Filters
-        </button>
+      </div>
+
+      {/* Filters row */}
+      <div className="mt-3 grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-3">
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+          className="bg-slate-800 border border-slate-700 text-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold focus:outline-none focus:border-[#F15D38] w-full sm:w-auto">
+          <option value="">All Statuses</option>
+          <option value="PENDING">Pending</option>
+          <option value="IN_TRANSIT">In Transit</option>
+          <option value="ARRIVED">Arrived</option>
+        </select>
+        <select value={filterPayment} onChange={e => setFilterPayment(e.target.value)}
+          className="bg-slate-800 border border-slate-700 text-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold focus:outline-none focus:border-[#F15D38] w-full sm:w-auto">
+          <option value="">All Payments</option>
+          <option value="UNPAID">Unpaid</option>
+          <option value="PARTIAL">Partial</option>
+          <option value="PAID">Paid</option>
+        </select>
+        <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}
+          title="From date"
+          className="bg-slate-800 border border-slate-700 text-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold focus:outline-none focus:border-[#F15D38] w-full sm:w-auto" />
+        <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}
+          title="To date"
+          className="bg-slate-800 border border-slate-700 text-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold focus:outline-none focus:border-[#F15D38] w-full sm:w-auto" />
+        {(filterStatus || filterPayment || filterDateFrom || filterDateTo) && (
+          <button onClick={() => { setFilterStatus(''); setFilterPayment(''); setFilterDateFrom(''); setFilterDateTo(''); }}
+            className="col-span-2 sm:col-span-1 text-xs font-bold text-slate-400 hover:text-rose-400 transition-colors px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl">
+            Clear ×
+          </button>
+        )}
       </div>
 
       {/* Shipments Table */}

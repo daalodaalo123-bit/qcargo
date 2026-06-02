@@ -1,36 +1,69 @@
-import NextAuth from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
+import NextAuth from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import bcrypt from 'bcryptjs';
+import { connectDB } from '@/lib/mongoose';
+import AdminUser from '@/lib/models/AdminUser';
 
 const handler = NextAuth({
   providers: [
     CredentialsProvider({
-      name: "Credentials",
+      name: 'Credentials',
       credentials: {
-        username: { label: "Username", type: "text" },
-        password: { label: "Password", type: "password" }
+        username: { label: 'Username', type: 'text' },
+        password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        // This is where you would check the database for the user
-        // For now, we allow access with a default admin account
-        const isUserValid = credentials?.username === "admin" || 
-                            credentials?.username === "admin@qcargo.com" ||
-                            credentials?.username === "admin@durdurcargo.com" || 
-                            credentials?.username === "admin@qcargo.com";
-        const isPasswordValid = credentials?.password === "durdur2024" || 
-                                credentials?.password === "qcargo2024";
+        if (!credentials?.username || !credentials?.password) return null;
 
-        if (isUserValid && isPasswordValid) {
-          return { id: "1", name: "Admin Agent", email: "admin@qcargo.com" };
+        try {
+          await connectDB();
+          const user = await AdminUser.findOne({
+            $or: [
+              { username: credentials.username.toLowerCase() },
+              { email: credentials.username.toLowerCase() },
+            ],
+            active: true,
+          });
+
+          if (!user) return null;
+
+          const valid = await bcrypt.compare(credentials.password, user.passwordHash);
+          if (!valid) return null;
+
+          return {
+            id: String(user._id),
+            name: user.name,
+            email: user.email,
+            role: user.role,
+          };
+        } catch (err) {
+          console.error('Auth error:', err);
+          return null;
         }
-        return null;
-      }
-    })
+      },
+    }),
   ],
   pages: {
-    signIn: "/admin/login",
+    signIn: '/admin/login',
   },
   session: {
-    strategy: "jwt",
+    strategy: 'jwt',
+  },
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.role = (user as any).role;
+        token.id = user.id;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        (session.user as any).role = token.role;
+        (session.user as any).id = token.id;
+      }
+      return session;
+    },
   },
   secret: process.env.NEXTAUTH_SECRET,
 });
