@@ -30,7 +30,7 @@ export default function Home() {
     <div className="min-h-screen bg-[#0B0F19] font-sans text-slate-100 overflow-x-hidden">
 
       {/* Navigation */}
-      <nav className="bg-[#0B0F19]/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-50">
+      <nav className="bg-[#0B0F19] border-b border-slate-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
           <Link href="/" className="text-xl sm:text-2xl font-black tracking-tighter flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <img src="/logo-black.jpg" className="h-8 sm:h-9 w-auto rounded-lg object-contain" alt="Q Cargo" />
