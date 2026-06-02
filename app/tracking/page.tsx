@@ -91,9 +91,9 @@ export default function TrackingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
+    <div className="min-h-screen bg-[#0B0F19] font-sans text-slate-100">
       {/* Navigation Header */}
-      <nav className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50">
+      <nav className="bg-[#0B0F19] border-b border-slate-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <Link href="/" className="text-2xl font-black tracking-tighter flex items-center gap-3">
             <img src="/logo-black.jpg" className="h-9 w-auto rounded-lg object-contain" alt="Q Cargo" />
@@ -104,7 +104,7 @@ export default function TrackingPage() {
             <a href="/#services" className="hover:text-blue-600 transition-colors">Services</a>
             <a href="/#about" className="hover:text-blue-600 transition-colors">About</a>
           </div>
-          <Link href="/tracking" className="hidden md:block btn btn-primary !rounded-xl !px-6 !py-2.5 !text-xs shadow-lg shadow-blue-600/20">
+          <Link href="/tracking" className="hidden md:block bg-blue-600 text-white rounded-xl px-5 py-2.5 text-xs font-black hover:bg-blue-700 transition-all shadow-lg">
             Track Cargo
           </Link>
         </div>
