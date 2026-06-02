@@ -334,8 +334,8 @@ export default function AccountingPage() {
         ...bills.map((b) => [b.vendor, b.category, String(b.amount), b.date, b.status, b.batchId || '']),
         [],
         ['--- SHIPMENTS ---'],
-        ['Shipment #', 'Customer', 'Batch', 'Total ($)', 'Type', 'Date', 'Payment'],
-        ...shipments.map((s) => [s.shipmentNumber || '', s.customer || '', s.batch || '', String(s.total), s.type || '', s.date, s.paymentStatus || '']),
+        ['ID', 'Batch', 'Total ($)', 'Type', 'Date'],
+        ...shipments.map((s) => [s.id || '', s.batch || '', String(s.total), s.type || '', s.date]),
       ];
       filename = `qcargo_accounting_${new Date().toISOString().slice(0, 10)}.csv`;
     }
