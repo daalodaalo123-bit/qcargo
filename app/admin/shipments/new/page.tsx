@@ -514,12 +514,9 @@ export default function NewShipmentPage() {
             </div>
 
             <div className="hidden md:grid md:grid-cols-12 gap-3 mb-2 px-1">
-              <span className="md:col-span-4 text-[10px] font-bold text-slate-500 uppercase">Goods</span>
-              <span className="md:col-span-3 text-[10px] font-bold text-slate-500 uppercase">Tracking #</span>
-              <span className="md:col-span-2 text-[10px] font-bold text-slate-500 uppercase">Qty</span>
-              <span className="md:col-span-2 text-[10px] font-bold text-slate-500 uppercase">
-                {shipmentType === 'AIR' ? 'Weight (KG)' : 'CBM'}
-              </span>
+              <span className="md:col-span-6 text-[10px] font-bold text-slate-500 uppercase">Goods</span>
+              <span className="md:col-span-4 text-[10px] font-bold text-slate-500 uppercase">Tracking #</span>
+              <span className="md:col-span-1 text-[10px] font-bold text-slate-500 uppercase">Qty</span>
               <span className="md:col-span-1" />
             </div>
 
@@ -537,7 +534,7 @@ export default function NewShipmentPage() {
                   >
                     <Trash2 size={14} />
                   </button>
-                  <div className="md:col-span-4">
+                  <div className="md:col-span-6">
                     <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 md:sr-only">Goods</label>
                     <input
                       type="text"
@@ -547,7 +544,7 @@ export default function NewShipmentPage() {
                       onChange={(e) => updateCargoLine(index, 'description', e.target.value)}
                     />
                   </div>
-                  <div className="md:col-span-3">
+                  <div className="md:col-span-4">
                     <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 md:sr-only">Tracking #</label>
                     <input
                       type="text"
@@ -557,7 +554,7 @@ export default function NewShipmentPage() {
                       onChange={(e) => updateCargoLine(index, 'trackingNumber', e.target.value)}
                     />
                   </div>
-                  <div className="md:col-span-2">
+                  <div className="md:col-span-1">
                     <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 md:sr-only">Qty</label>
                     <input
                       type="number"
@@ -566,32 +563,6 @@ export default function NewShipmentPage() {
                       value={line.qty}
                       onChange={(e) => updateCargoLine(index, 'qty', Number(e.target.value))}
                     />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 md:sr-only">
-                      {shipmentType === 'AIR' ? 'Weight (KG)' : 'CBM'}
-                    </label>
-                    {shipmentType === 'AIR' ? (
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        className="search-input !py-2 !px-3 min-w-0"
-                        placeholder="0"
-                        value={line.weight}
-                        onChange={(e) => updateCargoLine(index, 'weight', Number(e.target.value))}
-                      />
-                    ) : (
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        className="search-input !py-2 !px-3 min-w-0"
-                        placeholder="0"
-                        value={line.cbm}
-                        onChange={(e) => updateCargoLine(index, 'cbm', Number(e.target.value))}
-                      />
-                    )}
                   </div>
                 </div>
               ))}

@@ -6,6 +6,8 @@ export interface IShipmentItem {
   weight?: number;
   cbm?: number;
   value?: number;
+  warehouseStatus?: 'IN_WAREHOUSE' | 'TAKEN' | 'LOST';
+  statusDate?: Date;
 }
 
 export interface ICourierPackage {
@@ -47,6 +49,8 @@ const ShipmentItemSchema = new Schema<IShipmentItem>({
   weight: { type: Number },
   cbm: { type: Number },
   value: { type: Number },
+  warehouseStatus: { type: String, enum: ['IN_WAREHOUSE', 'TAKEN', 'LOST'], default: 'IN_WAREHOUSE' },
+  statusDate: { type: Date },
 });
 
 const CourierPackageSchema = new Schema<ICourierPackage>({

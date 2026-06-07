@@ -3,21 +3,21 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Search, Package, User, Hash, Scale, DollarSign, X, Loader2,
-  Box, CheckCircle2, Clock, Truck, LogOut, Warehouse, CalendarCheck
+  Box, CheckCircle2, Clock, Truck, LogOut, Warehouse, AlertTriangle, RotateCcw
 } from 'lucide-react';
 
 interface ShipmentItem {
   description: string;
   qty: number;
   weight?: number;
-  cbm?: number;
+  warehouseStatus?: 'IN_WAREHOUSE' | 'TAKEN' | 'LOST';
+  statusDate?: string;
 }
 
 interface CourierPackage {
   trackingNumber: string;
   goods: string;
   qty: number;
-  courier?: string;
 }
 
 interface WarehouseShipment {
@@ -37,23 +37,20 @@ interface WarehouseShipment {
   takenAt?: string;
 }
 
-type ShipmentFilter = 'ALL' | 'ARRIVED' | 'IN_TRANSIT' | 'PENDING';
-type PickupFilter = 'ALL' | 'IN_WAREHOUSE' | 'TAKEN';
+type Filter = 'ALL' | 'ARRIVED' | 'IN_TRANSIT' | 'PENDING' | 'IN_WAREHOUSE' | 'TAKEN' | 'LOST';
 
-const SHIPMENT_FILTERS: { value: ShipmentFilter; label: string; icon: React.ElementType; color: string; active: string }[] = [
-  { value: 'ALL',         label: 'All',        icon: Package,      color: 'text-slate-400 border-slate-700 bg-slate-800',           active: 'text-slate-100 border-slate-500 bg-slate-700' },
-  { value: 'ARRIVED',    label: 'Arrived',    icon: CheckCircle2, color: 'text-emerald-400 border-emerald-800/40 bg-emerald-950/20', active: 'text-white border-emerald-500 bg-emerald-600' },
-  { value: 'IN_TRANSIT', label: 'In Transit', icon: Truck,        color: 'text-[#F15D38] border-[#F15D38]/30 bg-[#F15D38]/10',      active: 'text-white border-[#F15D38] bg-[#F15D38]' },
-  { value: 'PENDING',    label: 'Pending',    icon: Clock,        color: 'text-amber-400 border-amber-800/40 bg-amber-950/20',      active: 'text-white border-amber-500 bg-amber-600' },
+const FILTERS: { value: Filter; label: string; icon: React.ElementType; color: string; active: string }[] = [
+  { value: 'ALL',          label: 'All',         icon: Warehouse,    color: 'text-slate-400 border-slate-700 bg-slate-800',           active: 'text-slate-100 border-slate-500 bg-slate-700' },
+  { value: 'ARRIVED',      label: 'Arrived',     icon: CheckCircle2, color: 'text-emerald-400 border-emerald-800/40 bg-emerald-950/20', active: 'text-white border-emerald-500 bg-emerald-600' },
+  { value: 'IN_TRANSIT',   label: 'In Transit',  icon: Truck,        color: 'text-[#F15D38] border-[#F15D38]/30 bg-[#F15D38]/10',      active: 'text-white border-[#F15D38] bg-[#F15D38]' },
+  { value: 'PENDING',      label: 'Pending',     icon: Clock,        color: 'text-amber-400 border-amber-800/40 bg-amber-950/20',      active: 'text-white border-amber-500 bg-amber-600' },
+  { value: 'IN_WAREHOUSE', label: 'Still Here',  icon: Box,          color: 'text-blue-400 border-blue-800/40 bg-blue-950/20',         active: 'text-white border-blue-500 bg-blue-600' },
+  { value: 'TAKEN',        label: 'Taken',       icon: LogOut,       color: 'text-purple-400 border-purple-800/40 bg-purple-950/20',   active: 'text-white border-purple-500 bg-purple-600' },
+  { value: 'LOST',         label: 'Lost',        icon: AlertTriangle,color: 'text-rose-400 border-rose-800/40 bg-rose-950/20',         active: 'text-white border-rose-500 bg-rose-600' },
 ];
 
-const PICKUP_FILTERS: { value: PickupFilter; label: string; icon: React.ElementType; color: string; active: string }[] = [
-  { value: 'ALL',          label: 'All Goods',      icon: Warehouse,    color: 'text-slate-400 border-slate-700 bg-slate-800',           active: 'text-slate-100 border-slate-500 bg-slate-700' },
-  { value: 'IN_WAREHOUSE', label: 'Still Here',     icon: Box,          color: 'text-blue-400 border-blue-800/40 bg-blue-950/20',        active: 'text-white border-blue-500 bg-blue-600' },
-  { value: 'TAKEN',        label: 'Taken / Picked', icon: LogOut,       color: 'text-purple-400 border-purple-800/40 bg-purple-950/20',  active: 'text-white border-purple-500 bg-purple-600' },
-];
-
-function formatDate(d: string | Date) {
+function formatDate(d?: string | Date) {
+  if (!d) return '';
   try {
     return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   } catch { return String(d); }
@@ -63,9 +60,8 @@ export default function WarehousePage() {
   const [shipments, setShipments] = useState<WarehouseShipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ShipmentFilter>('ALL');
-  const [pickupFilter, setPickupFilter] = useState<PickupFilter>('ALL');
-  const [markingId, setMarkingId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<Filter>('ALL');
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/shipments')
@@ -75,26 +71,33 @@ export default function WarehousePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const counts = useMemo(() => ({
-    shipment: {
-      ALL:        shipments.length,
-      ARRIVED:    shipments.filter(s => s.status === 'ARRIVED').length,
-      IN_TRANSIT: shipments.filter(s => s.status === 'IN_TRANSIT').length,
-      PENDING:    shipments.filter(s => s.status === 'PENDING').length,
-    },
-    pickup: {
-      ALL:          shipments.length,
-      IN_WAREHOUSE: shipments.filter(s => !s.takenAt).length,
-      TAKEN:        shipments.filter(s => !!s.takenAt).length,
-    },
-  }), [shipments]);
+  // All items across all shipments for counting
+  const allItems = useMemo(() =>
+    shipments.flatMap(s => s.items.filter(it => it.description)),
+  [shipments]);
+
+  const counts: Record<Filter, number> = useMemo(() => ({
+    ALL:          shipments.length,
+    ARRIVED:      shipments.filter(s => s.status === 'ARRIVED').length,
+    IN_TRANSIT:   shipments.filter(s => s.status === 'IN_TRANSIT').length,
+    PENDING:      shipments.filter(s => s.status === 'PENDING').length,
+    IN_WAREHOUSE: allItems.filter(it => !it.warehouseStatus || it.warehouseStatus === 'IN_WAREHOUSE').length,
+    TAKEN:        allItems.filter(it => it.warehouseStatus === 'TAKEN').length,
+    LOST:         allItems.filter(it => it.warehouseStatus === 'LOST').length,
+  }), [shipments, allItems]);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     return shipments.filter(s => {
-      if (statusFilter !== 'ALL' && s.status !== statusFilter) return false;
-      if (pickupFilter === 'IN_WAREHOUSE' && s.takenAt) return false;
-      if (pickupFilter === 'TAKEN' && !s.takenAt) return false;
+      // Status-based filters
+      if (filter === 'ARRIVED' && s.status !== 'ARRIVED') return false;
+      if (filter === 'IN_TRANSIT' && s.status !== 'IN_TRANSIT') return false;
+      if (filter === 'PENDING' && s.status !== 'PENDING') return false;
+      // Item-based filters: show shipment only if it has at least one matching item
+      if (filter === 'IN_WAREHOUSE' && !s.items.some(it => !it.warehouseStatus || it.warehouseStatus === 'IN_WAREHOUSE')) return false;
+      if (filter === 'TAKEN' && !s.items.some(it => it.warehouseStatus === 'TAKEN')) return false;
+      if (filter === 'LOST' && !s.items.some(it => it.warehouseStatus === 'LOST')) return false;
+      // Search
       if (!q) return true;
       if (s.shipmentNumber?.toLowerCase().includes(q)) return true;
       if (s.customer?.toLowerCase().includes(q)) return true;
@@ -103,7 +106,7 @@ export default function WarehousePage() {
       if (s.items?.some(it => it.description?.toLowerCase().includes(q))) return true;
       return false;
     });
-  }, [query, statusFilter, pickupFilter, shipments]);
+  }, [query, filter, shipments]);
 
   const matchedTracking = (s: WarehouseShipment) => {
     const q = query.trim().toLowerCase();
@@ -111,28 +114,31 @@ export default function WarehousePage() {
     return s.courierPackages?.find(p => p.trackingNumber?.toLowerCase().includes(q));
   };
 
-  const handleMarkTaken = async (s: WarehouseShipment) => {
-    const isTaken = !!s.takenAt;
-    const confirmMsg = isTaken
-      ? `Undo "taken" for ${s.customer} — ${s.shipmentNumber}? This will mark it as still in warehouse.`
-      : `Mark goods for ${s.customer} (${s.shipmentNumber}) as TAKEN from warehouse today?`;
-    if (!confirm(confirmMsg)) return;
-
-    setMarkingId(s._id);
+  const updateItemStatus = async (
+    shipment: WarehouseShipment,
+    itemIndex: number,
+    newStatus: 'IN_WAREHOUSE' | 'TAKEN' | 'LOST'
+  ) => {
+    setUpdatingId(`${shipment._id}-${itemIndex}`);
     try {
-      const res = await fetch(`/api/shipments?id=${s._id}`, {
+      const updatedItems = shipment.items.map((it, i) =>
+        i === itemIndex
+          ? { ...it, warehouseStatus: newStatus, statusDate: newStatus === 'IN_WAREHOUSE' ? undefined : new Date().toISOString() }
+          : it
+      );
+      const res = await fetch(`/api/shipments?id=${shipment._id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ takenAt: isTaken ? null : new Date().toISOString() }),
+        body: JSON.stringify({ items: updatedItems }),
       });
       if (!res.ok) throw new Error('Failed to update');
-      setShipments(prev => prev.map(sh =>
-        sh._id === s._id ? { ...sh, takenAt: isTaken ? undefined : new Date().toISOString() } : sh
+      setShipments(prev => prev.map(s =>
+        s._id === shipment._id ? { ...s, items: updatedItems } : s
       ));
     } catch {
-      alert('Failed to update. Please try again.');
+      alert('Update failed. Please try again.');
     } finally {
-      setMarkingId(null);
+      setUpdatingId(null);
     }
   };
 
@@ -158,7 +164,7 @@ export default function WarehousePage() {
               autoFocus
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Type a tracking number, customer name, or batch…"
+              placeholder="Tracking number, customer name, or batch…"
               className="w-full bg-[#0B0F19] border border-slate-700 rounded-2xl py-5 pl-14 pr-14 text-slate-100 text-lg font-medium placeholder:text-slate-600 focus:outline-none focus:border-[#F15D38] focus:ring-2 focus:ring-[#F15D38]/20 transition-all"
             />
             {query && (
@@ -168,36 +174,18 @@ export default function WarehousePage() {
             )}
           </div>
 
-          {/* Shipment status filters */}
+          {/* Single unified filter row */}
           <div className="flex flex-wrap gap-2 mt-5 justify-center">
-            {SHIPMENT_FILTERS.map(f => {
+            {FILTERS.map(f => {
               const Icon = f.icon;
-              const isActive = statusFilter === f.value;
+              const isActive = filter === f.value;
               return (
-                <button key={f.value} onClick={() => setStatusFilter(f.value)}
+                <button key={f.value} onClick={() => setFilter(f.value)}
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-xs font-black uppercase tracking-wider transition-all ${isActive ? f.active : f.color} hover:opacity-90`}>
                   <Icon size={13} />
                   {f.label}
                   <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-black ${isActive ? 'bg-white/20' : 'bg-slate-900/60'}`}>
-                    {counts.shipment[f.value]}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Pickup status filters */}
-          <div className="flex flex-wrap gap-2 mt-3 justify-center">
-            {PICKUP_FILTERS.map(f => {
-              const Icon = f.icon;
-              const isActive = pickupFilter === f.value;
-              return (
-                <button key={f.value} onClick={() => setPickupFilter(f.value)}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-xs font-black uppercase tracking-wider transition-all ${isActive ? f.active : f.color} hover:opacity-90`}>
-                  <Icon size={13} />
-                  {f.label}
-                  <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-black ${isActive ? 'bg-white/20' : 'bg-slate-900/60'}`}>
-                    {counts.pickup[f.value]}
+                    {counts[f.value]}
                   </span>
                 </button>
               );
@@ -229,59 +217,25 @@ export default function WarehousePage() {
 
         {!loading && results.map(s => {
           const matched = matchedTracking(s);
-          const isTaken = !!s.takenAt;
-          const isMarking = markingId === s._id;
-
           return (
-            <div key={s._id} className={`bg-[#131B2E] border rounded-2xl overflow-hidden transition-all ${
-              isTaken ? 'border-purple-800/30 opacity-80' : matched ? 'border-[#F15D38]/50 shadow-lg shadow-[#F15D38]/5' : 'border-slate-800'
-            }`}>
-              {/* Header */}
+            <div key={s._id} className={`bg-[#131B2E] border rounded-2xl overflow-hidden transition-all ${matched ? 'border-[#F15D38]/50 shadow-lg shadow-[#F15D38]/5' : 'border-slate-800'}`}>
+
+              {/* Shipment header */}
               <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-slate-800 bg-[#0B0F19]/60">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <span className="font-mono text-xs font-black text-[#F15D38] bg-[#F15D38]/10 border border-[#F15D38]/20 px-2 py-1 rounded-lg">
-                    {s.shipmentNumber}
-                  </span>
-                  <span className={`text-[10px] font-black px-2 py-1 rounded-lg border ${
-                    s.type === 'AIR' ? 'text-[#F15D38] bg-[#F15D38]/10 border-[#F15D38]/20' : 'text-emerald-400 bg-emerald-950/30 border-emerald-800/20'
-                  }`}>{s.type} FREIGHT</span>
+                  <span className="font-mono text-xs font-black text-[#F15D38] bg-[#F15D38]/10 border border-[#F15D38]/20 px-2 py-1 rounded-lg">{s.shipmentNumber}</span>
+                  <span className={`text-[10px] font-black px-2 py-1 rounded-lg border ${s.type === 'AIR' ? 'text-[#F15D38] bg-[#F15D38]/10 border-[#F15D38]/20' : 'text-emerald-400 bg-emerald-950/30 border-emerald-800/20'}`}>{s.type}</span>
                   <span className={`text-[10px] font-black px-2 py-1 rounded-lg border ${
                     s.status === 'ARRIVED' ? 'text-emerald-400 bg-emerald-950/30 border-emerald-800/20' :
                     s.status === 'IN_TRANSIT' ? 'text-[#F15D38] bg-[#F15D38]/10 border-[#F15D38]/20' :
-                    'text-amber-400 bg-amber-950/30 border-amber-800/20'
-                  }`}>{s.status}</span>
-
-                  {/* Taken badge */}
-                  {isTaken && (
-                    <span className="inline-flex items-center gap-1.5 text-[10px] font-black px-2 py-1 rounded-lg border bg-purple-950/30 text-purple-400 border-purple-800/30">
-                      <CalendarCheck size={11} />
-                      Taken {formatDate(s.takenAt!)}
-                    </span>
-                  )}
+                    'text-amber-400 bg-amber-950/30 border-amber-800/20'}`}>{s.status}</span>
                 </div>
-
-                <div className="flex items-center gap-3 flex-wrap">
-                  <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
-                    <span className="flex items-center gap-1.5 font-bold text-slate-300"><User size={13} /> {s.customer}</span>
-                    <span className="flex items-center gap-1.5"><Hash size={13} /> {s.batch}</span>
-                    <span className="flex items-center gap-1.5"><DollarSign size={13} /><span className="font-black text-slate-200">${s.total?.toFixed(2)}</span></span>
-                    {s.weight ? <span className="flex items-center gap-1"><Scale size={12} /> {s.weight}kg</span> : null}
-                    {s.cbm ? <span className="flex items-center gap-1"><Box size={12} /> {s.cbm}cbm</span> : null}
-                  </div>
-
-                  {/* Mark taken / undo button */}
-                  <button
-                    onClick={() => handleMarkTaken(s)}
-                    disabled={isMarking}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-50 ${
-                      isTaken
-                        ? 'bg-purple-950/30 text-purple-400 border-purple-800/30 hover:bg-purple-950/60'
-                        : 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-emerald-950/30 hover:text-emerald-400 hover:border-emerald-800/30'
-                    }`}
-                  >
-                    {isMarking ? <Loader2 size={11} className="animate-spin" /> : isTaken ? <X size={11} /> : <LogOut size={11} />}
-                    {isMarking ? '…' : isTaken ? 'Undo Taken' : 'Mark Taken'}
-                  </button>
+                <div className="flex items-center gap-4 text-xs text-slate-400 flex-wrap">
+                  <span className="flex items-center gap-1.5 font-bold text-slate-300"><User size={13} />{s.customer}</span>
+                  <span className="flex items-center gap-1.5"><Hash size={13} />{s.batch}</span>
+                  <span className="flex items-center gap-1.5"><DollarSign size={13} /><span className="font-black text-slate-200">${s.total?.toFixed(2)}</span></span>
+                  {s.weight ? <span className="flex items-center gap-1"><Scale size={12} />{s.weight}kg</span> : null}
+                  {s.cbm ? <span className="flex items-center gap-1"><Box size={12} />{s.cbm}cbm</span> : null}
                 </div>
               </div>
 
@@ -291,11 +245,7 @@ export default function WarehousePage() {
                   <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Tracking Numbers</p>
                   <div className="flex flex-wrap gap-2">
                     {s.courierPackages.map((pkg, i) => (
-                      <div key={i} className={`px-3 py-2 rounded-xl border text-xs ${
-                        matched?.trackingNumber === pkg.trackingNumber
-                          ? 'bg-[#F15D38]/15 border-[#F15D38]/40 text-[#F15D38]'
-                          : 'bg-slate-900 border-slate-800 text-slate-300'
-                      }`}>
+                      <div key={i} className={`px-3 py-2 rounded-xl border text-xs ${matched?.trackingNumber === pkg.trackingNumber ? 'bg-[#F15D38]/15 border-[#F15D38]/40 text-[#F15D38]' : 'bg-slate-900 border-slate-800 text-slate-300'}`}>
                         <span className="font-mono font-black">{pkg.trackingNumber}</span>
                         {pkg.goods && <span className="text-slate-500 ml-2">· {pkg.goods}</span>}
                         {pkg.qty > 1 && <span className="text-slate-500 ml-1">×{pkg.qty}</span>}
@@ -305,19 +255,81 @@ export default function WarehousePage() {
                 </div>
               )}
 
-              {/* Goods */}
+              {/* Items — each with individual status controls */}
               {s.items?.filter(it => it.description).length > 0 && (
                 <div className="px-6 pt-3 pb-4">
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Goods</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                    {s.items.filter(it => it.description).map((item, i) => (
-                      <div key={i} className="flex items-center gap-2 px-3 py-2 bg-slate-900/60 border border-slate-800 rounded-xl text-xs">
-                        <Package size={12} className="text-slate-500 shrink-0" />
-                        <span className="font-bold text-slate-200 truncate">{item.description}</span>
-                        <span className="text-slate-500 shrink-0">×{item.qty}</span>
-                        {item.weight ? <span className="text-slate-600 shrink-0">{item.weight}kg</span> : null}
-                      </div>
-                    ))}
+                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">Goods — Mark Each Item</p>
+                  <div className="space-y-2">
+                    {s.items.filter(it => it.description).map((item, rawIndex) => {
+                      const itemIndex = s.items.indexOf(item);
+                      const status = item.warehouseStatus || 'IN_WAREHOUSE';
+                      const isUpdating = updatingId === `${s._id}-${itemIndex}`;
+
+                      return (
+                        <div key={rawIndex} className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl border transition-all ${
+                          status === 'TAKEN' ? 'bg-purple-950/10 border-purple-800/30' :
+                          status === 'LOST'  ? 'bg-rose-950/10 border-rose-800/30' :
+                          'bg-slate-900/60 border-slate-800'
+                        }`}>
+                          {/* Item info */}
+                          <div className="flex items-center gap-3 min-w-0">
+                            <Package size={14} className={
+                              status === 'TAKEN' ? 'text-purple-400 shrink-0' :
+                              status === 'LOST'  ? 'text-rose-400 shrink-0' :
+                              'text-slate-500 shrink-0'
+                            } />
+                            <div className="min-w-0">
+                              <span className={`font-bold text-sm truncate block ${status === 'TAKEN' ? 'text-purple-300 line-through opacity-70' : status === 'LOST' ? 'text-rose-300 line-through opacity-70' : 'text-slate-200'}`}>
+                                {item.description}
+                              </span>
+                              <span className="text-[10px] text-slate-500">Qty: {item.qty}</span>
+                              {item.statusDate && status !== 'IN_WAREHOUSE' && (
+                                <span className={`text-[10px] ml-2 font-bold ${status === 'TAKEN' ? 'text-purple-400' : 'text-rose-400'}`}>
+                                  · {status === 'TAKEN' ? 'Taken' : 'Lost'} {formatDate(item.statusDate)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Action buttons */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {isUpdating ? (
+                              <Loader2 size={16} className="animate-spin text-slate-400" />
+                            ) : (
+                              <>
+                                {status !== 'IN_WAREHOUSE' && (
+                                  <button
+                                    onClick={() => updateItemStatus(s, itemIndex, 'IN_WAREHOUSE')}
+                                    className="p-1.5 rounded-lg border bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all"
+                                    title="Mark as back in warehouse"
+                                  >
+                                    <RotateCcw size={13} />
+                                  </button>
+                                )}
+                                {status !== 'TAKEN' && (
+                                  <button
+                                    onClick={() => updateItemStatus(s, itemIndex, 'TAKEN')}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[10px] font-black uppercase bg-slate-900 border-slate-700 text-slate-400 hover:bg-purple-950/30 hover:text-purple-400 hover:border-purple-800/40 transition-all"
+                                    title="Mark as taken by customer"
+                                  >
+                                    <LogOut size={11} /> Taken
+                                  </button>
+                                )}
+                                {status !== 'LOST' && (
+                                  <button
+                                    onClick={() => updateItemStatus(s, itemIndex, 'LOST')}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[10px] font-black uppercase bg-slate-900 border-slate-700 text-slate-400 hover:bg-rose-950/30 hover:text-rose-400 hover:border-rose-800/40 transition-all"
+                                    title="Mark as lost"
+                                  >
+                                    <AlertTriangle size={11} /> Lost
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
