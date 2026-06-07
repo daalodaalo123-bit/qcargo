@@ -48,7 +48,7 @@ export interface IntelExpense {
   vendor: string;
   amount: number;
   date: string;
-  status: 'PAID' | 'PENDING';
+  status: 'PAID' | 'PENDING' | 'PARTIAL';
   paymentMethod: string;
 }
 
