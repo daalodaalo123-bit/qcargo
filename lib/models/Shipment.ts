@@ -38,6 +38,7 @@ export interface IShipment extends Document {
   notes?: string;
   items: IShipmentItem[];
   courierPackages: ICourierPackage[];
+  takenAt?: Date;
 }
 
 const ShipmentItemSchema = new Schema<IShipmentItem>({
@@ -78,6 +79,7 @@ const ShipmentSchema = new Schema<IShipment>({
   notes: { type: String },
   items: [ShipmentItemSchema],
   courierPackages: [CourierPackageSchema],
+  takenAt: { type: Date },
 }, { timestamps: true });
 
 export default mongoose.models.Shipment || mongoose.model<IShipment>('Shipment', ShipmentSchema);
