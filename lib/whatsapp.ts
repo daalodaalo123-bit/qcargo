@@ -68,13 +68,22 @@ export function wawpResponseHasPdfDocument(data: Record<string, unknown>): boole
   return raw.includes('documentMessage') || raw.includes('documentWithCaptionMessage');
 }
 
+function wawpErrorMessage(data: Record<string, unknown>): string {
+  const exc = data.exception as Record<string, unknown> | undefined;
+  const raw = exc?.message || data.message || data.error || 'WAWP request failed';
+  const msg = String(raw);
+  if (msg.includes('463')) {
+    return 'Number not reachable on WhatsApp (error 463). The customer may not have WhatsApp on this number, or has blocked unknown senders. Please verify their number.';
+  }
+  return msg;
+}
+
 function parseWawpResponse(data: Record<string, unknown>, httpOk: boolean): { success: boolean; error?: string } {
   if (!httpOk) {
-    const msg = (data.message || data.error || 'WAWP request failed') as string;
-    return { success: false, error: msg };
+    return { success: false, error: wawpErrorMessage(data) };
   }
   if (data.success === false) {
-    return { success: false, error: (data.message || data.error || 'WAWP returned failure') as string };
+    return { success: false, error: wawpErrorMessage(data) };
   }
   if (typeof data.id === 'string' && data.id.length > 0) {
     return { success: true };

@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  FileText, 
-  Search, 
-  Filter, 
-  Plus, 
+import {
+  FileText,
+  Search,
+  Filter,
+  Plus,
   ChevronRight,
   Clock,
   CheckCircle2,
@@ -16,10 +16,14 @@ import {
   TrendingUp,
   Trash2,
   Calendar,
-  DollarSign
+  DollarSign,
+  Pencil,
+  X,
+  Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 import RecordPaymentModal, { type PaymentQuotation } from './RecordPaymentModal';
+import EditQuotationModal, { type EditQuotationData } from './EditQuotationModal';
 
 interface Quotation {
   id: string;
@@ -45,6 +49,10 @@ export default function QuotationsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [paymentQuote, setPaymentQuote] = useState<PaymentQuotation | null>(null);
+  const [editQuote, setEditQuote] = useState<EditQuotationData | null>(null);
+  const [sendQuote, setSendQuote] = useState<Quotation | null>(null);
+  const [sendPhone, setSendPhone] = useState('');
+  const [sending, setSending] = useState(false);
 
   // Load quotations from MongoDB
   const loadQuotations = async () => {
@@ -86,23 +94,44 @@ export default function QuotationsPage() {
     }
   };
 
-  const handleSendToCustomer = async (quote: Quotation) => {
-    if (!quote.phone) {
-      alert(`No phone number for ${quote.customer}. Please add a phone number.`);
+  const openSendDialog = (quote: Quotation) => {
+    setSendQuote(quote);
+    setSendPhone(quote.phone || '');
+  };
+
+  const handleSendToCustomer = async () => {
+    if (!sendQuote) return;
+    if (!sendPhone.trim()) {
+      alert('Please enter a phone number.');
       return;
     }
-    const message = `Asc ${quote.customer}, Q CARGO quotation:\nGoods: ${quote.goods}\nEstimate: $${quote.price}\nFreight: ${quote.type} Cargo\nContact us to confirm your order.`;
+    setSending(true);
     try {
-      const res = await fetch('/api/whatsapp/send', {
+      const res = await fetch(`/api/quotations/${sendQuote.id}/send-whatsapp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: quote.phone, message }),
+        body: JSON.stringify({ phone: sendPhone.trim() }),
       });
       const data = await res.json();
-      if (data.success) alert(`WhatsApp sent to ${quote.customer}!`);
-      else alert(`Error sending: ${data.message || 'Unknown error'}`);
+      if (data.success) {
+        const msg = data.pdfSent ? 'PDF quotation sent via WhatsApp!' : 'Quotation sent via WhatsApp (text + PDF link).';
+        alert(`${msg}`);
+        if (sendPhone.trim() !== sendQuote.phone) {
+          await fetch(`/api/quotations/${sendQuote.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ customer: sendQuote.customer, phone: sendPhone.trim() }),
+          });
+          loadQuotations();
+        }
+        setSendQuote(null);
+      } else {
+        alert(`Error: ${data.error || 'Unknown error'}`);
+      }
     } catch (err: any) {
-      alert(`Failed to send WhatsApp: ${err.message}`);
+      alert(`Failed to send: ${err.message}`);
+    } finally {
+      setSending(false);
     }
   };
 
@@ -300,16 +329,36 @@ export default function QuotationsPage() {
                           <DollarSign size={16} />
                         </button>
                       )}
-                      <button 
-                        onClick={() => handleSendToCustomer(quote)}
-                        className="p-2 hover:bg-[#F15D38]/10 text-slate-400 hover:text-[#F15D38] rounded-lg transition-colors" 
-                        title="Send WhatsApp Alert"
+                      <button
+                        onClick={() => setEditQuote({
+                          id: quote.id,
+                          customer: quote.customer,
+                          phone: quote.phone,
+                          goods: quote.goods,
+                          price: quote.price,
+                          type: quote.type,
+                          status: quote.status,
+                        })}
+                        className="p-2 hover:bg-slate-800 text-slate-400 hover:text-slate-100 rounded-lg transition-colors"
+                        title="Edit Quotation"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        onClick={() => openSendDialog(quote)}
+                        className="p-2 hover:bg-[#F15D38]/10 text-slate-400 hover:text-[#F15D38] rounded-lg transition-colors"
+                        title="Send WhatsApp"
                       >
                         <Send size={16} />
                       </button>
-                      <button className="p-2 hover:bg-slate-800 text-slate-400 hover:text-slate-100 rounded-lg transition-colors" title="Download PDF">
+                      <a
+                        href={`/api/quotations/${quote.id}/pdf`}
+                        download
+                        className="p-2 hover:bg-slate-800 text-slate-400 hover:text-slate-100 rounded-lg transition-colors inline-flex"
+                        title="Download PDF"
+                      >
                         <Download size={16} />
-                      </button>
+                      </a>
                       <button 
                         onClick={() => handleDelete(quote.id)}
                         className="p-2 hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-lg transition-colors" 
@@ -331,6 +380,47 @@ export default function QuotationsPage() {
         onClose={() => setPaymentQuote(null)}
         onSuccess={loadQuotations}
       />
+
+      <EditQuotationModal
+        quotation={editQuote}
+        onClose={() => setEditQuote(null)}
+        onSuccess={loadQuotations}
+      />
+
+      {sendQuote && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setSendQuote(null)}>
+          <div className="w-full max-w-sm bg-[#131B2E] border border-slate-800 rounded-2xl shadow-2xl p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-black text-slate-100 uppercase tracking-wider">Send WhatsApp</h2>
+              <button onClick={() => setSendQuote(null)} className="p-1 text-slate-400 hover:text-slate-200"><X size={16} /></button>
+            </div>
+            <p className="text-xs text-slate-400">Sending quotation for <span className="text-slate-200 font-bold">{sendQuote.customer}</span></p>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-2">WhatsApp Number</label>
+              <input
+                type="text"
+                className="search-input w-full"
+                placeholder="+252 63 ..."
+                value={sendPhone}
+                onChange={e => setSendPhone(e.target.value)}
+                autoFocus
+              />
+              <p className="text-[10px] text-slate-500 mt-1">Edit if the number above is wrong</p>
+            </div>
+            <div className="flex gap-3 pt-1">
+              <button onClick={() => setSendQuote(null)} className="flex-1 py-2.5 text-slate-400 text-xs font-bold uppercase">Cancel</button>
+              <button
+                onClick={handleSendToCustomer}
+                disabled={sending}
+                className="flex-1 py-2.5 bg-[#F15D38] hover:bg-[#d64420] disabled:opacity-60 text-white rounded-xl font-black text-xs uppercase flex items-center justify-center gap-2"
+              >
+                {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                {sending ? 'Sending...' : 'Send'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

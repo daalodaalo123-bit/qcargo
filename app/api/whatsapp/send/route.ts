@@ -14,7 +14,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('[whatsapp/send] recipient raw:', recipient);
     const result = await sendWhatsAppMessage(recipient, message);
+    console.log('[whatsapp/send] result:', result.success, result.success ? 'ok' : result.error);
 
     if (!result.success) {
       return NextResponse.json({ success: false, error: result.error }, { status: 500 });

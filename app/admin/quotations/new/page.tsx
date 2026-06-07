@@ -44,14 +44,14 @@ export default function NewQuotation() {
     }
   }, [items]);
 
-  const handleSaveQuotation = async (status: 'SENT' | 'DRAFT') => {
+  const handleSaveQuotation = async (status: 'SENT' | 'DRAFT'): Promise<boolean> => {
     if (!customerName.trim()) {
       alert('Please enter a customer name');
-      return;
+      return false;
     }
     if (!phone.trim()) {
       alert('Please enter a phone number');
-      return;
+      return false;
     }
 
     const priceNum = parseFloat(estimatedPrice) || 0;
@@ -85,11 +85,12 @@ export default function NewQuotation() {
         const data = await res.json();
         throw new Error(data.error || 'Failed to save quotation');
       }
-      alert(`Quotation successfully created for ${customerName}!`);
-      router.push('/admin/quotations');
+      const saved = await res.json();
+      return (saved._id || saved.id) as string;
     } catch (err: any) {
       console.error(err);
       alert(`Error: ${err.message}`);
+      return null;
     }
   };
 
@@ -98,31 +99,27 @@ export default function NewQuotation() {
       alert('Please enter a phone number');
       return;
     }
-    // Save to DB first, then send WhatsApp
-    await handleSaveQuotation('SENT');
 
-    const itemsText = items
-      .filter(it => it.description.trim() && it.price)
-      .map((it, i) => {
-        const total = lineTotal(it);
-        return `${i + 1}. ${it.description} (${it.qty || 1} × $${it.price}) = $${total.toFixed(2)}`;
-      })
-      .join('\n');
-    const message = `Asc ${customerName}, Q CARGO waxa kaaga soo dirtay qiimaha:\n${itemsText}\nWaxaan kaala soo xiriiri doonaa si aad u xaqiijiso dalabkaaga.`;
+    const quotationId = await handleSaveQuotation('SENT');
+    if (!quotationId) return;
 
     try {
-      const res = await fetch('/api/whatsapp/send', {
+      const res = await fetch(`/api/quotations/${quotationId}/send-whatsapp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, message }),
+        body: JSON.stringify({ phone }),
       });
       const data = await res.json();
-      if (data.success) alert('WhatsApp message sent successfully!');
-      else alert('Saved but WhatsApp failed: ' + (data.message || 'Unknown error'));
+      if (data.success) {
+        alert(data.pdfSent ? 'Quotation PDF sent via WhatsApp!' : 'Quotation sent via WhatsApp (text + PDF link).');
+      } else {
+        alert('Saved but WhatsApp failed: ' + (data.error || 'Unknown error'));
+      }
     } catch (e) {
       console.error(e);
       alert('Saved but failed to send WhatsApp message');
     }
+    router.push('/admin/quotations');
   };
 
   const addItem = () => setItems([...items, { description: '', qty: '1', price: '' }]);
@@ -296,8 +293,14 @@ export default function NewQuotation() {
                 </select>
               </div>
               <div className="pt-6 border-t border-slate-800/40 space-y-3">
-                <button 
-                  onClick={() => handleSaveQuotation('SENT')}
+                <button
+                  onClick={async () => {
+                    const id = await handleSaveQuotation('SENT');
+                    if (id) {
+                      alert(`Quotation successfully created for ${customerName}!`);
+                      router.push('/admin/quotations');
+                    }
+                  }}
                   className="w-full py-4 bg-[#F15D38] hover:bg-[#d64420] text-white rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg shadow-[#F15D38]/20"
                 >
                   <Send size={18} />
