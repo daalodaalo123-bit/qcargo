@@ -20,6 +20,7 @@ import {
 import Link from 'next/link';
 import ExpenseFinancialIntel from './ExpenseFinancialIntel';
 import EditBillModal from '@/app/admin/accounting/EditBillModal';
+import ExpensePaymentModal, { type PayableExpense } from './ExpensePaymentModal';
 import { formatPaymentMethod } from '@/lib/payment-methods';
 
 interface Expense {
@@ -28,9 +29,10 @@ interface Expense {
   category: string;
   vendor: string;
   amount: number;
+  amountPaid: number;
   date: string;
   due: string;
-  status: 'PAID' | 'PENDING';
+  status: 'PAID' | 'PENDING' | 'PARTIAL';
   paymentMethod: string;
 }
 
@@ -45,6 +47,7 @@ export default function ExpensesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [payingExpense, setPayingExpense] = useState<PayableExpense | null>(null);
 
   // Load expenses from MongoDB (stored as VendorBills)
   const loadExpenses = async () => {
@@ -60,7 +63,8 @@ export default function ExpensesPage() {
         amount: Number(b.amount) || 0,
         date: String(b.date || ''),
         due: String(b.due || b.date || ''),
-        status: b.status === 'PAID' ? 'PAID' : 'PENDING',
+        amountPaid: Number(b.amountPaid) || 0,
+        status: b.status === 'PAID' ? 'PAID' : b.status === 'PARTIAL' ? 'PARTIAL' : 'PENDING',
         paymentMethod: String(b.paymentMethod || 'CASH'),
       })));
     } catch (e) {
@@ -72,6 +76,21 @@ export default function ExpensesPage() {
   useEffect(() => {
     loadExpenses();
   }, []);
+
+  const handleToggleStatus = async (exp: Expense) => {
+    const newStatus = exp.status === 'PAID' ? 'PENDING' : 'PAID';
+    try {
+      const res = await fetch(`/api/bills?id=${exp.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) throw new Error('Failed to update status');
+      setExpenses(prev => prev.map(e => e.id === exp.id ? { ...e, status: newStatus } : e));
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    }
+  };
 
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this expense record?')) {
@@ -108,7 +127,9 @@ export default function ExpensesPage() {
 
   // Calculations
   const totalSpend = expenses.reduce((acc, e) => acc + e.amount, 0);
-  const pendingSpend = expenses.filter(e => e.status === 'PENDING').reduce((acc, e) => acc + e.amount, 0);
+  const pendingSpend = expenses
+    .filter(e => e.status !== 'PAID')
+    .reduce((acc, e) => acc + Math.max(0, e.amount - (e.amountPaid || 0)), 0);
   const topCategory = expenses.length > 0 
     ? expenses.reduce((acc, e) => {
         acc[e.category] = (acc[e.category] || 0) + e.amount;
@@ -141,6 +162,15 @@ export default function ExpensesPage() {
       </div>
 
       <ExpenseFinancialIntel expenses={expenses} />
+
+      <ExpensePaymentModal
+        expense={payingExpense}
+        onClose={() => setPayingExpense(null)}
+        onSuccess={(updated) => {
+          setExpenses(prev => prev.map(e => e.id === updated.id ? { ...e, ...updated } : e));
+          setPayingExpense(null);
+        }}
+      />
 
       {editingExpense && (
         <EditBillModal
@@ -259,18 +289,49 @@ export default function ExpensesPage() {
                     </span>
                   </td>
                   <td className="px-8 py-6">
-                    <span className={`inline-flex items-center gap-1.5 text-[10px] font-black px-3 py-1 rounded-full ${
-                      exp.status === 'PAID' ? 'bg-emerald-950/30 text-emerald-400 border border-emerald-800/20' : 'bg-amber-950/30 text-amber-400 border border-amber-800/20'
-                    }`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${exp.status === 'PAID' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                      {exp.status}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                      <span className={`inline-flex items-center gap-1.5 text-[10px] font-black px-3 py-1 rounded-full border w-fit ${
+                        exp.status === 'PAID'
+                          ? 'bg-emerald-950/30 text-emerald-400 border-emerald-800/20'
+                          : exp.status === 'PARTIAL'
+                          ? 'bg-blue-950/30 text-blue-400 border-blue-800/20'
+                          : 'bg-amber-950/30 text-amber-400 border-amber-800/20'
+                      }`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${
+                          exp.status === 'PAID' ? 'bg-emerald-500' : exp.status === 'PARTIAL' ? 'bg-blue-400' : 'bg-amber-500'
+                        }`} />
+                        {exp.status}
+                      </span>
+                      {exp.status === 'PARTIAL' && (
+                        <span className="text-[9px] font-bold text-slate-500">
+                          ${(exp.amountPaid || 0).toFixed(2)} / ${exp.amount.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-8 py-6 text-right">
                     <span className="font-black text-slate-100">${exp.amount.toLocaleString()}</span>
                   </td>
                   <td className="px-8 py-6">
-                    <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center justify-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                      {exp.status !== 'PAID' && (
+                        <button
+                          type="button"
+                          onClick={() => setPayingExpense({
+                            id: exp.id,
+                            vendor: exp.vendor,
+                            category: exp.category,
+                            amount: exp.amount,
+                            amountPaid: exp.amountPaid || 0,
+                            status: exp.status,
+                            paymentMethod: exp.paymentMethod,
+                          })}
+                          className="p-2 hover:bg-emerald-950/30 text-slate-400 hover:text-emerald-400 rounded-lg transition-colors"
+                          title="Record Payment"
+                        >
+                          <DollarSign size={16} />
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => setEditingExpense(exp)}
@@ -279,9 +340,9 @@ export default function ExpensesPage() {
                       >
                         <Pencil size={16} />
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleDelete(exp.id)}
-                        className="p-2 hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-lg transition-colors" 
+                        className="p-2 hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-lg transition-colors"
                         title="Delete Expense"
                       >
                         <Trash2 size={16} />

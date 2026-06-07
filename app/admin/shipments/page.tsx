@@ -213,12 +213,12 @@ export default function ShipmentsPage() {
       </div>
 
       {/* Filters & Search */}
-      <div className="flex flex-col md:flex-row gap-4 mb-8">
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
         <div className="relative flex-1 group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#F15D38] transition-colors" size={20} />
-          <input 
-            type="text" 
-            placeholder="Search Shipment #, Customer, or Batch..." 
+          <input
+            type="text"
+            placeholder="Search Shipment #, Customer, or Batch..."
             className="search-input !pl-12 w-full"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -227,30 +227,34 @@ export default function ShipmentsPage() {
       </div>
 
       {/* Filters row */}
-      <div className="mt-3 grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-3">
+      <div className="flex flex-wrap items-end gap-3 mb-10">
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-          className="bg-slate-800 border border-slate-700 text-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold focus:outline-none focus:border-[#F15D38] w-full sm:w-auto">
+          className="bg-slate-800 border border-slate-700 text-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold focus:outline-none focus:border-[#F15D38]">
           <option value="">All Statuses</option>
           <option value="PENDING">Pending</option>
           <option value="IN_TRANSIT">In Transit</option>
           <option value="ARRIVED">Arrived</option>
         </select>
         <select value={filterPayment} onChange={e => setFilterPayment(e.target.value)}
-          className="bg-slate-800 border border-slate-700 text-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold focus:outline-none focus:border-[#F15D38] w-full sm:w-auto">
+          className="bg-slate-800 border border-slate-700 text-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold focus:outline-none focus:border-[#F15D38]">
           <option value="">All Payments</option>
           <option value="UNPAID">Unpaid</option>
           <option value="PARTIAL">Partial</option>
           <option value="PAID">Paid</option>
         </select>
-        <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}
-          title="From date"
-          className="bg-slate-800 border border-slate-700 text-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold focus:outline-none focus:border-[#F15D38] w-full sm:w-auto" />
-        <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}
-          title="To date"
-          className="bg-slate-800 border border-slate-700 text-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold focus:outline-none focus:border-[#F15D38] w-full sm:w-auto" />
+        <div className="flex flex-col gap-1">
+          <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-1">From</label>
+          <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}
+            className="bg-slate-800 border border-slate-700 text-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold focus:outline-none focus:border-[#F15D38]" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-1">Until</label>
+          <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}
+            className="bg-slate-800 border border-slate-700 text-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold focus:outline-none focus:border-[#F15D38]" />
+        </div>
         {(filterStatus || filterPayment || filterDateFrom || filterDateTo) && (
           <button onClick={() => { setFilterStatus(''); setFilterPayment(''); setFilterDateFrom(''); setFilterDateTo(''); }}
-            className="col-span-2 sm:col-span-1 text-xs font-bold text-slate-400 hover:text-rose-400 transition-colors px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl">
+            className="text-xs font-bold text-slate-400 hover:text-rose-400 transition-colors px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl self-end">
             Clear ×
           </button>
         )}

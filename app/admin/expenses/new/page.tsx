@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   ArrowLeft,
   Save,
@@ -29,15 +29,38 @@ const EXPENSE_CATEGORY_PRESETS = [
 
 export default function NewExpensePage() {
   const router = useRouter();
+  const [savedCategories, setSavedCategories] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch('/api/bills')
+      .then(r => r.json())
+      .then((bills: { category?: string }[]) => {
+        const presets = EXPENSE_CATEGORY_PRESETS.map(p => p.value);
+        const custom = [...new Set(
+          bills
+            .map(b => b.category?.trim())
+            .filter((c): c is string => !!c && !presets.includes(c))
+        )].sort();
+        setSavedCategories(custom);
+      })
+      .catch(() => {});
+  }, []);
+
   const [formData, setFormData] = useState({
     batchId: '',
     category: 'Customs',
     amount: '',
+    amountPaid: '',
     date: new Date().toISOString().split('T')[0],
     description: '',
     paymentMethod: 'CASH',
-    vendor: ''
+    vendor: '',
   });
+
+  const totalAmount = parseFloat(formData.amount) || 0;
+  const paidAmount = parseFloat(formData.amountPaid) || 0;
+  const remaining = Math.max(0, totalAmount - paidAmount);
+  const derivedStatus = paidAmount <= 0 ? 'PENDING' : paidAmount >= totalAmount - 0.01 ? 'PAID' : 'PARTIAL';
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,8 +81,9 @@ export default function NewExpensePage() {
       vendor: formData.vendor,
       date: formData.date,
       due: formData.date,
-      amount: parseFloat(formData.amount),
-      status: 'PAID',
+      amount: totalAmount,
+      amountPaid: paidAmount,
+      status: derivedStatus,
       category: formData.category.trim(),
       paymentMethod: formData.paymentMethod,
       batchId: formData.batchId.trim() || 'GENERAL',
@@ -133,23 +157,26 @@ export default function NewExpensePage() {
                     <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={18} />
                     <select
                       className="search-input !pl-12 w-full"
-                      value={
-                        EXPENSE_CATEGORY_PRESETS.some((p) => p.value === formData.category)
-                          ? formData.category
-                          : ''
-                      }
+                      value={formData.category}
                       onChange={(e) => {
-                        if (e.target.value) {
-                          setFormData({ ...formData, category: e.target.value });
-                        }
+                        if (e.target.value) setFormData({ ...formData, category: e.target.value });
                       }}
                     >
-                      <option value="">Quick pick preset…</option>
-                      {EXPENSE_CATEGORY_PRESETS.map((preset) => (
-                        <option key={preset.value} value={preset.value}>
-                          {preset.label}
-                        </option>
-                      ))}
+                      <option value="">Quick pick…</option>
+                      <optgroup label="── Common ──">
+                        {EXPENSE_CATEGORY_PRESETS.map((preset) => (
+                          <option key={preset.value} value={preset.value}>
+                            {preset.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                      {savedCategories.length > 0 && (
+                        <optgroup label="── Your Categories ──">
+                          {savedCategories.map((cat) => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
                   </div>
                   <input
@@ -163,9 +190,10 @@ export default function NewExpensePage() {
                   />
                   <datalist id="expense-category-suggestions">
                     {EXPENSE_CATEGORY_PRESETS.map((preset) => (
-                      <option key={preset.value} value={preset.value}>
-                        {preset.label}
-                      </option>
+                      <option key={preset.value} value={preset.value} />
+                    ))}
+                    {savedCategories.map((cat) => (
+                      <option key={cat} value={cat} />
                     ))}
                   </datalist>
                 </div>
@@ -241,6 +269,37 @@ export default function NewExpensePage() {
               </div>
             </div>
 
+            <div className="mb-8">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-3">How Much Have You Paid?</label>
+              <div className="relative">
+                <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                <input
+                  type="number"
+                  min={0}
+                  max={totalAmount || undefined}
+                  step="0.01"
+                  className="search-input !pl-12 w-full"
+                  placeholder="0.00  — leave at 0 if nothing paid yet"
+                  value={formData.amountPaid}
+                  onChange={e => setFormData({ ...formData, amountPaid: e.target.value })}
+                />
+              </div>
+              {totalAmount > 0 && (
+                <div className="mt-3 p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs flex justify-between items-center">
+                  <span className="text-slate-400">Status will be saved as</span>
+                  <span className={`font-black px-3 py-1 rounded-full border ${
+                    derivedStatus === 'PAID'
+                      ? 'bg-emerald-950/30 text-emerald-400 border-emerald-800/20'
+                      : derivedStatus === 'PARTIAL'
+                      ? 'bg-blue-950/30 text-blue-400 border-blue-800/20'
+                      : 'bg-amber-950/30 text-amber-400 border-amber-800/20'
+                  }`}>
+                    {derivedStatus === 'PAID' ? '✓ PAID' : derivedStatus === 'PARTIAL' ? `PARTIAL · $${remaining.toFixed(2)} still owed` : 'PENDING · nothing paid yet'}
+                  </span>
+                </div>
+              )}
+            </div>
+
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-3">Description / Notes</label>
               <textarea 
@@ -269,10 +328,22 @@ export default function NewExpensePage() {
                 <span className="text-sm text-slate-400">Payment Method</span>
                 <span className="font-bold text-sm text-slate-200">{formData.paymentMethod}</span>
               </div>
+              {paidAmount > 0 && paidAmount < totalAmount && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-400">Paid now</span>
+                  <span className="font-bold text-sm text-emerald-400">${paidAmount.toFixed(2)}</span>
+                </div>
+              )}
+              {remaining > 0 && totalAmount > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-400">Still owed</span>
+                  <span className="font-bold text-sm text-amber-400">${remaining.toFixed(2)}</span>
+                </div>
+              )}
               <div className="pt-6 border-t border-slate-800/40 flex justify-between items-center">
-                <span className="text-sm text-slate-400">Total Deduction</span>
+                <span className="text-sm text-slate-400">Total Expense</span>
                 <span className="text-3xl font-black text-rose-500">
-                  -${Number(formData.amount || 0).toLocaleString()}
+                  -${totalAmount.toLocaleString()}
                 </span>
               </div>
             </div>

@@ -42,10 +42,12 @@ export const VendorBillSchema = z.object({
   date: z.string().min(1, 'Date required'),
   due: z.string().optional(),
   amount: num.min(0, 'Amount must be positive'),
-  status: z.enum(['PAID', 'PENDING', 'OVERDUE']).optional(),
+  amountPaid: num.min(0).optional(),
+  status: z.enum(['PAID', 'PENDING', 'PARTIAL', 'OVERDUE']).optional(),
   category: z.string().min(1, 'Category required'),
   paymentMethod: z.string().optional(),
   batchId: z.string().optional(),
+  description: z.string().optional(),
   notes: z.string().optional(),
 });
 

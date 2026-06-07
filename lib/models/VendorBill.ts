@@ -5,7 +5,8 @@ export interface IVendorBill extends Document {
   date: string;
   due: string;
   amount: number;
-  status: 'PAID' | 'PENDING' | 'OVERDUE';
+  amountPaid: number;
+  status: 'PAID' | 'PENDING' | 'PARTIAL' | 'OVERDUE';
   category: string;
   paymentMethod?: string;
   batchId?: string;
@@ -17,7 +18,8 @@ const VendorBillSchema = new Schema<IVendorBill>({
   date: { type: String, required: true },
   due: { type: String, required: true },
   amount: { type: Number, required: true, default: 0 },
-  status: { type: String, enum: ['PAID', 'PENDING', 'OVERDUE'], default: 'PENDING' },
+  amountPaid: { type: Number, default: 0 },
+  status: { type: String, enum: ['PAID', 'PENDING', 'PARTIAL', 'OVERDUE'], default: 'PENDING' },
   category: { type: String, default: 'General' },
   paymentMethod: { type: String, default: 'CASH' },
   batchId: { type: String, default: '' },
