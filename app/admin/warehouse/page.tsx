@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Package, User, Hash, Scale, DollarSign, X, Loader2, Box } from 'lucide-react';
+import { Search, Package, User, Hash, Scale, DollarSign, X, Loader2, Box, CheckCircle2, Clock, Truck } from 'lucide-react';
 
 interface ShipmentItem {
   description: string;
@@ -33,10 +33,20 @@ interface WarehouseShipment {
   courierPackages: CourierPackage[];
 }
 
+type StatusFilter = 'ALL' | 'ARRIVED' | 'IN_TRANSIT' | 'PENDING';
+
+const STATUS_FILTERS: { value: StatusFilter; label: string; icon: React.ElementType; color: string; active: string }[] = [
+  { value: 'ALL',        label: 'All',        icon: Package,      color: 'text-slate-400 border-slate-700 bg-slate-800',                            active: 'text-slate-100 border-slate-500 bg-slate-700' },
+  { value: 'ARRIVED',   label: 'Arrived',    icon: CheckCircle2, color: 'text-emerald-400 border-emerald-800/40 bg-emerald-950/20',                 active: 'text-white border-emerald-500 bg-emerald-600' },
+  { value: 'IN_TRANSIT',label: 'In Transit', icon: Truck,        color: 'text-[#F15D38] border-[#F15D38]/30 bg-[#F15D38]/10',                      active: 'text-white border-[#F15D38] bg-[#F15D38]' },
+  { value: 'PENDING',   label: 'Pending',    icon: Clock,        color: 'text-amber-400 border-amber-800/40 bg-amber-950/20',                      active: 'text-white border-amber-500 bg-amber-600' },
+];
+
 export default function WarehousePage() {
   const [shipments, setShipments] = useState<WarehouseShipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
 
   useEffect(() => {
     fetch('/api/shipments')
@@ -46,10 +56,18 @@ export default function WarehousePage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const counts = useMemo(() => ({
+    ALL:        shipments.length,
+    ARRIVED:    shipments.filter(s => s.status === 'ARRIVED').length,
+    IN_TRANSIT: shipments.filter(s => s.status === 'IN_TRANSIT').length,
+    PENDING:    shipments.filter(s => s.status === 'PENDING').length,
+  }), [shipments]);
+
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return shipments;
     return shipments.filter(s => {
+      if (statusFilter !== 'ALL' && s.status !== statusFilter) return false;
+      if (!q) return true;
       if (s.shipmentNumber?.toLowerCase().includes(q)) return true;
       if (s.customer?.toLowerCase().includes(q)) return true;
       if (s.batch?.toLowerCase().includes(q)) return true;
@@ -57,7 +75,7 @@ export default function WarehousePage() {
       if (s.items?.some(it => it.description?.toLowerCase().includes(q))) return true;
       return false;
     });
-  }, [query, shipments]);
+  }, [query, statusFilter, shipments]);
 
   // Highlight matching tracking number
   const matchedTracking = (s: WarehouseShipment) => {
@@ -96,8 +114,29 @@ export default function WarehousePage() {
               </button>
             )}
           </div>
+          {/* Status filter pills */}
+          <div className="flex flex-wrap gap-2 mt-5 justify-center">
+            {STATUS_FILTERS.map(f => {
+              const Icon = f.icon;
+              const isActive = statusFilter === f.value;
+              return (
+                <button
+                  key={f.value}
+                  onClick={() => setStatusFilter(f.value)}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-xs font-black uppercase tracking-wider transition-all ${isActive ? f.active : f.color} hover:opacity-90`}
+                >
+                  <Icon size={13} />
+                  {f.label}
+                  <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-black ${isActive ? 'bg-white/20' : 'bg-slate-900/60'}`}>
+                    {counts[f.value]}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
           <p className="text-[11px] text-slate-600 mt-3 font-medium text-center">
-            {loading ? 'Loading…' : `${shipments.length} shipments in system · ${results.length} shown`}
+            {loading ? 'Loading…' : `${results.length} of ${shipments.length} shipments shown`}
           </p>
         </div>
       </div>
