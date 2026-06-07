@@ -18,6 +18,8 @@ export interface QuotationPdfData {
   items: QuotationPdfItem[];
   total: number;
   status: string;
+  commissionRate?: number;
+  commissionAmount?: number;
 }
 
 const MARGIN = 48;
@@ -166,17 +168,31 @@ export async function generateQuotationPdf(data: QuotationPdfData): Promise<Uint
   y -= 20;
 
   // Total box
-  const totalsW = 200;
+  const totalsW = 220;
   const totalsX = tableX + tableW - totalsW;
-  page.drawRectangle({ x: totalsX, y: y - 52, width: totalsW, height: 52, color: PANEL, borderColor: LINE, borderWidth: 1 });
-  page.drawText('Subtotal', { x: totalsX + 16, y: y - 16, size: 9, font, color: MUTED });
-  const subtotalStr = formatMoney(data.total);
-  page.drawText(subtotalStr, { x: totalsX + totalsW - 16 - font.widthOfTextAtSize(subtotalStr, 10), y: y - 16, size: 10, font, color: INK });
+  const hasCommission = (data.commissionRate ?? 0) > 0 && (data.commissionAmount ?? 0) > 0;
+  const subtotalAmt = hasCommission ? data.total - (data.commissionAmount ?? 0) : data.total;
+  const boxH = hasCommission ? 76 : 52;
 
-  page.drawRectangle({ x: totalsX + 12, y: y - 48, width: totalsW - 24, height: 24, color: BRAND_COLOR, borderWidth: 0 });
-  page.drawText('ESTIMATED TOTAL', { x: totalsX + 20, y: y - 40, size: 7, font: fontBold, color: WHITE });
+  page.drawRectangle({ x: totalsX, y: y - boxH, width: totalsW, height: boxH, color: PANEL, borderColor: LINE, borderWidth: 1 });
+
+  let ty = y - 16;
+  page.drawText('Subtotal', { x: totalsX + 16, y: ty, size: 9, font, color: MUTED });
+  const subtotalStr = formatMoney(subtotalAmt);
+  page.drawText(subtotalStr, { x: totalsX + totalsW - 16 - font.widthOfTextAtSize(subtotalStr, 10), y: ty, size: 10, font, color: INK });
+
+  if (hasCommission) {
+    ty -= 22;
+    const commLabel = `Commission (${data.commissionRate}%)`;
+    page.drawText(commLabel, { x: totalsX + 16, y: ty, size: 9, font, color: MUTED });
+    const commStr = formatMoney(data.commissionAmount ?? 0);
+    page.drawText(commStr, { x: totalsX + totalsW - 16 - font.widthOfTextAtSize(commStr, 10), y: ty, size: 10, font, color: BRAND_COLOR });
+  }
+
+  page.drawRectangle({ x: totalsX + 12, y: y - boxH + 4, width: totalsW - 24, height: 24, color: BRAND_COLOR, borderWidth: 0 });
+  page.drawText('ESTIMATED TOTAL', { x: totalsX + 20, y: y - boxH + 12, size: 7, font: fontBold, color: WHITE });
   const totalStr = formatMoney(data.total);
-  page.drawText(totalStr, { x: totalsX + totalsW - 20 - fontBold.widthOfTextAtSize(totalStr, 12), y: y - 41, size: 12, font: fontBold, color: WHITE });
+  page.drawText(totalStr, { x: totalsX + totalsW - 20 - fontBold.widthOfTextAtSize(totalStr, 12), y: y - boxH + 11, size: 12, font: fontBold, color: WHITE });
 
   // Note
   y -= 72;

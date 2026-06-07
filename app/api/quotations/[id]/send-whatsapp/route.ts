@@ -39,6 +39,8 @@ export async function POST(
       freightType: quotation.type || 'SEA',
       status: quotation.status || 'SENT',
       total: quotation.price || 0,
+      commissionRate: quotation.commissionRate ?? 7,
+      commissionAmount: quotation.commissionAmount ?? 0,
       items: (quotation.items || []).map((it: { description: string; qty: number; price: number }) => ({
         description: it.description,
         qty: it.qty ?? 1,

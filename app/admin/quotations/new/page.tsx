@@ -35,6 +35,13 @@ export default function NewQuotation() {
   const [items, setItems] = useState<QuotationItem[]>([{ description: '', qty: '1', price: '' }]);
   const [estimatedPrice, setEstimatedPrice] = useState('');
   const [freightType, setFreightType] = useState('SEA');
+  const [commissionRate, setCommissionRate] = useState('7');
+
+  const subtotal = parseFloat(estimatedPrice) || 0;
+  const commissionAmount = parseFloat(commissionRate) > 0
+    ? subtotal * (parseFloat(commissionRate) / 100)
+    : 0;
+  const grandTotal = subtotal + commissionAmount;
 
   // Sum item prices to estimate total price
   useEffect(() => {
@@ -55,9 +62,11 @@ export default function NewQuotation() {
       .join(', ') || 'General Cargo';
 
     const payload = {
-      customer: customerName, phone, goods: goodsText, price: priceNum,
+      customer: customerName, phone, goods: goodsText, price: grandTotal,
       date: new Date().toISOString().split('T')[0], status,
       type: freightType.toUpperCase() as 'AIR' | 'SEA',
+      commissionRate: parseFloat(commissionRate) || 0,
+      commissionAmount,
       items: items.filter(it => it.description.trim()).map(it => ({
         description: it.description.trim(),
         qty: parseFloat(it.qty) || 1,
@@ -272,7 +281,7 @@ export default function NewQuotation() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Freight Type</label>
-                <select 
+                <select
                   className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl py-3 px-4 text-slate-100 font-bold focus:outline-none focus:ring-2 focus:ring-[#F15D38]/50"
                   value={freightType}
                   onChange={e => setFreightType(e.target.value)}
@@ -281,7 +290,39 @@ export default function NewQuotation() {
                   <option value="AIR">Air Freight (2 Weeks)</option>
                 </select>
               </div>
-              <div className="pt-6 border-t border-slate-800/40 space-y-3">
+
+              {/* Commission */}
+              <div className="p-4 rounded-xl bg-[#0B0F19] border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-400 uppercase">Commission</label>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="0.5"
+                      className="w-16 bg-slate-900 border border-slate-700 rounded-lg py-1 px-2 text-slate-100 font-black text-sm text-center focus:outline-none focus:ring-1 focus:ring-[#F15D38]/50"
+                      value={commissionRate}
+                      onChange={e => setCommissionRate(e.target.value)}
+                    />
+                    <span className="text-slate-400 font-bold text-sm">%</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500">Subtotal</span>
+                  <span className="font-bold text-slate-300">${subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500">Commission ({commissionRate}%)</span>
+                  <span className="font-bold text-[#F15D38]">+${commissionAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-slate-800 pt-2">
+                  <span className="text-xs font-black text-slate-300 uppercase tracking-wider">Total</span>
+                  <span className="font-black text-slate-100 text-base">${grandTotal.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-800/40 space-y-3">
                 <button
                   onClick={async () => {
                     const saved = await saveQuotation('SENT');

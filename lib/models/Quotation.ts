@@ -17,6 +17,8 @@ export interface IQuotation extends Document {
   amountPaid: number;
   type: 'AIR' | 'SEA';
   items: IQuotationItem[];
+  commissionRate: number;
+  commissionAmount: number;
 }
 
 const QuotationItemSchema = new Schema<IQuotationItem>({
@@ -36,6 +38,8 @@ const QuotationSchema = new Schema<IQuotation>({
   amountPaid: { type: Number, default: 0 },
   type: { type: String, enum: ['AIR', 'SEA'], default: 'SEA' },
   items: [QuotationItemSchema],
+  commissionRate: { type: Number, default: 7 },
+  commissionAmount: { type: Number, default: 0 },
 }, { timestamps: true });
 
 export default mongoose.models.Quotation || mongoose.model<IQuotation>('Quotation', QuotationSchema);
