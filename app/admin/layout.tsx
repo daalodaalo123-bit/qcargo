@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { 
-  LayoutDashboard, 
-  Package, 
+  LayoutDashboard,
+  Package,
   Ship,
-  ShoppingCart, 
-  FileText, 
-  CreditCard, 
+  ShoppingCart,
+  FileText,
+  CreditCard,
   Users,
   LogOut,
   ChevronRight,
@@ -18,7 +18,8 @@ import {
   User,
   Menu,
   X,
-  CheckSquare
+  CheckSquare,
+  Warehouse
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -63,6 +64,7 @@ export default function AdminLayout({
     { name: 'Dashboard', icon: LayoutDashboard, href: '/admin' },
     { name: 'Shipments', icon: Ship, href: '/admin/shipments' },
     { name: 'Batches', icon: Package, href: '/admin/batches' },
+    { name: 'Warehouse', icon: Warehouse, href: '/admin/warehouse' },
     { name: 'Purchases', icon: ShoppingCart, href: '/admin/purchases' },
     { name: 'Customers', icon: Users, href: '/admin/customers' },
     { name: 'Quotations', icon: FileText, href: '/admin/quotations' },
