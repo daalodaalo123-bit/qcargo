@@ -44,14 +44,14 @@ export default function NewQuotation() {
     }
   }, [items]);
 
-  const handleSaveQuotation = async (status: 'SENT' | 'DRAFT'): Promise<boolean> => {
+  const handleSaveQuotation = async (status: 'SENT' | 'DRAFT'): Promise<string | null> => {
     if (!customerName.trim()) {
       alert('Please enter a customer name');
-      return false;
+      return null;
     }
     if (!phone.trim()) {
       alert('Please enter a phone number');
-      return false;
+      return null;
     }
 
     const priceNum = parseFloat(estimatedPrice) || 0;
