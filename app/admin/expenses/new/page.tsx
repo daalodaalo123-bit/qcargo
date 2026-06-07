@@ -35,7 +35,7 @@ export default function NewExpensePage() {
     fetch('/api/bills')
       .then(r => r.json())
       .then((bills: { category?: string }[]) => {
-        const presets = EXPENSE_CATEGORY_PRESETS.map(p => p.value);
+        const presets: string[] = EXPENSE_CATEGORY_PRESETS.map(p => p.value);
         const custom = [...new Set(
           bills
             .map(b => b.category?.trim())
