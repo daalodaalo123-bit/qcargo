@@ -178,6 +178,7 @@ function SearchCombobox({
 
 interface CargoLine {
   description: string;
+  trackingNumber: string;
   qty: number;
   weight: number;
   cbm: number;
@@ -185,6 +186,7 @@ interface CargoLine {
 
 const emptyCargoLine = (): CargoLine => ({
   description: '',
+  trackingNumber: '',
   qty: 1,
   weight: 0,
   cbm: 0,
@@ -328,7 +330,14 @@ export default function NewShipmentPage() {
           cbm: line.cbm || 0,
           value: 0,
         })),
-      courierPackages: [],
+      courierPackages: cargoLines
+        .filter(line => line.trackingNumber.trim())
+        .map(line => ({
+          trackingNumber: line.trackingNumber.trim(),
+          goods: line.description.trim(),
+          qty: line.qty || 1,
+          courier: '',
+        })),
     };
 
     try {
@@ -505,9 +514,10 @@ export default function NewShipmentPage() {
             </div>
 
             <div className="hidden md:grid md:grid-cols-12 gap-3 mb-2 px-1">
-              <span className="md:col-span-6 text-[10px] font-bold text-slate-500 uppercase">Goods</span>
+              <span className="md:col-span-4 text-[10px] font-bold text-slate-500 uppercase">Goods</span>
+              <span className="md:col-span-3 text-[10px] font-bold text-slate-500 uppercase">Tracking #</span>
               <span className="md:col-span-2 text-[10px] font-bold text-slate-500 uppercase">Qty</span>
-              <span className="md:col-span-3 text-[10px] font-bold text-slate-500 uppercase">
+              <span className="md:col-span-2 text-[10px] font-bold text-slate-500 uppercase">
                 {shipmentType === 'AIR' ? 'Weight (KG)' : 'CBM'}
               </span>
               <span className="md:col-span-1" />
@@ -522,12 +532,12 @@ export default function NewShipmentPage() {
                   <button
                     type="button"
                     onClick={() => removeCargoLine(index)}
-                    className="absolute -right-2 -top-2 p-1.5 bg-[#131B2E] border border-slate-700 text-rose-500 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity md:col-span-1"
+                    className="absolute -right-2 -top-2 p-1.5 bg-[#131B2E] border border-slate-700 text-rose-500 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
                     aria-label="Remove row"
                   >
                     <Trash2 size={14} />
                   </button>
-                  <div className="md:col-span-6">
+                  <div className="md:col-span-4">
                     <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 md:sr-only">Goods</label>
                     <input
                       type="text"
@@ -535,6 +545,16 @@ export default function NewShipmentPage() {
                       placeholder="e.g. Shoes, bags"
                       value={line.description}
                       onChange={(e) => updateCargoLine(index, 'description', e.target.value)}
+                    />
+                  </div>
+                  <div className="md:col-span-3">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 md:sr-only">Tracking #</label>
+                    <input
+                      type="text"
+                      className="search-input !py-2 !px-3 min-w-0 font-mono"
+                      placeholder="e.g. 1Z999AA10123456784"
+                      value={line.trackingNumber}
+                      onChange={(e) => updateCargoLine(index, 'trackingNumber', e.target.value)}
                     />
                   </div>
                   <div className="md:col-span-2">
@@ -547,7 +567,7 @@ export default function NewShipmentPage() {
                       onChange={(e) => updateCargoLine(index, 'qty', Number(e.target.value))}
                     />
                   </div>
-                  <div className="md:col-span-3">
+                  <div className="md:col-span-2">
                     <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 md:sr-only">
                       {shipmentType === 'AIR' ? 'Weight (KG)' : 'CBM'}
                     </label>

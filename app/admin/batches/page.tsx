@@ -18,7 +18,8 @@ import {
   Trash2,
   Download,
   AlertCircle,
-  Users
+  Users,
+  Warehouse
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -157,7 +158,13 @@ const [searchTerm, setSearchTerm] = useState('');
           <p className="text-slate-400 font-medium">Consolidated cargo management and manifest control</p>
         </div>
         <div className="flex gap-3 w-full md:w-auto">
-          <button 
+          <Link href="/admin/warehouse"
+            className="flex-1 md:flex-none btn bg-white border border-slate-800 text-slate-300 flex items-center justify-center gap-2 hover:bg-slate-800 shadow-sm"
+          >
+            <Warehouse size={18} />
+            Warehouse Lookup
+          </Link>
+          <button
             onClick={handleBulkManifest}
             className="flex-1 md:flex-none btn bg-white border border-slate-800 text-slate-300 flex items-center justify-center gap-2 hover:bg-slate-800 shadow-sm"
           >
