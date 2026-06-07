@@ -1,5 +1,7 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { BRAND_FOOTER, BRAND_NAME } from '@/lib/brand';
+import fs from 'fs';
+import path from 'path';
 
 export interface QuotationPdfItem {
   description: string;
@@ -71,8 +73,20 @@ export async function generateQuotationPdf(data: QuotationPdfData): Promise<Uint
   page.drawRectangle({ x: 0, y: height - headerH, width, height: headerH, color: BRAND_COLOR });
   page.drawRectangle({ x: 0, y: height - headerH - 4, width, height: 4, color: BRAND_DARK });
 
-  page.drawText(BRAND_NAME, { x: MARGIN, y: height - 48, size: 24, font: fontBold, color: WHITE });
-  page.drawText('Logistics & Freight', { x: MARGIN, y: height - 72, size: 10, font, color: WHITE });
+  // Embed logo
+  try {
+    const logoPath = path.join(process.cwd(), 'public', 'qcargo-logo.png');
+    const logoBytes = fs.readFileSync(logoPath);
+    const logoImg = await doc.embedPng(logoBytes);
+    const logoSize = 64;
+    page.drawImage(logoImg, { x: MARGIN, y: height - headerH + (headerH - logoSize) / 2, width: logoSize, height: logoSize });
+    page.drawText(BRAND_NAME, { x: MARGIN + logoSize + 10, y: height - 48, size: 22, font: fontBold, color: WHITE });
+    page.drawText('Logistics & Freight', { x: MARGIN + logoSize + 10, y: height - 70, size: 10, font, color: WHITE });
+  } catch {
+    // Fallback: no logo
+    page.drawText(BRAND_NAME, { x: MARGIN, y: height - 48, size: 24, font: fontBold, color: WHITE });
+    page.drawText('Logistics & Freight', { x: MARGIN, y: height - 72, size: 10, font, color: WHITE });
+  }
 
   page.drawText('QUOTATION', { x: width - MARGIN - 140, y: height - 44, size: 7, font, color: WHITE });
   page.drawText(data.quoteNumber, { x: width - MARGIN - 140, y: height - 60, size: 14, font: fontBold, color: WHITE });
