@@ -16,6 +16,7 @@ import {
 
 interface QuotationItem {
   description: string;
+  notes: string;
   qty: string;
   price: string;
 }
@@ -32,7 +33,7 @@ export default function NewQuotation() {
   // State variables
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
-  const [items, setItems] = useState<QuotationItem[]>([{ description: '', qty: '1', price: '' }]);
+  const [items, setItems] = useState<QuotationItem[]>([{ description: '', notes: '', qty: '1', price: '' }]);
   const [estimatedPrice, setEstimatedPrice] = useState('');
   const [freightType, setFreightType] = useState('SEA');
   const [commissionRate, setCommissionRate] = useState('7');
@@ -69,6 +70,7 @@ export default function NewQuotation() {
       commissionAmount,
       items: items.filter(it => it.description.trim()).map(it => ({
         description: it.description.trim(),
+        notes: it.notes.trim(),
         qty: parseFloat(it.qty) || 1,
         price: parseFloat(it.price) || 0,
       })),
@@ -120,7 +122,7 @@ export default function NewQuotation() {
     router.push('/admin/quotations');
   };
 
-  const addItem = () => setItems([...items, { description: '', qty: '1', price: '' }]);
+  const addItem = () => setItems([...items, { description: '', notes: '', qty: '1', price: '' }]);
   
   const updateItem = (index: number, field: keyof QuotationItem, value: string) => {
     const newItems = items.map((item, i) => (i === index ? { ...item, [field]: value } : item));
@@ -192,51 +194,60 @@ export default function NewQuotation() {
               <span className="sm:col-span-1" />
             </div>
             {items.map((item, idx) => (
-              <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-4 mb-4 p-4 bg-[#0B0F19] rounded-xl border border-slate-800/80 items-end">
-                <div className="sm:col-span-6">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 sm:sr-only">Good Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Solar panels"
-                    className="search-input !py-2.5 min-w-0"
-                    value={item.description}
-                    onChange={e => updateItem(idx, 'description', e.target.value)}
-                  />
+              <div key={idx} className="mb-4 p-4 bg-[#0B0F19] rounded-xl border border-slate-800/80 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                  <div className="sm:col-span-6">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Good Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Solar panels"
+                      className="search-input !py-2.5 min-w-0"
+                      value={item.description}
+                      onChange={e => updateItem(idx, 'description', e.target.value)}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Qty</label>
+                    <input
+                      type="number"
+                      min={1}
+                      placeholder="1"
+                      className="search-input !py-2.5 min-w-0"
+                      value={item.qty}
+                      onChange={e => updateItem(idx, 'qty', e.target.value)}
+                    />
+                  </div>
+                  <div className="sm:col-span-3">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Price (USD)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      placeholder="0.00"
+                      className="search-input !py-2.5 min-w-0"
+                      value={item.price}
+                      onChange={e => updateItem(idx, 'price', e.target.value)}
+                    />
+                  </div>
+                  <div className="sm:col-span-1 flex sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => removeItem(idx)}
+                      disabled={items.length === 1}
+                      className="text-rose-500 hover:text-rose-400 p-2 hover:bg-rose-950/20 rounded-lg disabled:opacity-30 disabled:pointer-events-none"
+                      aria-label="Remove item"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
                 </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 sm:sr-only">Qty</label>
-                  <input
-                    type="number"
-                    min={1}
-                    placeholder="1"
-                    className="search-input !py-2.5 min-w-0"
-                    value={item.qty}
-                    onChange={e => updateItem(idx, 'qty', e.target.value)}
-                  />
-                </div>
-                <div className="sm:col-span-3">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 sm:sr-only">Price (USD)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    placeholder="0.00"
-                    className="search-input !py-2.5 min-w-0"
-                    value={item.price}
-                    onChange={e => updateItem(idx, 'price', e.target.value)}
-                  />
-                </div>
-                <div className="sm:col-span-1 flex sm:justify-end">
-                  <button
-                    type="button"
-                    onClick={() => removeItem(idx)}
-                    disabled={items.length === 1}
-                    className="text-rose-500 hover:text-rose-400 p-2 hover:bg-rose-950/20 rounded-lg disabled:opacity-30 disabled:pointer-events-none"
-                    aria-label="Remove item"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
+                <input
+                  type="text"
+                  placeholder="Description / notes for this item (optional)"
+                  className="search-input !py-2 w-full text-sm text-slate-400 placeholder:text-slate-600"
+                  value={item.notes}
+                  onChange={e => updateItem(idx, 'notes', e.target.value)}
+                />
               </div>
             ))}
             <button 

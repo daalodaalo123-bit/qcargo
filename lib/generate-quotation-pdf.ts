@@ -5,6 +5,7 @@ import path from 'path';
 
 export interface QuotationPdfItem {
   description: string;
+  notes?: string;
   qty: number;
   price: number;
 }
@@ -150,17 +151,22 @@ export async function generateQuotationPdf(data: QuotationPdfData): Promise<Uint
     : [{ description: 'General Cargo', qty: 1, price: data.total }];
 
   rows.forEach((row, i) => {
+    const rowH = row.notes?.trim() ? 36 : 24;
     if (i % 2 === 1) {
-      page.drawRectangle({ x: tableX, y: y - 4, width: tableW, height: 22, color: rgb(0.99, 0.99, 1) });
+      page.drawRectangle({ x: tableX, y: y - rowH + 18, width: tableW, height: rowH, color: rgb(0.99, 0.99, 1) });
     }
     const lineTotal = row.qty * row.price;
     const desc = row.description.length > 48 ? `${row.description.slice(0, 45)}…` : row.description;
-    page.drawText(desc, { x: tableX + 12, y: y + 2, size: 10, font, color: INK });
+    page.drawText(desc, { x: tableX + 12, y: y + 2, size: 10, font: fontBold, color: INK });
+    if (row.notes?.trim()) {
+      const noteText = row.notes.length > 60 ? `${row.notes.slice(0, 57)}…` : row.notes;
+      page.drawText(noteText, { x: tableX + 12, y: y - 11, size: 8, font, color: MUTED });
+    }
     page.drawText(String(row.qty), { x: colQty, y: y + 2, size: 10, font, color: INK });
     page.drawText(formatMoney(row.price), { x: colUnit, y: y + 2, size: 10, font, color: INK });
     const lineTotalStr = formatMoney(lineTotal);
     page.drawText(lineTotalStr, { x: colTotal - 12 - fontBold.widthOfTextAtSize(lineTotalStr, 10), y: y + 2, size: 10, font: fontBold, color: INK });
-    y -= 24;
+    y -= rowH;
   });
 
   y -= 8;

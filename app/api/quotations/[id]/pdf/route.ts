@@ -30,8 +30,9 @@ export async function GET(
       total: quotation.price || 0,
       commissionRate: quotation.commissionRate ?? 7,
       commissionAmount: quotation.commissionAmount ?? 0,
-      items: (quotation.items || []).map((it: { description: string; qty: number; price: number }) => ({
+      items: (quotation.items || []).map((it: { description: string; notes?: string; qty: number; price: number }) => ({
         description: it.description,
+        notes: it.notes || '',
         qty: it.qty ?? 1,
         price: it.price ?? 0,
       })),
