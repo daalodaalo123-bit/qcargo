@@ -68,33 +68,44 @@ export async function generateQuotationPdf(data: QuotationPdfData): Promise<Uint
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
   const contentW = width - MARGIN * 2;
 
-  // Header band
-  const headerH = 108;
-  page.drawRectangle({ x: 0, y: height - headerH, width, height: headerH, color: BRAND_COLOR });
-  page.drawRectangle({ x: 0, y: height - headerH - 4, width, height: 4, color: BRAND_DARK });
+  // Header: dark navy background (matches brand identity)
+  const headerH = 120;
+  const DARK = rgb(11 / 255, 15 / 255, 25 / 255);   // #0B0F19
+  page.drawRectangle({ x: 0, y: height - headerH, width, height: headerH, color: DARK });
+  // Orange accent strip at bottom of header
+  page.drawRectangle({ x: 0, y: height - headerH, width, height: 4, color: BRAND_COLOR });
 
-  // Embed logo
+  // Logo (dark bg version fits perfectly on dark header)
+  const logoH = 80;
+  const logoW = 200;
+  let logoDrawn = false;
   try {
-    const logoPath = path.join(process.cwd(), 'public', 'qcargo-logo.png');
+    const logoPath = path.join(process.cwd(), 'public', 'qcargo-logo-dark.png');
     const logoBytes = fs.readFileSync(logoPath);
     const logoImg = await doc.embedPng(logoBytes);
-    const logoSize = 64;
-    page.drawImage(logoImg, { x: MARGIN, y: height - headerH + (headerH - logoSize) / 2, width: logoSize, height: logoSize });
-    page.drawText(BRAND_NAME, { x: MARGIN + logoSize + 10, y: height - 48, size: 22, font: fontBold, color: WHITE });
-    page.drawText('Logistics & Freight', { x: MARGIN + logoSize + 10, y: height - 70, size: 10, font, color: WHITE });
-  } catch {
-    // Fallback: no logo
-    page.drawText(BRAND_NAME, { x: MARGIN, y: height - 48, size: 24, font: fontBold, color: WHITE });
-    page.drawText('Logistics & Freight', { x: MARGIN, y: height - 72, size: 10, font, color: WHITE });
+    const dims = logoImg.scaleToFit(logoW, logoH);
+    page.drawImage(logoImg, {
+      x: MARGIN,
+      y: height - headerH + (headerH - dims.height) / 2 + 2,
+      width: dims.width,
+      height: dims.height,
+    });
+    logoDrawn = true;
+  } catch { /* fallback below */ }
+
+  if (!logoDrawn) {
+    page.drawText('Q CARGO', { x: MARGIN, y: height - 52, size: 26, font: fontBold, color: WHITE });
+    page.drawText('Logistics & Freight', { x: MARGIN, y: height - 74, size: 10, font, color: rgb(0.6, 0.6, 0.6) });
   }
 
-  page.drawText('QUOTATION', { x: width - MARGIN - 140, y: height - 44, size: 7, font, color: WHITE });
-  page.drawText(data.quoteNumber, { x: width - MARGIN - 140, y: height - 60, size: 14, font: fontBold, color: WHITE });
+  // Quotation number — right side
+  page.drawText('QUOTATION', { x: width - MARGIN - 140, y: height - 44, size: 7, font, color: rgb(0.5, 0.5, 0.5) });
+  page.drawText(data.quoteNumber, { x: width - MARGIN - 140, y: height - 62, size: 14, font: fontBold, color: WHITE });
 
   const statusText = data.status.toUpperCase();
   const statusW = fontBold.widthOfTextAtSize(statusText, 8) + 16;
-  page.drawRectangle({ x: width - MARGIN - statusW, y: height - 88, width: statusW, height: 18, color: WHITE });
-  page.drawText(statusText, { x: width - MARGIN - statusW + 8, y: height - 84, size: 8, font: fontBold, color: BRAND_DARK });
+  page.drawRectangle({ x: width - MARGIN - statusW, y: height - 94, width: statusW, height: 18, color: BRAND_COLOR });
+  page.drawText(statusText, { x: width - MARGIN - statusW + 8, y: height - 90, size: 8, font: fontBold, color: WHITE });
 
   // Info panel
   let y = height - headerH - 28;
