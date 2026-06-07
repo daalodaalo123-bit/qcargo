@@ -70,7 +70,7 @@ export async function generateQuotationPdf(data: QuotationPdfData): Promise<Uint
 
   // Header: dark navy background (matches brand identity)
   const headerH = 120;
-  const DARK = rgb(11 / 255, 15 / 255, 25 / 255);   // #0B0F19
+  const DARK = rgb(30 / 255, 36 / 255, 45 / 255);   // #1E242D
   page.drawRectangle({ x: 0, y: height - headerH, width, height: headerH, color: DARK });
   // Orange accent strip at bottom of header
   page.drawRectangle({ x: 0, y: height - headerH, width, height: 4, color: BRAND_COLOR });
