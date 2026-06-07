@@ -44,15 +44,9 @@ export default function NewQuotation() {
     }
   }, [items]);
 
-  const handleSaveQuotation = async (status: 'SENT' | 'DRAFT'): Promise<string | null> => {
-    if (!customerName.trim()) {
-      alert('Please enter a customer name');
-      return null;
-    }
-    if (!phone.trim()) {
-      alert('Please enter a phone number');
-      return null;
-    }
+  const saveQuotation = async (status: 'SENT' | 'DRAFT'): Promise<{ id: string } | null> => {
+    if (!customerName.trim()) { alert('Please enter a customer name'); return null; }
+    if (!phone.trim()) { alert('Please enter a phone number'); return null; }
 
     const priceNum = parseFloat(estimatedPrice) || 0;
     const goodsText = items
@@ -61,12 +55,8 @@ export default function NewQuotation() {
       .join(', ') || 'General Cargo';
 
     const payload = {
-      customer: customerName,
-      phone,
-      goods: goodsText,
-      price: priceNum,
-      date: new Date().toISOString().split('T')[0],
-      status,
+      customer: customerName, phone, goods: goodsText, price: priceNum,
+      date: new Date().toISOString().split('T')[0], status,
       type: freightType.toUpperCase() as 'AIR' | 'SEA',
       items: items.filter(it => it.description.trim()).map(it => ({
         description: it.description.trim(),
@@ -77,19 +67,18 @@ export default function NewQuotation() {
 
     try {
       const res = await fetch('/api/quotations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Failed to save quotation');
       }
-      const saved = await res.json();
-      return (saved._id || saved.id) as string;
-    } catch (err: any) {
-      console.error(err);
-      alert(`Error: ${err.message}`);
+      const saved: { _id?: string; id?: string } = await res.json();
+      const id = saved._id ?? saved.id ?? '';
+      return { id };
+    } catch (err: unknown) {
+      alert(`Error: ${err instanceof Error ? err.message : 'Failed to save'}`);
       return null;
     }
   };
@@ -100,11 +89,11 @@ export default function NewQuotation() {
       return;
     }
 
-    const quotationId = await handleSaveQuotation('SENT');
-    if (!quotationId) return;
+    const result = await saveQuotation('SENT');
+    if (!result) return;
 
     try {
-      const res = await fetch(`/api/quotations/${quotationId}/send-whatsapp`, {
+      const res = await fetch(`/api/quotations/${result.id}/send-whatsapp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone }),
@@ -295,8 +284,8 @@ export default function NewQuotation() {
               <div className="pt-6 border-t border-slate-800/40 space-y-3">
                 <button
                   onClick={async () => {
-                    const id = await handleSaveQuotation('SENT');
-                    if (id) {
+                    const saved = await saveQuotation('SENT');
+                    if (saved) {
                       alert(`Quotation successfully created for ${customerName}!`);
                       router.push('/admin/quotations');
                     }
