@@ -5,6 +5,7 @@ import { generateQuotationPdf } from '@/lib/generate-quotation-pdf';
 import { isCloudinaryConfigured, uploadReceiptPdf } from '@/lib/upload-receipt-pdf';
 import { sendWhatsAppPdf, sendWhatsAppMessage } from '@/lib/whatsapp';
 import { BRAND_NAME } from '@/lib/brand';
+import { personalizedPdfFilename } from '@/lib/pdf-filename';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -59,7 +60,7 @@ export async function POST(
 
     const caption = `Asc ${quotation.customer}, ${BRAND_NAME} quotation ${quoteNumber}. ${quotation.type} Cargo, $${quotation.price?.toFixed(2)} USD. Contact us to confirm. Mahadsanid!`;
 
-    const pdfResult = await sendWhatsAppPdf({ to: phone, pdfUrl, filename: `${quoteNumber}.pdf`, caption });
+    const pdfResult = await sendWhatsAppPdf({ to: phone, pdfUrl, filename: personalizedPdfFilename(quotation.customer, quoteNumber), caption });
 
     if (pdfResult.success) {
       return NextResponse.json({ success: true, pdfSent: true, pdfUrl });

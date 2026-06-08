@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongoose';
 import Quotation from '@/lib/models/Quotation';
 import { generateQuotationPdf } from '@/lib/generate-quotation-pdf';
+import { personalizedPdfFilename } from '@/lib/pdf-filename';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -19,6 +20,7 @@ export async function GET(
     }
 
     const quoteNumber = `QT-${String(quotation._id).slice(-8).toUpperCase()}`;
+    const fileName = personalizedPdfFilename(quotation.customer, quoteNumber);
 
     const pdfBytes = await generateQuotationPdf({
       quoteNumber,
@@ -41,7 +43,7 @@ export async function GET(
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${quoteNumber}.pdf"`,
+        'Content-Disposition': `attachment; filename="${fileName}"`,
       },
     });
   } catch (err: unknown) {

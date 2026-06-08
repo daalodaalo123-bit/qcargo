@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongoose';
 import Invoice, { type IInvoiceItem } from '@/lib/models/Invoice';
 import { generateReceiptPdf } from '@/lib/generate-receipt-pdf';
+import { personalizedPdfFilename } from '@/lib/pdf-filename';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,7 @@ export async function GET(
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
 
+    const fileName = personalizedPdfFilename(invoice.customerName, invoice.invoiceNumber);
     const isShipment = Boolean(invoice.shipmentId);
     const shipDateMatch = invoice.notes?.match(/\((\d{4}-\d{2}-\d{2})\)/);
     const pdfBytes = await generateReceiptPdf({
@@ -47,7 +49,7 @@ export async function GET(
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="${invoice.invoiceNumber}.pdf"`,
+        'Content-Disposition': `inline; filename="${fileName}"`,
       },
     });
   } catch (err: unknown) {
