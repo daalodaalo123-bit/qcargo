@@ -2,6 +2,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 export interface ITodoTask extends Document {
   title: string;
+  description?: string;
   assignee: string;
   priority: 'High' | 'Medium' | 'Low';
   status: 'Pending' | 'In Progress' | 'Completed';
@@ -10,6 +11,7 @@ export interface ITodoTask extends Document {
 
 const TodoTaskSchema = new Schema<ITodoTask>({
   title: { type: String, required: true },
+  description: { type: String, default: '' },
   assignee: { type: String, required: true },
   priority: { type: String, enum: ['High', 'Medium', 'Low'], default: 'Medium' },
   status: { type: String, enum: ['Pending', 'In Progress', 'Completed'], default: 'Pending' },

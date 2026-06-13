@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { 
+import {
   Plus, Trash2, Save, ArrowLeft, DollarSign, Package,
-  Hash, Scale, Box, User, Plane, Ship, CheckCircle2, AlertCircle, Phone, Search, X
+  Hash, Scale, Box, User, Plane, Ship, CheckCircle2, AlertCircle, Phone, Search, X, FileText, ClipboardCheck
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -200,6 +200,9 @@ export default function NewShipmentPage() {
   const [shipmentType, setShipmentType] = useState<'AIR' | 'SEA'>('AIR');
   const [batches, setBatches] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [quotations, setQuotations] = useState<any[]>([]);
+  const [customerOrders, setCustomerOrders] = useState<any[]>([]);
+  const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [cargoLines, setCargoLines] = useState<CargoLine[]>([emptyCargoLine()]);
@@ -213,14 +216,17 @@ export default function NewShipmentPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [batchRes, customerRes] = await Promise.all([
+        const [batchRes, customerRes, quoteRes] = await Promise.all([
           fetch('/api/batches'),
           fetch('/api/customers'),
+          fetch('/api/quotations'),
         ]);
         const batchData = batchRes.ok ? await batchRes.json() : [];
         const customerData = customerRes.ok ? await customerRes.json() : [];
+        const quoteData = quoteRes.ok ? await quoteRes.json() : [];
         setBatches(batchData);
         setCustomers(customerData);
+        setQuotations(quoteData);
         if (batchData.length > 0) {
           setFormData(prev => ({ ...prev, batchId: batchData[0].batchId }));
         }
@@ -283,6 +289,45 @@ export default function NewShipmentPage() {
     } else {
       setFormData(prev => ({ ...prev, customerName: val }));
     }
+  };
+
+  // Find this customer's paid, approved quotations whose goods can be loaded into the shipment
+  const lastDigits = (phone: string) => (phone || '').replace(/\D/g, '').slice(-9);
+
+  useEffect(() => {
+    const digits = lastDigits(formData.phone);
+    if (!digits) {
+      setCustomerOrders([]);
+      return;
+    }
+    const matches = quotations.filter((q: any) =>
+      q.status === 'APPROVED' &&
+      q.paymentStatus !== 'UNPAID' &&
+      lastDigits(q.phone || '') === digits
+    );
+    setCustomerOrders(matches);
+    if (!matches.find((q: any) => q._id === selectedQuotationId)) {
+      setSelectedQuotationId(null);
+    }
+  }, [formData.phone, quotations]);
+
+  const loadOrderIntoShipment = (quote: any) => {
+    const lines: CargoLine[] = quote.items && quote.items.length > 0
+      ? quote.items.map((it: any) => ({
+          description: it.description || '',
+          trackingNumber: '',
+          qty: it.qty || 1,
+          weight: 0,
+          cbm: 0,
+        }))
+      : [emptyCargoLine()];
+    setCargoLines(lines);
+    setSelectedQuotationId(quote._id);
+  };
+
+  const clearLinkedOrder = () => {
+    setSelectedQuotationId(null);
+    setCargoLines([emptyCargoLine()]);
   };
 
   const addCargoLine = () => setCargoLines([...cargoLines, emptyCargoLine()]);
@@ -433,6 +478,51 @@ export default function NewShipmentPage() {
                 )}
               </div>
             </div>
+
+            {/* Customer's paid orders ready to ship */}
+            {customerOrders.length > 0 && (
+              <div className="mb-8 p-5 rounded-2xl bg-emerald-950/10 border border-emerald-800/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <ClipboardCheck size={16} className="text-emerald-400" />
+                  <h4 className="text-xs font-black text-emerald-400 uppercase tracking-wider">
+                    {customerOrders.length} Paid Order{customerOrders.length !== 1 ? 's' : ''} Found
+                  </h4>
+                </div>
+                <p className="text-[11px] text-slate-400 mb-3">
+                  Select an order to auto-fill the cargo list below with the goods this customer already paid for. You'll just need to enter the {shipmentType === 'AIR' ? 'weight (kg)' : 'volume (cbm)'} for each item.
+                </p>
+                <div className="space-y-2">
+                  {customerOrders.map((q: any) => (
+                    <button
+                      key={q._id}
+                      type="button"
+                      onClick={() => loadOrderIntoShipment(q)}
+                      className={`w-full flex items-center justify-between gap-3 p-3 rounded-xl border text-left transition-all ${
+                        selectedQuotationId === q._id
+                          ? 'bg-[#F15D38]/10 border-[#F15D38]/30'
+                          : 'bg-[#0B0F19] border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <FileText size={14} className="text-slate-500 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-slate-100 truncate">{q.goods}</p>
+                          <p className="text-[10px] text-slate-500 font-bold mt-0.5">{q.date} • {q.type} FREIGHT • ${(q.price || 0).toFixed(2)}</p>
+                        </div>
+                      </div>
+                      <span className={`text-[9px] font-black uppercase shrink-0 ${selectedQuotationId === q._id ? 'text-[#F15D38]' : 'text-slate-400'}`}>
+                        {selectedQuotationId === q._id ? 'Loaded ✓' : 'Use Order'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {selectedQuotationId && (
+                  <button type="button" onClick={clearLinkedOrder} className="mt-3 text-[10px] font-bold text-slate-500 hover:text-slate-300 underline">
+                    Clear loaded order
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Type Toggle */}
             <div className="flex p-1 bg-[#0B0F19] rounded-2xl mb-8 border border-slate-800">

@@ -19,6 +19,7 @@ import {
   Users
 } from 'lucide-react';
 import Link from 'next/link';
+import CustomerHistoryModal from './CustomerHistoryModal';
 
 interface Customer {
   id: string;
@@ -45,6 +46,7 @@ export default function CustomersPage() {
   const [showModal, setShowModal] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [historyCustomerId, setHistoryCustomerId] = useState<string | null>(null);
 
   const [cName, setCName] = useState('');
   const [cPhone, setCPhone] = useState('');
@@ -271,7 +273,11 @@ export default function CustomersPage() {
             </thead>
             <tbody className="divide-y divide-slate-800">
               {filteredCustomers.map((cust) => (
-                <tr key={cust.id} className="hover:bg-slate-800/30 transition-all group">
+                <tr
+                  key={cust.id}
+                  onClick={() => setHistoryCustomerId(cust.id)}
+                  className="hover:bg-slate-800/30 transition-all group cursor-pointer"
+                >
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-slate-950 border border-slate-800 flex items-center justify-center font-black text-slate-400 text-xs">
@@ -311,8 +317,11 @@ export default function CustomersPage() {
                     </div>
                   </td>
                   <td className="px-8 py-6">
-                    <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <button
                         onClick={() => openEditModal(cust)}
                         className="p-2 hover:bg-slate-800 text-slate-400 hover:text-slate-100 rounded-lg transition-colors" 
                         title="View/Edit Profile"
@@ -339,6 +348,11 @@ export default function CustomersPage() {
           </table>
         </div>
       </div>
+
+      <CustomerHistoryModal
+        customerId={historyCustomerId}
+        onClose={() => setHistoryCustomerId(null)}
+      />
 
       {/* CRM Add/Edit Modal */}
       {showModal && (

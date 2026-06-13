@@ -19,7 +19,8 @@ import {
   Menu,
   X,
   CheckSquare,
-  Warehouse
+  Warehouse,
+  Megaphone
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -68,6 +69,7 @@ export default function AdminLayout({
     { name: 'Purchases', icon: ShoppingCart, href: '/admin/purchases' },
     { name: 'Customers', icon: Users, href: '/admin/customers' },
     { name: 'Quotations', icon: FileText, href: '/admin/quotations' },
+    { name: 'Marketing', icon: Megaphone, href: '/admin/marketing' },
     { name: 'Expenses', icon: CreditCard, href: '/admin/expenses' },
     { name: 'Accounting', icon: BarChart3, href: '/admin/accounting' },
     { name: 'To-Do List', icon: CheckSquare, href: '/admin/todo' },

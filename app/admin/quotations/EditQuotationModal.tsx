@@ -34,6 +34,7 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
   const [phone, setPhone] = useState('');
   const [items, setItems] = useState<QuotationItem[]>([{ description: '', qty: '1', price: '' }]);
   const [estimatedPrice, setEstimatedPrice] = useState('');
+  const [commissionRate, setCommissionRate] = useState('0');
   const [freightType, setFreightType] = useState<'AIR' | 'SEA'>('SEA');
   const [status, setStatus] = useState<'SENT' | 'DRAFT' | 'APPROVED' | 'REJECTED'>('DRAFT');
   const [loading, setLoading] = useState(false);
@@ -53,6 +54,8 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
     fetch(`/api/quotations/${quotation.id}`)
       .then((r) => r.json())
       .then((data) => {
+        setCommissionRate(String(data.commissionRate ?? 0));
+        const commAmt = data.commissionAmount || 0;
         if (data.items && data.items.length > 0) {
           setItems(
             data.items.map((it: { description: string; qty: number; price: number }) => ({
@@ -65,26 +68,35 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
             (sum: number, it: { qty: number; price: number }) => sum + it.qty * it.price,
             0
           );
-          setEstimatedPrice(total > 0 ? String(total) : String(data.price || quotation.price));
+          // Items already store subtotal lines; fall back to price minus commission if items have no value yet.
+          setEstimatedPrice(total > 0 ? String(total) : String(Math.max(0, (data.price || quotation.price) - commAmt)));
         } else {
-          setItems([{ description: data.goods || quotation.goods, qty: '1', price: String(data.price || quotation.price) }]);
-          setEstimatedPrice(String(data.price || quotation.price));
+          const subtotalFallback = Math.max(0, (data.price || quotation.price) - commAmt);
+          setItems([{ description: data.goods || quotation.goods, qty: '1', price: String(subtotalFallback) }]);
+          setEstimatedPrice(String(subtotalFallback));
         }
       })
       .catch(() => {
         setItems([{ description: quotation.goods, qty: '1', price: String(quotation.price) }]);
         setEstimatedPrice(String(quotation.price));
+        setCommissionRate('0');
       })
       .finally(() => setFetching(false));
   }, [quotation?.id]);
 
-  // Auto-update estimated price from items
+  // Auto-update subtotal from items
   useEffect(() => {
     const total = items.reduce((acc, item) => acc + lineTotal(item), 0);
     if (total > 0) setEstimatedPrice(String(total));
   }, [items]);
 
   if (!quotation) return null;
+
+  const subtotal = parseFloat(estimatedPrice) || 0;
+  const commissionAmount = parseFloat(commissionRate) > 0
+    ? subtotal * (parseFloat(commissionRate) / 100)
+    : 0;
+  const grandTotal = subtotal + commissionAmount;
 
   const updateItem = (index: number, field: keyof QuotationItem, value: string) => {
     setItems(items.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
@@ -102,7 +114,6 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
       return;
     }
 
-    const priceNum = parseFloat(estimatedPrice) || 0;
     const goodsText =
       items
         .filter((it) => it.description.trim())
@@ -113,7 +124,9 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
       customer: customer.trim(),
       phone: phone.trim(),
       goods: goodsText,
-      price: priceNum,
+      price: grandTotal,
+      commissionRate: parseFloat(commissionRate) || 0,
+      commissionAmount,
       type: freightType,
       status,
       items: items
@@ -268,7 +281,7 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
               {/* Price, Freight, Status */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-2">Total Price (USD)</label>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-2">Subtotal (USD)</label>
                   <div className="relative">
                     <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={15} />
                     <input
@@ -303,6 +316,37 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
                     <option value="APPROVED">Approved</option>
                     <option value="REJECTED">Rejected</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Commission */}
+              <div className="p-4 rounded-xl bg-[#0B0F19] border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-400 uppercase">Commission</label>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="0.5"
+                      className="w-16 bg-slate-900 border border-slate-700 rounded-lg py-1 px-2 text-slate-100 font-black text-sm text-center focus:outline-none focus:ring-1 focus:ring-[#F15D38]/50"
+                      value={commissionRate}
+                      onChange={(e) => setCommissionRate(e.target.value)}
+                    />
+                    <span className="text-slate-400 font-bold text-sm">%</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500">Subtotal</span>
+                  <span className="font-bold text-slate-300">${subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500">Commission ({commissionRate || 0}%)</span>
+                  <span className="font-bold text-[#F15D38]">+${commissionAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-slate-800 pt-2">
+                  <span className="text-xs font-black text-slate-300 uppercase tracking-wider">Total</span>
+                  <span className="font-black text-slate-100 text-base">${grandTotal.toFixed(2)}</span>
                 </div>
               </div>
 

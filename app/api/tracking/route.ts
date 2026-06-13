@@ -55,6 +55,39 @@ function buildTimeline(status: string, type: string, batchArrival?: string) {
   }));
 }
 
+async function formatShipment(shipment: any) {
+  // Fetch associated batch for arrival date
+  let batchArrival: string | undefined;
+  if (shipment.batch && shipment.batch !== 'UNASSIGNED') {
+    const batch = await Batch.findOne({ batchId: shipment.batch });
+    if (batch?.arrival) batchArrival = batch.arrival;
+  }
+
+  const timeline = buildTimeline(shipment.status, shipment.type, batchArrival);
+
+  return {
+    found: true,
+    id: shipment.shipmentNumber,
+    customer: shipment.customer,
+    goods: shipment.items?.map((i: any) => i.description).filter(Boolean).join(', ') || 'Cargo Shipment',
+    status: shipment.status,
+    type: shipment.type,
+    origin: 'Guangzhou, China',
+    destination: 'Hargeisa, Somaliland',
+    progress: statusToProgress(shipment.status),
+    estimatedArrival: batchArrival || 'Contact office for ETA',
+    lastUpdate: new Date(shipment.updatedAt || shipment.createdAt || Date.now()).toLocaleDateString('en-US', {
+      year: 'numeric', month: 'long', day: 'numeric',
+    }),
+    date: shipment.date,
+    batch: shipment.batch !== 'UNASSIGNED' ? shipment.batch : null,
+    timeline,
+    weight: shipment.weight,
+    cbm: shipment.cbm,
+    paymentStatus: shipment.paymentStatus,
+  };
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const q = (searchParams.get('q') || '').trim();
@@ -85,37 +118,26 @@ export async function GET(request: Request) {
     }
   }
 
-  if (!shipment) {
-    return NextResponse.json({ found: false }, { status: 404 });
+  if (shipment) {
+    return NextResponse.json(await formatShipment(shipment));
   }
 
-  // Fetch associated batch for arrival date
-  let batchArrival: string | undefined;
-  if (shipment.batch && shipment.batch !== 'UNASSIGNED') {
-    const batch = await Batch.findOne({ batchId: shipment.batch });
-    if (batch?.arrival) batchArrival = batch.arrival;
+  // Fallback: search by customer phone number (match last 9 digits, like the customer portal)
+  const digits = q.replace(/\D/g, '');
+  if (digits.length >= 7) {
+    const lastDigits = digits.slice(-9);
+    const shipments = await Shipment.find({ phone: { $regex: new RegExp(lastDigits) } })
+      .sort({ createdAt: -1 })
+      .limit(10);
+
+    if (shipments.length === 1) {
+      return NextResponse.json(await formatShipment(shipments[0]));
+    }
+    if (shipments.length > 1) {
+      const results = await Promise.all(shipments.map((s) => formatShipment(s)));
+      return NextResponse.json({ found: true, multiple: true, shipments: results });
+    }
   }
 
-  const timeline = buildTimeline(shipment.status, shipment.type, batchArrival);
-
-  return NextResponse.json({
-    found: true,
-    id: shipment.shipmentNumber,
-    customer: shipment.customer,
-    goods: shipment.items?.map((i: any) => i.description).filter(Boolean).join(', ') || 'Cargo Shipment',
-    status: shipment.status,
-    type: shipment.type,
-    origin: 'Guangzhou, China',
-    destination: 'Hargeisa, Somaliland',
-    progress: statusToProgress(shipment.status),
-    estimatedArrival: batchArrival || 'Contact office for ETA',
-    lastUpdate: new Date(shipment.updatedAt || shipment.createdAt || Date.now()).toLocaleDateString('en-US', {
-      year: 'numeric', month: 'long', day: 'numeric',
-    }),
-    batch: shipment.batch !== 'UNASSIGNED' ? shipment.batch : null,
-    timeline,
-    weight: shipment.weight,
-    cbm: shipment.cbm,
-    paymentStatus: shipment.paymentStatus,
-  });
+  return NextResponse.json({ found: false }, { status: 404 });
 }

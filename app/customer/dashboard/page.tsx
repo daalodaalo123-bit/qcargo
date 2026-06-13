@@ -16,7 +16,7 @@ interface Shipment {
   batch: string;
   weight?: number;
   cbm?: number;
-  items?: { description: string; qty: number }[];
+  items?: { description: string; qty: number; warehouseStatus?: 'IN_WAREHOUSE' | 'TAKEN' | 'LOST' }[];
 }
 
 interface Customer {
@@ -37,6 +37,18 @@ const PAY_COLORS: Record<string, string> = {
   UNPAID: 'bg-rose-50 text-rose-600',
   PARTIAL: 'bg-amber-50 text-amber-600',
   PAID: 'bg-emerald-50 text-emerald-600',
+};
+
+const WAREHOUSE_COLORS: Record<string, string> = {
+  IN_WAREHOUSE: 'bg-blue-50 text-blue-600',
+  TAKEN: 'bg-emerald-50 text-emerald-600',
+  LOST: 'bg-rose-50 text-rose-600',
+};
+
+const WAREHOUSE_LABELS: Record<string, string> = {
+  IN_WAREHOUSE: 'In Warehouse',
+  TAKEN: 'Collected',
+  LOST: 'Lost',
 };
 
 export default function CustomerDashboardPage() {
@@ -160,7 +172,7 @@ export default function CustomerDashboardPage() {
                       <div>
                         <p className="font-black text-slate-900 text-base font-mono">{s.shipmentNumber}</p>
                         <p className="text-xs text-slate-400 font-bold mt-0.5">
-                          {s.items?.map(i => i.description).join(', ').slice(0, 60) || 'Cargo shipment'} · {s.date}
+                          {s.date} · {s.items?.length ? `${s.items.length} item${s.items.length !== 1 ? 's' : ''}` : 'Cargo shipment'}
                         </p>
                       </div>
                     </div>
@@ -195,7 +207,28 @@ export default function CustomerDashboardPage() {
                     ))}
                   </div>
 
-                  <div className="mt-3 flex items-center justify-between">
+                  {/* Itemized goods with per-item status */}
+                  {s.items && s.items.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-slate-100">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Your Goods</p>
+                      <div className="space-y-2">
+                        {s.items.map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between gap-3 bg-slate-50 rounded-xl px-4 py-2.5">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Package size={14} className="text-slate-400 shrink-0" />
+                              <span className="text-sm font-bold text-slate-700 truncate">{item.description}</span>
+                              <span className="text-xs text-slate-400 font-bold shrink-0">× {item.qty}</span>
+                            </div>
+                            <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider shrink-0 ${WAREHOUSE_COLORS[item.warehouseStatus || 'IN_WAREHOUSE']}`}>
+                              {WAREHOUSE_LABELS[item.warehouseStatus || 'IN_WAREHOUSE']}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-4 flex items-center justify-between">
                     <p className="text-[10px] text-slate-400 font-bold">
                       {s.type === 'AIR' ? `${s.weight || 0} KG` : `${s.cbm || 0} CBM`}
                       {s.batch && s.batch !== 'UNASSIGNED' ? ` · Batch: ${s.batch}` : ''}

@@ -31,7 +31,7 @@ export async function PATCH(
     await connectDB();
     const body = await request.json();
 
-    const { customer, phone, goods, price, type, status, items } = body as {
+    const { customer, phone, goods, price, type, status, items, commissionRate, commissionAmount } = body as {
       customer?: string;
       phone?: string;
       goods?: string;
@@ -39,6 +39,8 @@ export async function PATCH(
       type?: 'AIR' | 'SEA';
       status?: 'SENT' | 'DRAFT' | 'APPROVED' | 'REJECTED';
       items?: { description: string; qty: number; price: number }[];
+      commissionRate?: number;
+      commissionAmount?: number;
     };
 
     if (!customer?.trim()) {
@@ -57,6 +59,8 @@ export async function PATCH(
     if (type !== undefined) quotation.type = type;
     if (status !== undefined) quotation.status = status;
     if (items !== undefined) quotation.items = items;
+    if (commissionRate !== undefined) quotation.commissionRate = commissionRate;
+    if (commissionAmount !== undefined) quotation.commissionAmount = commissionAmount;
 
     await quotation.save();
     return NextResponse.json(quotation);

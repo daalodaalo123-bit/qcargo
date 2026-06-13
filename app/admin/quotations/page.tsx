@@ -24,6 +24,7 @@ import {
 import Link from 'next/link';
 import RecordPaymentModal, { type PaymentQuotation } from './RecordPaymentModal';
 import EditQuotationModal, { type EditQuotationData } from './EditQuotationModal';
+import QuotationPreviewModal from './QuotationPreviewModal';
 
 interface Quotation {
   id: string;
@@ -50,6 +51,7 @@ export default function QuotationsPage() {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [paymentQuote, setPaymentQuote] = useState<PaymentQuotation | null>(null);
   const [editQuote, setEditQuote] = useState<EditQuotationData | null>(null);
+  const [previewQuote, setPreviewQuote] = useState<string | null>(null);
   const [sendQuote, setSendQuote] = useState<Quotation | null>(null);
   const [sendPhone, setSendPhone] = useState('');
   const [sending, setSending] = useState(false);
@@ -260,7 +262,11 @@ export default function QuotationsPage() {
             </thead>
             <tbody className="divide-y divide-slate-800">
               {filteredQuotations.map((quote) => (
-                <tr key={quote.id} className="hover:bg-slate-800/30 transition-all group">
+                <tr
+                  key={quote.id}
+                  onClick={() => setPreviewQuote(quote.id)}
+                  className="hover:bg-slate-800/30 transition-all group cursor-pointer"
+                >
                   <td className="px-8 py-6">
                     <div className="flex flex-col">
                       <span className="font-bold text-slate-100">{quote.customer}</span>
@@ -309,7 +315,17 @@ export default function QuotationsPage() {
                     )}
                   </td>
                   <td className="px-8 py-6">
-                    <div className="flex items-center justify-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center justify-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                    >
+                      <button
+                        onClick={() => setPreviewQuote(quote.id)}
+                        className="p-2 hover:bg-slate-800 text-slate-400 hover:text-slate-100 rounded-lg transition-colors"
+                        title="Preview Quotation"
+                      >
+                        <Eye size={16} />
+                      </button>
                       {quote.paymentStatus !== 'PAID' && quote.status !== 'REJECTED' && (
                         <button
                           onClick={() => setPaymentQuote({
@@ -385,6 +401,11 @@ export default function QuotationsPage() {
         quotation={editQuote}
         onClose={() => setEditQuote(null)}
         onSuccess={loadQuotations}
+      />
+
+      <QuotationPreviewModal
+        quotationId={previewQuote}
+        onClose={() => setPreviewQuote(null)}
       />
 
       {sendQuote && (

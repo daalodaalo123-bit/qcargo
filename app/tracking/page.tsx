@@ -40,6 +40,7 @@ interface TrackingResult {
   progress: number;
   estimatedArrival: string;
   lastUpdate: string;
+  date?: string;
   batch: string | null;
   paymentStatus: string;
   timeline: {
@@ -51,10 +52,16 @@ interface TrackingResult {
   }[];
 }
 
+interface TrackingResponse extends TrackingResult {
+  multiple?: boolean;
+  shipments?: TrackingResult[];
+}
+
 export default function TrackingPage() {
   const [trackingId, setTrackingId] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TrackingResult | null>(null);
+  const [multipleResults, setMultipleResults] = useState<TrackingResult[] | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [showResult, setShowResult] = useState(false);
 
@@ -65,6 +72,7 @@ export default function TrackingPage() {
     setLoading(true);
     setNotFound(false);
     setResult(null);
+    setMultipleResults(null);
 
     try {
       const res = await fetch(`/api/tracking?q=${encodeURIComponent(trackingId.trim())}`);
@@ -72,8 +80,12 @@ export default function TrackingPage() {
         setNotFound(true);
         setShowResult(true);
       } else if (res.ok) {
-        const data: TrackingResult = await res.json();
-        setResult(data);
+        const data: TrackingResponse = await res.json();
+        if (data.multiple && data.shipments) {
+          setMultipleResults(data.shipments);
+        } else {
+          setResult(data);
+        }
         setShowResult(true);
       }
     } catch {
@@ -87,6 +99,7 @@ export default function TrackingPage() {
   const handleBack = () => {
     setShowResult(false);
     setResult(null);
+    setMultipleResults(null);
     setNotFound(false);
   };
 
@@ -118,12 +131,12 @@ export default function TrackingPage() {
             </div>
             <h1 className="text-4xl md:text-5xl font-black text-slate-900 mb-4 tracking-tight">Track Your Cargo</h1>
             <p className="text-slate-500 text-lg mb-10 max-w-lg mx-auto leading-relaxed">
-              Enter your shipment number or batch ID to see the real-time status of your cargo from China to Somalia.
+              Enter your shipment number, batch ID, or the phone number you registered with us to see the real-time status of your cargo from China to Somalia.
             </p>
             <form onSubmit={handleTrack} className="relative max-w-2xl mx-auto">
               <input
                 type="text"
-                placeholder="Enter Shipment Number (e.g. QC-2024-001)"
+                placeholder="Shipment number (e.g. QC-2024-001) or phone number"
                 className="w-full py-6 px-8 rounded-[2rem] bg-white border-none shadow-2xl shadow-blue-900/10 text-lg font-bold placeholder:text-slate-300 focus:ring-4 focus:ring-blue-100 transition-all"
                 value={trackingId}
                 onChange={(e) => setTrackingId(e.target.value)}
@@ -165,6 +178,48 @@ export default function TrackingPage() {
                 <MessageCircle size={18} />
                 WhatsApp Support
               </a>
+            </div>
+          </div>
+        ) : multipleResults ? (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
+            <button
+              onClick={handleBack}
+              className="flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-blue-600 transition-colors group"
+            >
+              <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+              Back to search
+            </button>
+            <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-2xl shadow-slate-200/50 border border-slate-100">
+              <h2 className="text-2xl font-black text-slate-900 mb-2">We Found {multipleResults.length} Shipments</h2>
+              <p className="text-slate-500 mb-8">Select a shipment below to view its full tracking details.</p>
+              <div className="space-y-4">
+                {multipleResults.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => { setResult(s); setMultipleResults(null); }}
+                    className="w-full flex items-center justify-between gap-4 p-5 rounded-2xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/40 transition-all text-left"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${s.type === 'SEA' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                        {s.type === 'SEA' ? <Ship size={22} /> : <Plane size={22} />}
+                      </div>
+                      <div>
+                        <p className="font-black text-slate-900 font-mono">{s.id}</p>
+                        <p className="text-xs text-slate-400 font-bold mt-0.5">{s.goods}{s.date ? ` · ${s.date}` : ''}</p>
+                      </div>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      s.status === 'ARRIVED' || s.status === 'DELIVERED' || s.status === 'COLLECTED'
+                        ? 'bg-emerald-50 text-emerald-600'
+                        : s.status === 'IN_TRANSIT'
+                          ? 'bg-blue-50 text-blue-600'
+                          : 'bg-slate-100 text-slate-500'
+                    }`}>
+                      {s.status.replace('_', ' ')}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         ) : result ? (

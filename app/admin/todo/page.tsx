@@ -1,17 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  CheckSquare, 
-  Plus, 
-  Trash2, 
-  User, 
-  Calendar, 
+import {
+  CheckSquare,
+  Plus,
+  Trash2,
+  User,
+  Calendar,
   AlertTriangle,
   CheckCircle2,
   Clock,
   Play,
-  Filter
+  Filter,
+  X,
+  Save,
+  Loader2
 } from 'lucide-react';
 
 interface Task {
@@ -79,6 +82,11 @@ export default function TodoPage() {
   const [assignee, setAssignee] = useState<'Khalid' | 'Sakariye'>('Khalid');
   const [priority, setPriority] = useState<'High' | 'Medium' | 'Low'>('Medium');
   const [dueDate, setDueDate] = useState('');
+
+  // Task detail / description modal
+  const [viewTask, setViewTask] = useState<Task | null>(null);
+  const [editDescription, setEditDescription] = useState('');
+  const [savingDescription, setSavingDescription] = useState(false);
 
   // Load from MongoDB
   const loadTasks = async () => {
@@ -167,6 +175,35 @@ export default function TodoPage() {
       setTasks(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
     } catch (err: any) {
       alert(`Error: ${err.message}`);
+    }
+  };
+
+  const openTaskDetail = (task: Task) => {
+    setViewTask(task);
+    setEditDescription(task.description || '');
+  };
+
+  const closeTaskDetail = () => {
+    setViewTask(null);
+    setEditDescription('');
+  };
+
+  const handleSaveDescription = async () => {
+    if (!viewTask) return;
+    setSavingDescription(true);
+    try {
+      const res = await fetch(`/api/tasks?id=${viewTask.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: editDescription }),
+      });
+      if (!res.ok) throw new Error('Failed to save description');
+      setTasks(prev => prev.map(t => t.id === viewTask.id ? { ...t, description: editDescription } : t));
+      closeTaskDetail();
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setSavingDescription(false);
     }
   };
 
@@ -317,21 +354,21 @@ export default function TodoPage() {
           </div>
           <div className="bg-[#0B0F19] border border-slate-900 rounded-[1.5rem] p-3 space-y-4 min-h-[400px]">
             {pendingTasks.map(task => (
-              <div key={task.id} className="shipment-card !p-5 relative group border border-slate-800">
+              <div key={task.id} onClick={() => openTaskDetail(task)} className="shipment-card !p-5 relative group border border-slate-800 cursor-pointer hover:border-[#F15D38]/40 transition-colors">
                 <div className="flex justify-between items-start gap-2 mb-3">
                   <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${getPriorityColor(task.priority)}`}>
                     {task.priority}
                   </span>
                   <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => handleUpdateStatus(task.id, 'In_Progress')} 
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleUpdateStatus(task.id, 'In_Progress'); }}
                       className="p-1 text-slate-400 hover:text-[#F15D38] hover:bg-slate-800 rounded transition-colors"
                       title="Start Task"
                     >
                       <Play size={12} />
                     </button>
-                    <button 
-                      onClick={() => handleDeleteTask(task.id)} 
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteTask(task.id); }}
                       className="p-1 text-slate-400 hover:text-rose-500 hover:bg-slate-800 rounded transition-colors"
                       title="Delete"
                     >
@@ -340,7 +377,7 @@ export default function TodoPage() {
                   </div>
                 </div>
                 <h4 className="text-sm font-black text-slate-100 mb-2 leading-snug">{task.title}</h4>
-                <p className="text-xs text-slate-400 leading-relaxed mb-4">{task.description}</p>
+                <p className="text-xs text-slate-400 leading-relaxed mb-4 line-clamp-2">{task.description || 'No description — click to add one.'}</p>
                 <div className="flex items-center justify-between pt-3 border-t border-slate-800/40">
                   <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
                     <Calendar size={12} />
@@ -375,21 +412,21 @@ export default function TodoPage() {
           </div>
           <div className="bg-[#0B0F19] border border-slate-900 rounded-[1.5rem] p-3 space-y-4 min-h-[400px]">
             {inProgressTasks.map(task => (
-              <div key={task.id} className="shipment-card !p-5 relative group border border-slate-800">
+              <div key={task.id} onClick={() => openTaskDetail(task)} className="shipment-card !p-5 relative group border border-slate-800 cursor-pointer hover:border-[#F15D38]/40 transition-colors">
                 <div className="flex justify-between items-start gap-2 mb-3">
                   <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${getPriorityColor(task.priority)}`}>
                     {task.priority}
                   </span>
                   <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => handleUpdateStatus(task.id, 'Completed')} 
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleUpdateStatus(task.id, 'Completed'); }}
                       className="p-1 text-slate-400 hover:text-emerald-500 hover:bg-slate-800 rounded transition-colors"
                       title="Mark Completed"
                     >
                       <CheckCircle2 size={12} />
                     </button>
-                    <button 
-                      onClick={() => handleDeleteTask(task.id)} 
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteTask(task.id); }}
                       className="p-1 text-slate-400 hover:text-rose-500 hover:bg-slate-800 rounded transition-colors"
                       title="Delete"
                     >
@@ -398,7 +435,7 @@ export default function TodoPage() {
                   </div>
                 </div>
                 <h4 className="text-sm font-black text-slate-100 mb-2 leading-snug">{task.title}</h4>
-                <p className="text-xs text-slate-400 leading-relaxed mb-4">{task.description}</p>
+                <p className="text-xs text-slate-400 leading-relaxed mb-4 line-clamp-2">{task.description || 'No description — click to add one.'}</p>
                 <div className="flex items-center justify-between pt-3 border-t border-slate-800/40">
                   <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
                     <Calendar size={12} />
@@ -433,21 +470,21 @@ export default function TodoPage() {
           </div>
           <div className="bg-[#0B0F19] border border-slate-900 rounded-[1.5rem] p-3 space-y-4 min-h-[400px]">
             {completedTasks.map(task => (
-              <div key={task.id} className="shipment-card !p-5 relative group border border-slate-800 opacity-75 hover:opacity-100 transition-opacity">
+              <div key={task.id} onClick={() => openTaskDetail(task)} className="shipment-card !p-5 relative group border border-slate-800 opacity-75 hover:opacity-100 transition-opacity cursor-pointer">
                 <div className="flex justify-between items-start gap-2 mb-3">
                   <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${getPriorityColor(task.priority)}`}>
                     {task.priority}
                   </span>
                   <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => handleUpdateStatus(task.id, 'In_Progress')} 
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleUpdateStatus(task.id, 'In_Progress'); }}
                       className="p-1 text-slate-400 hover:text-[#F15D38] hover:bg-slate-800 rounded transition-colors"
                       title="Reopen Task"
                     >
                       <Clock size={12} />
                     </button>
-                    <button 
-                      onClick={() => handleDeleteTask(task.id)} 
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteTask(task.id); }}
                       className="p-1 text-slate-400 hover:text-rose-500 hover:bg-slate-800 rounded transition-colors"
                       title="Delete"
                     >
@@ -456,7 +493,7 @@ export default function TodoPage() {
                   </div>
                 </div>
                 <h4 className="text-sm font-black text-slate-400 line-through mb-2 leading-snug">{task.title}</h4>
-                <p className="text-xs text-slate-500 leading-relaxed mb-4">{task.description}</p>
+                <p className="text-xs text-slate-500 leading-relaxed mb-4 line-clamp-2">{task.description || 'No description'}</p>
                 <div className="flex items-center justify-between pt-3 border-t border-slate-800/40">
                   <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
                     <Calendar size={12} />
@@ -479,6 +516,71 @@ export default function TodoPage() {
         </div>
 
       </div>
+
+      {/* Task Detail / Description Modal */}
+      {viewTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={closeTaskDetail}>
+          <div
+            className="w-full max-w-lg bg-[#131B2E] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#0B0F19]">
+              <div>
+                <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${getPriorityColor(viewTask.priority)}`}>
+                  {viewTask.priority}
+                </span>
+                <h2 className="text-sm font-black text-slate-100 mt-2 leading-snug">{viewTask.title}</h2>
+              </div>
+              <button type="button" onClick={closeTaskDetail} className="p-2 text-slate-400 hover:text-slate-200 rounded-lg">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <div className="flex items-center gap-1.5">
+                  <Calendar size={12} />
+                  <span>Due {viewTask.dueDate}</span>
+                </div>
+                <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-full text-slate-300">
+                  <User size={10} className="text-[#F15D38]" />
+                  {viewTask.assignee}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Detailed Instructions</label>
+                <textarea
+                  className="search-input w-full min-h-[140px]"
+                  placeholder="Provide notes or steps required to complete this task..."
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeTaskDetail}
+                  className="flex-1 py-3 text-slate-400 text-xs font-bold uppercase hover:text-slate-200"
+                  disabled={savingDescription}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveDescription}
+                  disabled={savingDescription}
+                  className="flex-1 py-3 bg-[#F15D38] hover:bg-[#d64420] disabled:opacity-60 text-white rounded-xl font-black text-xs uppercase flex items-center justify-center gap-2 transition-all"
+                >
+                  {savingDescription ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                  {savingDescription ? 'Saving...' : 'Save Description'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
