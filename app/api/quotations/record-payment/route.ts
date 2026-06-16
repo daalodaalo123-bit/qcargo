@@ -97,7 +97,7 @@ export async function POST(request: Request) {
 
     const lineItems = buildInvoiceItems(quotation);
     const subtotal = lineItems.reduce((sum, it) => sum + it.lineTotal, 0);
-    const totalDue = subtotal > 0 ? subtotal : quotation.price;
+    const totalDue = quotation.price;
     const previouslyPaid = quotation.amountPaid || 0;
     const balanceBefore = Math.max(0, totalDue - previouslyPaid);
 
@@ -145,7 +145,7 @@ export async function POST(request: Request) {
       items: lineItems,
       goodsSummary: quotation.goods,
       freightType: quotation.type,
-      subtotal,
+      subtotal: totalDue,
       totalAmount: totalDue,
       amountPaid: thisPayment,
       balanceDue: isPaidInFull ? 0 : balanceDue,
@@ -177,7 +177,7 @@ export async function POST(request: Request) {
         freightType: quotation.type,
         goodsSummary: quotation.goods,
         items: lineItems,
-        subtotal,
+        subtotal: totalDue,
         totalAmount: totalDue,
         amountPaid: thisPayment,
         balanceDue: isPaidInFull ? 0 : balanceDue,
