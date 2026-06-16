@@ -19,6 +19,7 @@ export interface QuotationPdfData {
   items: QuotationPdfItem[];
   total: number;
   status: string;
+  paymentStatus?: string;
   commissionRate?: number;
   commissionAmount?: number;
 }
@@ -74,9 +75,15 @@ export async function generateQuotationPdf(data: QuotationPdfData): Promise<Uint
   // Header: dark navy background (matches brand identity)
   const headerH = 120;
   const DARK = rgb(30 / 255, 36 / 255, 45 / 255);   // #1E242D
+  const STATUS_APPROVED = rgb(22 / 255, 163 / 255, 74 / 255);   // green-600
+  const STATUS_REJECTED = rgb(220 / 255, 38 / 255, 38 / 255);   // red-600
+  const accentColor =
+    data.status === 'APPROVED' ? STATUS_APPROVED :
+    data.status === 'REJECTED' ? STATUS_REJECTED :
+    BRAND_COLOR;
   page.drawRectangle({ x: 0, y: height - headerH, width, height: headerH, color: DARK });
-  // Orange accent strip at bottom of header
-  page.drawRectangle({ x: 0, y: height - headerH, width, height: 4, color: BRAND_COLOR });
+  // Accent strip at bottom of header — color reflects quotation status
+  page.drawRectangle({ x: 0, y: height - headerH, width, height: 4, color: accentColor });
 
   // Logo (dark bg version fits perfectly on dark header)
   const logoH = 80;
@@ -107,8 +114,16 @@ export async function generateQuotationPdf(data: QuotationPdfData): Promise<Uint
 
   const statusText = data.status.toUpperCase();
   const statusW = fontBold.widthOfTextAtSize(statusText, 8) + 16;
-  page.drawRectangle({ x: width - MARGIN - statusW, y: height - 94, width: statusW, height: 18, color: BRAND_COLOR });
+  page.drawRectangle({ x: width - MARGIN - statusW, y: height - 94, width: statusW, height: 18, color: accentColor });
   page.drawText(statusText, { x: width - MARGIN - statusW + 8, y: height - 90, size: 8, font: fontBold, color: WHITE });
+
+  if (data.paymentStatus && data.paymentStatus !== 'UNPAID') {
+    const payText = data.paymentStatus === 'PAID' ? 'PAID IN FULL' : 'PARTIAL PAYMENT';
+    const payColor = data.paymentStatus === 'PAID' ? STATUS_APPROVED : rgb(234 / 255, 179 / 255, 8 / 255);
+    const payW = fontBold.widthOfTextAtSize(payText, 8) + 16;
+    page.drawRectangle({ x: width - MARGIN - payW, y: height - 116, width: payW, height: 18, color: payColor });
+    page.drawText(payText, { x: width - MARGIN - payW + 8, y: height - 112, size: 8, font: fontBold, color: WHITE });
+  }
 
   // Info panel
   let y = height - headerH - 28;

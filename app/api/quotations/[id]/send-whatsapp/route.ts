@@ -39,6 +39,7 @@ export async function POST(
       date: quotation.date,
       freightType: quotation.type || 'SEA',
       status: quotation.status || 'SENT',
+      paymentStatus: quotation.paymentStatus || 'UNPAID',
       total: quotation.price || 0,
       commissionRate: quotation.commissionRate ?? 7,
       commissionAmount: quotation.commissionAmount ?? 0,
