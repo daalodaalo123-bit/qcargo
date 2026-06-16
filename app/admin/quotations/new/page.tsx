@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   FileText,
@@ -12,6 +12,9 @@ import {
   Send,
   ArrowLeft,
   X,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 
 interface QuotationItem {
@@ -27,9 +30,17 @@ function lineTotal(item: QuotationItem): number {
   return qty * price;
 }
 
+interface ImportedItem {
+  description: string;
+  qty: number;
+  price: number;
+  notes: string;
+}
+
 export default function NewQuotation() {
   const router = useRouter();
-  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // State variables
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
@@ -37,6 +48,12 @@ export default function NewQuotation() {
   const [estimatedPrice, setEstimatedPrice] = useState('');
   const [freightType, setFreightType] = useState('SEA');
   const [commissionRate, setCommissionRate] = useState('7');
+
+  // Import state
+  const [importing, setImporting] = useState(false);
+  const [importPreview, setImportPreview] = useState<{ items: ImportedItem[]; customerName?: string } | null>(null);
+  const [importError, setImportError] = useState('');
+  const [dragOver, setDragOver] = useState(false);
 
   const subtotal = parseFloat(estimatedPrice) || 0;
   const commissionAmount = parseFloat(commissionRate) > 0
@@ -123,13 +140,48 @@ export default function NewQuotation() {
   };
 
   const addItem = () => setItems([...items, { description: '', notes: '', qty: '1', price: '' }]);
-  
+
   const updateItem = (index: number, field: keyof QuotationItem, value: string) => {
     const newItems = items.map((item, i) => (i === index ? { ...item, [field]: value } : item));
     setItems(newItems);
   };
-  
+
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
+
+  const handleFileImport = async (file: File) => {
+    setImporting(true);
+    setImportError('');
+    setImportPreview(null);
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch('/api/quotations/parse-items', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to parse file');
+      if (!data.items || data.items.length === 0) throw new Error('No items found in the file. Check that it has description, quantity, and price columns.');
+      setImportPreview(data);
+    } catch (err: unknown) {
+      setImportError(err instanceof Error ? err.message : 'Failed to import file');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const applyImport = () => {
+    if (!importPreview) return;
+    const newItems: QuotationItem[] = importPreview.items.map((it) => ({
+      description: it.description,
+      notes: it.notes || '',
+      qty: String(it.qty),
+      price: String(it.price),
+    }));
+    setItems(newItems.length > 0 ? newItems : [{ description: '', notes: '', qty: '1', price: '' }]);
+    if (importPreview.customerName && !customerName.trim()) {
+      setCustomerName(importPreview.customerName);
+    }
+    setImportPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   return (
     <div className="admin-container pb-20">
@@ -259,16 +311,109 @@ export default function NewQuotation() {
             </button>
           </div>
 
-          {/* Upload photos */}
+          {/* Import Items from File */}
           <div className="shipment-card border border-slate-800 bg-[#131B2E]">
-            <div className="p-8 border-2 border-dashed border-slate-800 rounded-2xl bg-slate-950/30 text-center hover:border-[#F15D38]/50 hover:bg-[#F15D38]/5 transition-all cursor-pointer group">
-              <div className="w-12 h-12 bg-[#131B2E] rounded-xl shadow-sm border border-slate-800 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                <Upload size={20} className="text-[#F15D38]" />
-              </div>
-              <p className="text-sm font-bold text-slate-300">Upload Product Photos</p>
-              <p className="text-xs text-slate-500 mt-1">Drag and click to browse (Max 5 images)</p>
-              <input type="file" multiple className="hidden" id="photo-upload" />
+            <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-800/40">
+              <Upload size={18} className="text-[#F15D38]" />
+              <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">Import Items from File</h3>
             </div>
+
+            {/* Drop zone */}
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                const file = e.dataTransfer.files[0];
+                if (file) handleFileImport(file);
+              }}
+              onClick={() => !importing && fileInputRef.current?.click()}
+              className={`p-8 border-2 border-dashed rounded-2xl text-center transition-all cursor-pointer
+                ${dragOver ? 'border-[#F15D38] bg-[#F15D38]/10' : 'border-slate-700 bg-slate-950/30 hover:border-[#F15D38]/50 hover:bg-[#F15D38]/5'}
+                ${importing ? 'pointer-events-none opacity-70' : ''}`}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                accept=".csv,.tsv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.webp,.gif"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileImport(f); }}
+              />
+              {importing ? (
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 size={28} className="text-[#F15D38] animate-spin" />
+                  <p className="text-sm font-bold text-slate-300">Reading your file...</p>
+                </div>
+              ) : (
+                <>
+                  <div className="w-12 h-12 bg-[#131B2E] rounded-xl border border-slate-700 flex items-center justify-center mx-auto mb-4">
+                    <Upload size={20} className="text-[#F15D38]" />
+                  </div>
+                  <p className="text-sm font-bold text-slate-300">Drop your list here or click to browse</p>
+                  <p className="text-xs text-slate-500 mt-2">Supports Excel, CSV, PDF, and images of paper lists</p>
+                  <div className="flex flex-wrap justify-center gap-2 mt-4">
+                    {['Excel', 'CSV', 'PDF', 'PNG/JPG'].map((t) => (
+                      <span key={t} className="px-2 py-0.5 bg-slate-800 text-slate-400 text-[10px] font-bold rounded-md uppercase tracking-wider">{t}</span>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Error */}
+            {importError && (
+              <div className="mt-4 p-4 bg-rose-950/30 border border-rose-800/50 rounded-xl flex items-start gap-3">
+                <AlertCircle size={16} className="text-rose-400 mt-0.5 shrink-0" />
+                <p className="text-xs text-rose-300">{importError}</p>
+              </div>
+            )}
+
+            {/* Preview */}
+            {importPreview && (
+              <div className="mt-4 border border-emerald-800/40 rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 bg-emerald-950/40 border-b border-emerald-800/30">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={15} className="text-emerald-400" />
+                    <span className="text-xs font-black text-emerald-300 uppercase tracking-wider">
+                      {importPreview.items.length} item{importPreview.items.length !== 1 ? 's' : ''} found
+                      {importPreview.customerName ? ` · ${importPreview.customerName}` : ''}
+                    </span>
+                  </div>
+                  <button onClick={() => { setImportPreview(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} className="text-slate-500 hover:text-slate-300">
+                    <X size={14} />
+                  </button>
+                </div>
+                <div className="max-h-56 overflow-y-auto divide-y divide-slate-800/50">
+                  {importPreview.items.map((it, i) => (
+                    <div key={i} className="flex items-center justify-between px-4 py-2.5 text-xs">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-slate-200 truncate">{it.description}</p>
+                        {it.notes && <p className="text-slate-500 truncate">{it.notes}</p>}
+                      </div>
+                      <div className="flex items-center gap-4 ml-4 shrink-0 text-slate-400">
+                        <span>×{it.qty}</span>
+                        <span className="font-bold text-slate-200">${it.price.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="px-4 py-3 bg-slate-900/60 flex gap-3">
+                  <button
+                    onClick={() => { setImportPreview(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                    className="flex-1 py-2 text-slate-400 text-xs font-bold uppercase border border-slate-700 rounded-lg hover:bg-slate-800"
+                  >
+                    Discard
+                  </button>
+                  <button
+                    onClick={applyImport}
+                    className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase rounded-lg"
+                  >
+                    Apply to Quotation
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
