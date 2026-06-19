@@ -1,5 +1,7 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { BRAND_FOOTER, BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
+import fs from 'fs';
+import path from 'path';
 
 export interface ReceiptLineItem {
   description: string;
@@ -295,22 +297,19 @@ export async function generateReceiptPdf(data: ReceiptData): Promise<Uint8Array>
     color: data.paymentStatus === 'PAID' ? rgb(0.12, 0.55, 0.35) : BRAND_DARK,
   });
 
-  // Ink-blue stamp — right-aligned, above footer
-  const INK_BLUE = rgb(0, 48 / 255, 135 / 255);
-  const sX = width - MARGIN - 46;
-  const sY = 118;
-  const sR = 40;
-
-  page.drawCircle({ x: sX, y: sY, size: sR, color: rgb(1, 1, 1), borderColor: INK_BLUE, borderWidth: 2.5 });
-  page.drawCircle({ x: sX, y: sY, size: sR - 8, borderColor: INK_BLUE, borderWidth: 1 });
-  const topTxt = 'Q  CARGO';
-  page.drawText(topTxt, { x: sX - fontBold.widthOfTextAtSize(topTxt, 7) / 2, y: sY + sR - 15, size: 7, font: fontBold, color: INK_BLUE });
-  page.drawLine({ start: { x: sX - 21, y: sY + 6 },  end: { x: sX + 21, y: sY + 6 },  thickness: 0.75, color: INK_BLUE });
-  page.drawLine({ start: { x: sX - 21, y: sY - 7 }, end: { x: sX + 21, y: sY - 7 }, thickness: 0.75, color: INK_BLUE });
-  const qTxt = 'Q';
-  page.drawText(qTxt, { x: sX - fontBold.widthOfTextAtSize(qTxt, 13) / 2, y: sY - 6, size: 13, font: fontBold, color: INK_BLUE });
-  const botTxt = 'RELIABLE · SAFE';
-  page.drawText(botTxt, { x: sX - font.widthOfTextAtSize(botTxt, 6) / 2, y: sY - sR + 8, size: 6, font, color: INK_BLUE });
+  // Stamp — original black Stamp.jpeg, bottom-right corner, above footer
+  try {
+    const stampPath = path.join(process.cwd(), 'public', 'Stamp.jpeg');
+    const stampBytes = fs.readFileSync(stampPath);
+    const stampImg = await doc.embedJpg(stampBytes);
+    const stampDims = stampImg.scaleToFit(90, 90);
+    page.drawImage(stampImg, {
+      x: width - MARGIN - stampDims.width,
+      y: 84,
+      width: stampDims.width,
+      height: stampDims.height,
+    });
+  } catch { /* stamp optional */ }
 
   // ── Footer ──
   page.drawLine({ start: { x: MARGIN, y: 72 }, end: { x: width - MARGIN, y: 72 }, thickness: 1, color: LINE });
