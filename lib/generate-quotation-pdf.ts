@@ -215,26 +215,38 @@ export async function generateQuotationPdf(data: QuotationPdfData): Promise<Uint
   const totalStr = formatMoney(data.total);
   page.drawText(totalStr, { x: totalsX + totalsW - 20 - fontBold.widthOfTextAtSize(totalStr, 12), y: y - boxH + 11, size: 12, font: fontBold, color: WHITE });
 
-  // Note
-  y -= 72;
-  page.drawText('This is an estimate only. Final price may vary based on weight, dimensions and customs charges.', {
-    x: MARGIN, y, size: 8, font, color: MUTED,
+  // Note — positioned below the totals box, split into 2 lines
+  const noteY = y - boxH - 24;
+  const INK_BLUE = rgb(0, 48 / 255, 135 / 255);
+
+  page.drawText('This is an estimate only.', {
+    x: MARGIN, y: noteY, size: 8, font, color: MUTED,
+  });
+  page.drawText('Final price may vary based on weight, dimensions and customs charges.', {
+    x: MARGIN, y: noteY - 14, size: 8, font, color: MUTED,
   });
 
-  // Stamp — bottom right above footer
-  try {
-    const stampPath = path.join(process.cwd(), 'public', 'Stamp.jpeg');
-    const stampBytes = fs.readFileSync(stampPath);
-    const stampImg = await doc.embedJpg(stampBytes);
-    const stampDims = stampImg.scaleToFit(100, 100);
-    page.drawImage(stampImg, {
-      x: width - MARGIN - stampDims.width,
-      y: 82,
-      width: stampDims.width,
-      height: stampDims.height,
-      opacity: 0.9,
-    });
-  } catch { /* stamp is optional */ }
+  // Ink-blue stamp — right side, close to the note text
+  const sX = width - MARGIN - 46;
+  const sY = noteY - 12;
+  const sR = 42;
+
+  // Outer ring (white fill so it sits cleanly on the page)
+  page.drawCircle({ x: sX, y: sY, size: sR, color: rgb(1, 1, 1), borderColor: INK_BLUE, borderWidth: 2.5 });
+  // Inner ring
+  page.drawCircle({ x: sX, y: sY, size: sR - 8, borderColor: INK_BLUE, borderWidth: 1 });
+  // Top arc text
+  const topTxt = 'Q  CARGO';
+  page.drawText(topTxt, { x: sX - fontBold.widthOfTextAtSize(topTxt, 7) / 2, y: sY + sR - 16, size: 7, font: fontBold, color: INK_BLUE });
+  // Centre dividers
+  page.drawLine({ start: { x: sX - 22, y: sY + 6 },  end: { x: sX + 22, y: sY + 6 },  thickness: 0.75, color: INK_BLUE });
+  page.drawLine({ start: { x: sX - 22, y: sY - 8 }, end: { x: sX + 22, y: sY - 8 }, thickness: 0.75, color: INK_BLUE });
+  // Centre letter
+  const qTxt = 'Q';
+  page.drawText(qTxt, { x: sX - fontBold.widthOfTextAtSize(qTxt, 14) / 2, y: sY - 6, size: 14, font: fontBold, color: INK_BLUE });
+  // Bottom arc text
+  const botTxt = 'RELIABLE · SAFE';
+  page.drawText(botTxt, { x: sX - font.widthOfTextAtSize(botTxt, 6) / 2, y: sY - sR + 9, size: 6, font, color: INK_BLUE });
 
   // Footer
   page.drawLine({ start: { x: MARGIN, y: 72 }, end: { x: width - MARGIN, y: 72 }, thickness: 1, color: LINE });
