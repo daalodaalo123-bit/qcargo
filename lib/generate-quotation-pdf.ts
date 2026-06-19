@@ -221,6 +221,21 @@ export async function generateQuotationPdf(data: QuotationPdfData): Promise<Uint
     x: MARGIN, y, size: 8, font, color: MUTED,
   });
 
+  // Stamp — bottom right above footer
+  try {
+    const stampPath = path.join(process.cwd(), 'public', 'Stamp.jpeg');
+    const stampBytes = fs.readFileSync(stampPath);
+    const stampImg = await doc.embedJpg(stampBytes);
+    const stampDims = stampImg.scaleToFit(100, 100);
+    page.drawImage(stampImg, {
+      x: width - MARGIN - stampDims.width,
+      y: 82,
+      width: stampDims.width,
+      height: stampDims.height,
+      opacity: 0.9,
+    });
+  } catch { /* stamp is optional */ }
+
   // Footer
   page.drawLine({ start: { x: MARGIN, y: 72 }, end: { x: width - MARGIN, y: 72 }, thickness: 1, color: LINE });
   page.drawText(BRAND_FOOTER, { x: MARGIN, y: 52, size: 8, font, color: MUTED });

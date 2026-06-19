@@ -1,5 +1,7 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { BRAND_FOOTER, BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
+import fs from 'fs';
+import path from 'path';
 
 export interface ReceiptLineItem {
   description: string;
@@ -294,6 +296,21 @@ export async function generateReceiptPdf(data: ReceiptData): Promise<Uint8Array>
     font: fontBold,
     color: data.paymentStatus === 'PAID' ? rgb(0.12, 0.55, 0.35) : BRAND_DARK,
   });
+
+  // Stamp — bottom right above footer
+  try {
+    const stampPath = path.join(process.cwd(), 'public', 'Stamp.jpeg');
+    const stampBytes = fs.readFileSync(stampPath);
+    const stampImg = await doc.embedJpg(stampBytes);
+    const stampDims = stampImg.scaleToFit(100, 100);
+    page.drawImage(stampImg, {
+      x: width - MARGIN - stampDims.width,
+      y: 82,
+      width: stampDims.width,
+      height: stampDims.height,
+      opacity: 0.9,
+    });
+  } catch { /* stamp is optional */ }
 
   // ── Footer ──
   page.drawLine({ start: { x: MARGIN, y: 72 }, end: { x: width - MARGIN, y: 72 }, thickness: 1, color: LINE });
