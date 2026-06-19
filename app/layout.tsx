@@ -6,6 +6,10 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Q CARGO | Global Sourcing & Logistics",
   description: "Fast, reliable sea and air cargo sourcing to Somalia and beyond.",
+  icons: {
+    icon: '/qcargo-logo.png',
+    apple: '/qcargo-logo.png',
+  },
 };
 
 import { AuthProvider } from "./AuthProvider";
