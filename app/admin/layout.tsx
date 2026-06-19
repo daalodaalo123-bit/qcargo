@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 
 export default function AdminLayout({
   children,
@@ -37,12 +37,42 @@ export default function AdminLayout({
   const isLoginPage = pathname === '/admin/login';
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [warnLogout, setWarnLogout] = useState(false);
+
+  const INACTIVITY_MS = 30 * 60 * 1000;  // 30 minutes
+  const WARNING_MS   = 25 * 60 * 1000;  // warn at 25 minutes
 
   useEffect(() => {
     if (status === 'unauthenticated' && !isLoginPage) {
       router.push('/admin/login');
     }
   }, [status, isLoginPage, router]);
+
+  // Inactivity auto-logout
+  useEffect(() => {
+    if (isLoginPage || status !== 'authenticated') return;
+
+    let logoutTimer: ReturnType<typeof setTimeout>;
+    let warnTimer: ReturnType<typeof setTimeout>;
+
+    const reset = () => {
+      clearTimeout(logoutTimer);
+      clearTimeout(warnTimer);
+      setWarnLogout(false);
+      warnTimer   = setTimeout(() => setWarnLogout(true), WARNING_MS);
+      logoutTimer = setTimeout(() => signOut({ callbackUrl: '/admin/login' }), INACTIVITY_MS);
+    };
+
+    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    events.forEach(e => window.addEventListener(e, reset, { passive: true }));
+    reset();
+
+    return () => {
+      clearTimeout(logoutTimer);
+      clearTimeout(warnTimer);
+      events.forEach(e => window.removeEventListener(e, reset));
+    };
+  }, [isLoginPage, status]);
 
   if (isLoginPage) return <>{children}</>;
 
@@ -144,9 +174,9 @@ export default function AdminLayout({
               <button className="p-2 rounded-lg bg-slate-900 text-slate-300 hover:text-slate-100 border border-slate-800 transition-colors flex items-center justify-center">
                 <Settings size={16} />
               </button>
-              <Link href="/" className="p-2 rounded-lg bg-rose-950 text-rose-300 hover:bg-rose-900 hover:text-white border border-rose-800 transition-all flex items-center justify-center">
+              <button onClick={() => signOut({ callbackUrl: '/admin/login' })} className="p-2 rounded-lg bg-rose-950 text-rose-300 hover:bg-rose-900 hover:text-white border border-rose-800 transition-all flex items-center justify-center" title="Sign out">
                 <LogOut size={16} />
-              </Link>
+              </button>
             </div>
           </div>
         </div>
@@ -154,6 +184,13 @@ export default function AdminLayout({
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0">
+        {/* Inactivity warning banner */}
+        {warnLogout && (
+          <div className="sticky top-0 z-50 flex items-center justify-between gap-4 bg-amber-500 text-amber-950 px-6 py-3 text-xs font-black uppercase tracking-widest shadow-lg">
+            <span>⚠ You will be automatically logged out in 5 minutes due to inactivity. Move your mouse or press any key to stay logged in.</span>
+            <button onClick={() => setWarnLogout(false)} className="underline whitespace-nowrap hover:no-underline">Dismiss</button>
+          </div>
+        )}
         {/* Top Navbar */}
         <header className="h-20 bg-[#0B0F19] border-b border-slate-800 flex items-center justify-between px-4 md:px-10 sticky top-0 z-40">
           <div className="flex items-center gap-4">
