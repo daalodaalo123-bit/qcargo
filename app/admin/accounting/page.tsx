@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import {
-  TrendingUp, DollarSign, CreditCard, Search, Plus, MoreVertical,
-  Download, Wallet, Building2, PieChart, CheckCircle2, AlertCircle,
-  Trash2, User, X, Pencil, BarChart3,
+  TrendingUp, DollarSign, CreditCard, Search, MoreVertical,
+  Download, Building2, PieChart, CheckCircle2, AlertCircle, BarChart3,
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -14,7 +13,6 @@ import ExpenseFinancialIntel, {
   type IntelExpense,
   type IntelShipment,
 } from '@/app/admin/expenses/ExpenseFinancialIntel';
-import EditBillModal from '@/app/admin/accounting/EditBillModal';
 import {
   computeLiveOverview,
   buildMonthlyFreightChart,
@@ -51,12 +49,6 @@ interface Bill {
   batchId?: string;
 }
 
-const DEFAULT_INVOICES: Invoice[] = [
-  { id: 'INV-1001', customer: 'Ahmed Ali', date: '2026-05-20', due: '2026-06-20', amount: 4500.00, status: 'PAID' },
-  { id: 'INV-1002', customer: 'Sahra Hassan', date: '2026-05-18', due: '2026-06-18', amount: 1250.00, status: 'PARTIAL', amountPaidThisReceipt: 500, balanceDue: 750 },
-  { id: 'INV-1003', customer: 'Mohamed Ibrahim', date: '2026-05-15', due: '2026-06-15', amount: 3200.00, status: 'UNPAID' },
-];
-
 function daysFromToday(dateStr: string): number {
   if (!dateStr) return 0;
   const d = new Date(dateStr);
@@ -67,101 +59,88 @@ function daysFromToday(dateStr: string): number {
 }
 
 function agingBucket(days: number) {
-  if (days <= 0) return { label: 'Current', color: 'text-emerald-400', bg: 'bg-emerald-950/20', border: 'border-emerald-800/20' };
-  if (days <= 30) return { label: '1–30 days', color: 'text-amber-400', bg: 'bg-amber-950/20', border: 'border-amber-800/20' };
-  if (days <= 60) return { label: '31–60 days', color: 'text-orange-400', bg: 'bg-orange-950/20', border: 'border-orange-800/20' };
-  if (days <= 90) return { label: '61–90 days', color: 'text-rose-400', bg: 'bg-rose-950/20', border: 'border-rose-800/20' };
-  return { label: '90+ days', color: 'text-red-400', bg: 'bg-red-950/30', border: 'border-red-800/30' };
+  if (days <= 0) return { label: 'Current',    color: 'text-emerald-400', bg: 'bg-emerald-950/20', border: 'border-emerald-800/20' };
+  if (days <= 30) return { label: '1–30 days', color: 'text-amber-400',   bg: 'bg-amber-950/20',   border: 'border-amber-800/20' };
+  if (days <= 60) return { label: '31–60 days',color: 'text-orange-400',  bg: 'bg-orange-950/20',  border: 'border-orange-800/20' };
+  if (days <= 90) return { label: '61–90 days',color: 'text-rose-400',    bg: 'bg-rose-950/20',    border: 'border-rose-800/20' };
+  return           { label: '90+ days',         color: 'text-red-400',     bg: 'bg-red-950/30',     border: 'border-red-800/30' };
 }
 
 const PL_PERIOD_LABELS: Record<PLPeriod, string> = {
   this_month: 'This Month',
   last_month: 'Last Month',
-  this_year: 'This Year',
-  all: 'All Time',
+  this_year:  'This Year',
+  all:        'All Time',
 };
 
 export default function AccountingPage() {
-  const [activeTab, setActiveTab] = useState<TabType>('overview');
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [bills, setBills] = useState<Bill[]>([]);
-  const [shipments, setShipments] = useState<IntelShipment[]>([]);
+  const [activeTab, setActiveTab]   = useState<TabType>('overview');
+  const [invoices, setInvoices]     = useState<Invoice[]>([]);
+  const [bills, setBills]           = useState<Bill[]>([]);
+  const [shipments, setShipments]   = useState<IntelShipment[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [plPeriod, setPlPeriod] = useState<PLPeriod>('this_month');
-
-  const [isAddingBill, setIsAddingBill] = useState(false);
-  const [billVendor, setBillVendor] = useState('');
-  const [billAmount, setBillAmount] = useState('');
-  const [billCategory, setBillCategory] = useState('Port Taxes');
-  const [billDueDate, setBillDueDate] = useState('');
-  const [billStatus, setBillStatus] = useState<'PENDING' | 'PAID'>('PENDING');
-  const [billPaymentMethod, setBillPaymentMethod] = useState('ZAAD');
-  const [editingBill, setEditingBill] = useState<Bill | null>(null);
+  const [plPeriod, setPlPeriod]     = useState<PLPeriod>('this_month');
 
   const loadBills = async () => {
     try {
       const res = await fetch('/api/bills');
-      if (!res.ok) throw new Error('Failed to fetch bills');
+      if (!res.ok) return;
       const data = await res.json();
       setBills(data.map((b: Record<string, unknown>) => ({
-        id: String(b._id || b.id),
-        vendor: String(b.vendor || ''),
-        date: String(b.date || ''),
-        due: String(b.due || ''),
-        amount: Number(b.amount) || 0,
-        status: (b.status as Bill['status']) || 'PENDING',
-        category: String(b.category || 'General'),
+        id:            String(b._id || b.id),
+        vendor:        String(b.vendor || ''),
+        date:          String(b.date || ''),
+        due:           String(b.due || ''),
+        amount:        Number(b.amount) || 0,
+        status:        (b.status as Bill['status']) || 'PENDING',
+        category:      String(b.category || 'General'),
         paymentMethod: String(b.paymentMethod || 'CASH'),
-        batchId: String(b.batchId || 'GENERAL'),
+        batchId:       String(b.batchId || 'GENERAL'),
       })));
-    } catch (e) { console.error('Error loading bills:', e); }
+    } catch (e) { console.error(e); }
   };
 
   const loadInvoices = async () => {
     try {
       const res = await fetch('/api/invoices');
-      if (!res.ok) throw new Error('Failed to fetch invoices');
+      if (!res.ok) return;
       const data = await res.json();
-      const mapped = data.map((inv: {
+      setInvoices(data.map((inv: {
         _id: string; invoiceNumber: string; customerName: string;
         paymentDate: string; totalAmount: number; amountPaid?: number;
         balanceDue?: number; paymentStatus: string; paymentMethod?: string;
         receiptPdfUrl?: string; createdAt?: string;
       }) => ({
-        id: inv.invoiceNumber,
-        mongoId: inv._id,
-        customer: inv.customerName,
-        date: inv.paymentDate || inv.createdAt?.split('T')[0] || '',
-        due: inv.paymentDate || '',
-        amount: inv.totalAmount || 0,
-        status: inv.paymentStatus === 'PAID' ? 'PAID' as const : inv.paymentStatus === 'PARTIAL' ? 'PARTIAL' as const : 'UNPAID' as const,
-        paymentMethod: inv.paymentMethod,
+        id:                  inv.invoiceNumber,
+        mongoId:             inv._id,
+        customer:            inv.customerName,
+        date:                inv.paymentDate || inv.createdAt?.split('T')[0] || '',
+        due:                 inv.paymentDate || '',
+        amount:              inv.totalAmount || 0,
+        status:              inv.paymentStatus === 'PAID' ? 'PAID' as const : inv.paymentStatus === 'PARTIAL' ? 'PARTIAL' as const : 'UNPAID' as const,
+        paymentMethod:       inv.paymentMethod,
         amountPaidThisReceipt: inv.amountPaid,
-        balanceDue: inv.balanceDue,
-        receiptPdfUrl: inv.receiptPdfUrl,
-      }));
-      setInvoices(mapped.length > 0 ? mapped : []);
-    } catch (e) {
-      console.error('Error loading invoices:', e);
-      setInvoices(DEFAULT_INVOICES);
-    }
+        balanceDue:          inv.balanceDue,
+        receiptPdfUrl:       inv.receiptPdfUrl,
+      })));
+    } catch (e) { console.error(e); }
   };
 
   const loadShipments = async () => {
     try {
       const res = await fetch('/api/shipments');
-      if (!res.ok) throw new Error('Failed to load shipments');
+      if (!res.ok) return;
       const data = await res.json();
       setShipments(data.map((s: Record<string, unknown>) => ({
-        id: String(s._id || s.id),
-        date: String(s.date || ''),
-        total: Number(s.total) || 0,
-        type: String(s.type || 'AIR'),
+        id:     String(s._id || s.id),
+        date:   String(s.date || ''),
+        total:  Number(s.total) || 0,
+        type:   String(s.type || 'AIR'),
         weight: Number(s.weight) || 0,
-        cbm: Number(s.cbm) || 0,
-        batch: String(s.batch || 'UNASSIGNED'),
+        cbm:    Number(s.cbm) || 0,
+        batch:  String(s.batch || 'UNASSIGNED'),
       })));
-    } catch (e) { console.error(e); setShipments([]); }
+    } catch (e) { console.error(e); }
   };
 
   useEffect(() => { loadBills(); loadInvoices(); loadShipments(); }, []);
@@ -184,67 +163,58 @@ export default function AccountingPage() {
   })), [invoices]);
 
   const totalReceivables = useMemo(() =>
-    invoices.filter((inv) => inv.status !== 'PAID').reduce((acc, inv) => acc + (inv.balanceDue ?? inv.amount), 0),
-    [invoices]);
+    invoices.filter(i => i.status !== 'PAID').reduce((s, i) => s + (i.balanceDue ?? i.amount), 0),
+  [invoices]);
 
   const totalPayables = useMemo(() =>
-    bills.filter((b) => b.status === 'PENDING').reduce((acc, b) => acc + b.amount, 0),
-    [bills]);
+    bills.filter(b => b.status !== 'PAID').reduce((s, b) => s + b.amount, 0),
+  [bills]);
 
   const liveMonth = useMemo(() =>
     computeLiveOverview(shipments, invoiceRows, expenseRows, totalReceivables, totalPayables, 'this_month'),
-    [shipments, invoiceRows, expenseRows, totalReceivables, totalPayables]);
+  [shipments, invoiceRows, expenseRows, totalReceivables, totalPayables]);
 
-  const revenueChart = useMemo(() => buildMonthlyFreightChart(shipments), [shipments]);
-  const freightAllTime = useMemo(() => shipments.reduce((s, sh) => s + sh.total, 0), [shipments]);
+  const revenueChart    = useMemo(() => buildMonthlyFreightChart(shipments), [shipments]);
+  const freightAllTime  = useMemo(() => shipments.reduce((s, sh) => s + sh.total, 0), [shipments]);
   const expensesAllTime = useMemo(() => bills.reduce((s, b) => s + b.amount, 0), [bills]);
   const chartOfAccounts = useMemo(() =>
     buildChartOfAccountsLive(freightAllTime, expensesAllTime, totalReceivables, totalPayables),
-    [freightAllTime, expensesAllTime, totalReceivables, totalPayables]);
+  [freightAllTime, expensesAllTime, totalReceivables, totalPayables]);
 
   // ── AR AGING ─────────────────────────────────────────────────────────────
   const arAgingData = useMemo(() => {
-    const unpaid = invoices.filter((inv) => inv.status !== 'PAID');
-    const rows = unpaid.map((inv) => {
-      const days = daysFromToday(inv.due || inv.date);
-      return { ...inv, days, bucket: agingBucket(days) };
-    });
-    const totals = {
-      current: { count: 0, amount: 0 },
-      b1_30: { count: 0, amount: 0 },
-      b31_60: { count: 0, amount: 0 },
-      b61_90: { count: 0, amount: 0 },
-      b90plus: { count: 0, amount: 0 },
-    };
+    const unpaid = invoices.filter(i => i.status !== 'PAID');
+    const rows   = unpaid.map(inv => ({ ...inv, days: daysFromToday(inv.due || inv.date), bucket: agingBucket(daysFromToday(inv.due || inv.date)) }));
+    const totals = { current: { count: 0, amount: 0 }, b1_30: { count: 0, amount: 0 }, b31_60: { count: 0, amount: 0 }, b61_90: { count: 0, amount: 0 }, b90plus: { count: 0, amount: 0 } };
     for (const r of rows) {
       const bal = r.balanceDue ?? r.amount;
-      if (r.days <= 0) { totals.current.count++; totals.current.amount += bal; }
-      else if (r.days <= 30) { totals.b1_30.count++; totals.b1_30.amount += bal; }
-      else if (r.days <= 60) { totals.b31_60.count++; totals.b31_60.amount += bal; }
-      else if (r.days <= 90) { totals.b61_90.count++; totals.b61_90.amount += bal; }
-      else { totals.b90plus.count++; totals.b90plus.amount += bal; }
+      if (r.days <= 0)       { totals.current.count++; totals.current.amount += bal; }
+      else if (r.days <= 30) { totals.b1_30.count++;   totals.b1_30.amount   += bal; }
+      else if (r.days <= 60) { totals.b31_60.count++;  totals.b31_60.amount  += bal; }
+      else if (r.days <= 90) { totals.b61_90.count++;  totals.b61_90.amount  += bal; }
+      else                   { totals.b90plus.count++;  totals.b90plus.amount  += bal; }
     }
     return { rows: rows.sort((a, b) => b.days - a.days), totals };
   }, [invoices]);
 
   // ── P&L ──────────────────────────────────────────────────────────────────
   const plData = useMemo(() => {
-    const now = new Date();
-    const keep = (dateStr: string) => {
-      const d = parseExpenseDate(dateStr);
+    const now  = new Date();
+    const keep = (ds: string) => {
+      const d = parseExpenseDate(ds);
       if (!d) return false;
       if (plPeriod === 'this_month') return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
       if (plPeriod === 'last_month') { const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1); return d.getFullYear() === lm.getFullYear() && d.getMonth() === lm.getMonth(); }
-      if (plPeriod === 'this_year') return d.getFullYear() === now.getFullYear();
+      if (plPeriod === 'this_year')  return d.getFullYear() === now.getFullYear();
       return true;
     };
-    const fs = shipments.filter((s) => keep(s.date));
-    const fb = bills.filter((b) => keep(b.date));
-    const fi = invoices.filter((inv) => keep(inv.date));
-    const totalRevenue = fs.reduce((s, sh) => s + sh.total, 0);
-    const totalExpenses = fb.reduce((s, b) => s + b.amount, 0);
+    const fs = shipments.filter(s  => keep(s.date));
+    const fb = bills.filter(b      => keep(b.date));
+    const fi = invoices.filter(inv => keep(inv.date));
+    const totalRevenue  = fs.reduce((s, sh) => s + sh.total, 0);
+    const totalExpenses = fb.reduce((s, b)  => s + b.amount, 0);
     const cashCollected = fi.reduce((s, inv) => inv.status === 'PAID' ? s + inv.amount : inv.status === 'PARTIAL' ? s + (inv.amountPaidThisReceipt ?? 0) : s, 0);
-    const grossProfit = totalRevenue - totalExpenses;
+    const grossProfit   = totalRevenue - totalExpenses;
     const marginPercent = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : null;
     const byCategory: Record<string, number> = {};
     for (const b of fb) byCategory[b.category] = (byCategory[b.category] || 0) + b.amount;
@@ -255,15 +225,14 @@ export default function AccountingPage() {
   // ── CASH FLOW ─────────────────────────────────────────────────────────────
   const cashFlowChart = useMemo(() => {
     const months = 6;
-    const ref = new Date();
-    const inB: Record<string, number> = {};
+    const ref    = new Date();
+    const inB: Record<string, number>  = {};
     const outB: Record<string, number> = {};
     for (const inv of invoices) {
       const d = parseExpenseDate(inv.date);
       if (!d) continue;
       const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, '0')}`;
-      const amt = inv.status === 'PAID' ? inv.amount : (inv.amountPaidThisReceipt ?? 0);
-      inB[key] = (inB[key] || 0) + amt;
+      inB[key] = (inB[key] || 0) + (inv.status === 'PAID' ? inv.amount : (inv.amountPaidThisReceipt ?? 0));
     }
     for (const b of bills) {
       if (b.status !== 'PAID') continue;
@@ -275,10 +244,10 @@ export default function AccountingPage() {
     let totalIn = 0, totalOut = 0;
     const points = [];
     for (let i = months - 1; i >= 0; i--) {
-      const d = new Date(ref.getFullYear(), ref.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, '0')}`;
+      const d      = new Date(ref.getFullYear(), ref.getMonth() - i, 1);
+      const key    = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, '0')}`;
       const cashIn = inB[key] || 0;
-      const cashOut = outB[key] || 0;
+      const cashOut= outB[key] || 0;
       totalIn += cashIn; totalOut += cashOut;
       points.push({ name: d.toLocaleDateString('en-US', { month: 'short' }), 'Cash In': cashIn, 'Cash Out': cashOut });
     }
@@ -287,124 +256,80 @@ export default function AccountingPage() {
 
   // ── INVOICE SUMMARY ───────────────────────────────────────────────────────
   const invoiceSummary = useMemo(() => {
-    const paid = invoices.filter((i) => i.status === 'PAID');
-    const partial = invoices.filter((i) => i.status === 'PARTIAL');
-    const unpaid = invoices.filter((i) => i.status === 'UNPAID');
+    const paid    = invoices.filter(i => i.status === 'PAID');
+    const partial = invoices.filter(i => i.status === 'PARTIAL');
+    const unpaid  = invoices.filter(i => i.status === 'UNPAID');
     return {
-      paid: { count: paid.length, amount: paid.reduce((s, i) => s + i.amount, 0) },
+      paid:    { count: paid.length,    amount: paid.reduce((s, i)    => s + i.amount, 0) },
       partial: { count: partial.length, amount: partial.reduce((s, i) => s + i.amount, 0) },
-      unpaid: { count: unpaid.length, amount: unpaid.reduce((s, i) => s + i.amount, 0) },
+      unpaid:  { count: unpaid.length,  amount: unpaid.reduce((s, i)  => s + i.amount, 0) },
     };
   }, [invoices]);
 
   const money = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const handleFiscalExport = () => {
+  const handleExport = () => {
     let rows: string[][];
     let filename: string;
     if (activeTab === 'invoices') {
-      rows = [['Invoice #', 'Customer', 'Date', 'Amount ($)', 'Status', 'Payment Method'], ...invoices.map((inv) => [inv.id, inv.customer, inv.date, String(inv.amount), inv.status, inv.paymentMethod || ''])];
-      filename = `qcargo_invoices_${new Date().toISOString().slice(0, 10)}.csv`;
+      rows = [['Invoice #','Customer','Date','Amount ($)','Status','Payment Method'], ...invoices.map(i => [i.id, i.customer, i.date, String(i.amount), i.status, i.paymentMethod || ''])];
+      filename = `qcargo_invoices_${new Date().toISOString().slice(0,10)}.csv`;
     } else if (activeTab === 'bills') {
-      rows = [['Vendor', 'Category', 'Amount ($)', 'Date', 'Due', 'Status', 'Batch'], ...bills.map((b) => [b.vendor, b.category, String(b.amount), b.date, b.due, b.status, b.batchId || ''])];
-      filename = `qcargo_bills_${new Date().toISOString().slice(0, 10)}.csv`;
+      rows = [['Vendor','Category','Amount ($)','Date','Due','Status','Batch'], ...bills.map(b => [b.vendor, b.category, String(b.amount), b.date, b.due, b.status, b.batchId || ''])];
+      filename = `qcargo_bills_${new Date().toISOString().slice(0,10)}.csv`;
     } else if (activeTab === 'ar-aging') {
-      rows = [['Customer', 'Invoice #', 'Amount ($)', 'Balance Due ($)', 'Due Date', 'Days Overdue', 'Bucket'], ...arAgingData.rows.map((r) => [r.customer, r.id, String(r.amount), String(r.balanceDue ?? r.amount), r.due, String(Math.max(0, r.days)), r.bucket.label])];
-      filename = `qcargo_ar_aging_${new Date().toISOString().slice(0, 10)}.csv`;
+      rows = [['Customer','Invoice #','Amount ($)','Balance Due ($)','Due Date','Days','Bucket'], ...arAgingData.rows.map(r => [r.customer, r.id, String(r.amount), String(r.balanceDue ?? r.amount), r.due, String(Math.max(0, r.days)), r.bucket.label])];
+      filename = `qcargo_ar_aging_${new Date().toISOString().slice(0,10)}.csv`;
     } else if (activeTab === 'pl-statement') {
-      rows = [['Q Cargo — Profit & Loss'], ['Period', PL_PERIOD_LABELS[plPeriod]], [], ['INCOME'], ['Freight Revenue', String(plData.totalRevenue)], ['Cash Collected', String(plData.cashCollected)], [], ['EXPENSES'], ...plData.categoryBreakdown.map((c) => [c.category, String(c.amount)]), ['TOTAL EXPENSES', String(plData.totalExpenses)], [], ['NET PROFIT', String(plData.grossProfit)], ['NET MARGIN %', plData.marginPercent != null ? `${plData.marginPercent.toFixed(1)}%` : 'N/A']];
-      filename = `qcargo_pl_${plPeriod}_${new Date().toISOString().slice(0, 10)}.csv`;
+      rows = [['Q Cargo — P&L'],['Period', PL_PERIOD_LABELS[plPeriod]],[],['INCOME'],['Freight Revenue', String(plData.totalRevenue)],['Cash Collected', String(plData.cashCollected)],[],['EXPENSES'],...plData.categoryBreakdown.map(c => [c.category, String(c.amount)]),['TOTAL EXPENSES', String(plData.totalExpenses)],[],['NET PROFIT', String(plData.grossProfit)],['NET MARGIN %', plData.marginPercent != null ? `${plData.marginPercent.toFixed(1)}%` : 'N/A']];
+      filename = `qcargo_pl_${plPeriod}_${new Date().toISOString().slice(0,10)}.csv`;
     } else {
-      rows = [['Section', 'Metric', 'Value'], ['This month', 'Freight revenue', String(liveMonth.freightRevenue)], ['This month', 'Cash collected', String(liveMonth.cashCollected)], ['This month', 'Expenses', String(liveMonth.expenses)], ['This month', 'Net profit', String(liveMonth.netProfit)], ['This month', 'Net margin %', liveMonth.netMarginPercent?.toFixed(1) ?? ''], ['All time', 'Outstanding invoices', String(totalReceivables)], ['All time', 'Unpaid bills', String(totalPayables)]];
-      filename = `qcargo_accounting_${new Date().toISOString().slice(0, 10)}.csv`;
+      rows = [['Metric','Value'],['Freight (this month)', String(liveMonth.freightRevenue)],['Cash collected', String(liveMonth.cashCollected)],['Expenses', String(liveMonth.expenses)],['Net profit', String(liveMonth.netProfit)],['Outstanding invoices', String(totalReceivables)],['Unpaid bills', String(totalPayables)]];
+      filename = `qcargo_accounting_${new Date().toISOString().slice(0,10)}.csv`;
     }
-    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
     const link = document.createElement('a');
-    link.href = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
+    link.href  = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
     link.download = filename;
     link.click();
   };
 
-  const handleAddBill = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!billVendor.trim() || !billAmount) { alert('Please fill out vendor and amount'); return; }
-    const newBill = { vendor: billVendor, date: new Date().toISOString().split('T')[0], due: billDueDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], amount: parseFloat(billAmount) || 0, status: billStatus, category: billCategory.trim(), paymentMethod: billPaymentMethod };
-    try {
-      const res = await fetch('/api/bills', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newBill) });
-      if (!res.ok) throw new Error('Failed to save bill');
-      const saved = await res.json();
-      setBills(prev => [{ ...saved, id: saved._id || saved.id }, ...prev]);
-    } catch (err: unknown) { alert(`Error: ${err instanceof Error ? err.message : 'Failed'}`); }
-    setBillVendor(''); setBillAmount(''); setBillCategory('Port Taxes'); setBillPaymentMethod('ZAAD'); setBillDueDate(''); setBillStatus('PENDING'); setIsAddingBill(false);
-  };
-
-  const handleDeleteBill = async (id: string) => {
-    if (!confirm('Delete this vendor bill?')) return;
-    try {
-      const res = await fetch(`/api/bills?id=${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete bill');
-      setBills(prev => prev.filter(b => b.id !== id));
-    } catch (err: unknown) { alert(`Error: ${err instanceof Error ? err.message : 'Failed'}`); }
-  };
-
-  const handleSettleBill = async (id: string) => {
-    try {
-      const res = await fetch(`/api/bills?id=${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'PAID' }) });
-      if (!res.ok) throw new Error('Failed to settle bill');
-      setBills(prev => prev.map(b => b.id === id ? { ...b, status: 'PAID' as const } : b));
-    } catch (err: unknown) { alert(`Error: ${err instanceof Error ? err.message : 'Failed'}`); }
-  };
-
-  const handleDeleteInvoice = async (inv: Invoice) => {
-    if (!confirm('Delete this invoice record?')) return;
-    try {
-      const res = await fetch(`/api/invoices?id=${inv.mongoId || inv.id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete');
-      setInvoices(prev => prev.filter(i => i.id !== inv.id));
-    } catch (err: unknown) { alert(`Error: ${err instanceof Error ? err.message : 'Failed'}`); }
-  };
-
-  const handleSettleInvoice = (id: string) => {
-    setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, status: 'PAID' as const } : inv));
-  };
-
   const TABS = [
-    { id: 'overview', name: 'Overview', icon: PieChart },
-    { id: 'invoices', name: 'Invoices', icon: DollarSign },
-    { id: 'bills', name: 'Vendor Bills', icon: CreditCard },
-    { id: 'accounts', name: 'Accounts', icon: Building2 },
-    { id: 'ar-aging', name: 'AR Aging', icon: AlertCircle },
-    { id: 'pl-statement', name: 'P&L', icon: BarChart3 },
-    { id: 'cashflow', name: 'Cash Flow', icon: TrendingUp },
+    { id: 'overview',      name: 'Overview',      icon: PieChart    },
+    { id: 'invoices',      name: 'Invoices',       icon: DollarSign  },
+    { id: 'bills',         name: 'Vendor Bills',   icon: CreditCard  },
+    { id: 'accounts',      name: 'Accounts',       icon: Building2   },
+    { id: 'ar-aging',      name: 'AR Aging',       icon: AlertCircle },
+    { id: 'pl-statement',  name: 'P&L',            icon: BarChart3   },
+    { id: 'cashflow',      name: 'Cash Flow',      icon: TrendingUp  },
   ];
 
   return (
     <div className="admin-container pb-20">
-      {/* Header */}
+
+      {/* Header — view only, no add/edit actions */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
         <div>
-          <h1 className="text-3xl font-black text-slate-100 tracking-tight">Financial Command Ledger</h1>
-          <p className="text-slate-400 font-medium font-sans">Invoices · Bills · AR Aging · P&amp;L · Cash Flow</p>
+          <h1 className="text-3xl font-black text-slate-100 tracking-tight">Financial Reports</h1>
+          <p className="text-slate-400 font-medium font-sans">Read-only view · To record payments go to Shipments or Quotations · To manage expenses go to Expenses</p>
         </div>
-        <div className="flex gap-3 w-full md:w-auto">
-          <button type="button" onClick={handleFiscalExport} className="flex-1 md:flex-none btn bg-white border border-slate-800 text-slate-300 flex items-center justify-center gap-2 hover:bg-slate-800 shadow-sm">
-            <Download size={18} /> Export CSV
-          </button>
-          <button onClick={() => { setActiveTab('bills'); setIsAddingBill(true); }} className="flex-1 md:flex-none btn btn-primary flex items-center justify-center gap-2 shadow-lg shadow-[#F15D38]/20">
-            <Plus size={18} /> Add Bill
-          </button>
-        </div>
+        <button type="button" onClick={handleExport} className="btn bg-white border border-slate-800 text-slate-300 flex items-center gap-2 hover:bg-slate-800 shadow-sm">
+          <Download size={18} /> Export CSV
+        </button>
       </div>
 
-      <ExpenseFinancialIntel expenses={intelExpenses} shipments={shipments} showNetMargin showAccountingExtras hideExpenseTable description="This month: spend, freight, net margin, and efficiency." />
-
-      {editingBill && (
-        <EditBillModal bill={editingBill} onClose={() => setEditingBill(null)} onSaved={(updated) => setBills((prev) => prev.map((b) => b.id === updated.id ? { ...b, ...updated } : b))} />
-      )}
+      <ExpenseFinancialIntel
+        expenses={intelExpenses}
+        shipments={shipments}
+        showNetMargin
+        showAccountingExtras
+        hideExpenseTable
+        description="This month: spend, freight, net margin, and efficiency."
+      />
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 bg-slate-900 border border-slate-800 rounded-[1.5rem] mb-10 overflow-x-auto max-w-full">
-        {TABS.map((tab) => (
+        {TABS.map(tab => (
           <button key={tab.id} onClick={() => { setActiveTab(tab.id as TabType); setSearchTerm(''); }}
             className={`px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id ? 'bg-[#F15D38] text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}>
             <tab.icon size={13} />{tab.name}
@@ -417,11 +342,11 @@ export default function AccountingPage() {
         <div className="space-y-10 animate-in fade-in duration-300">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {[
-              { label: 'Freight (this month)', value: money(liveMonth.freightRevenue), trend: 'Live', icon: TrendingUp, color: 'text-[#F15D38]', bg: 'bg-[#F15D38]/10 border border-[#F15D38]/20' },
-              { label: 'Cash in (this month)', value: money(liveMonth.cashCollected), trend: 'Invoices', icon: DollarSign, color: 'text-sky-400', bg: 'bg-sky-950/20 border border-sky-800/20' },
-              { label: 'Outstanding invoices', value: money(totalReceivables), trend: 'Due', icon: Wallet, color: 'text-amber-400', bg: 'bg-amber-950/20 border border-amber-800/20' },
-              { label: 'Net profit (this month)', value: money(liveMonth.netProfit), trend: liveMonth.netMarginPercent != null ? `${liveMonth.netMarginPercent.toFixed(1)}% margin` : '—', icon: TrendingUp, color: liveMonth.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400', bg: 'bg-emerald-950/20 border border-emerald-800/20' },
-            ].map((stat) => (
+              { label: 'Freight (this month)',    value: money(liveMonth.freightRevenue), trend: 'Live',     icon: TrendingUp, color: 'text-[#F15D38]',   bg: 'bg-[#F15D38]/10 border border-[#F15D38]/20' },
+              { label: 'Cash in (this month)',    value: money(liveMonth.cashCollected),  trend: 'Invoices', icon: DollarSign, color: 'text-sky-400',      bg: 'bg-sky-950/20 border border-sky-800/20' },
+              { label: 'Outstanding invoices',    value: money(totalReceivables),         trend: 'Due',      icon: AlertCircle,color: 'text-amber-400',    bg: 'bg-amber-950/20 border border-amber-800/20' },
+              { label: 'Net profit (this month)', value: money(liveMonth.netProfit),      trend: liveMonth.netMarginPercent != null ? `${liveMonth.netMarginPercent.toFixed(1)}% margin` : '—', icon: TrendingUp, color: liveMonth.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400', bg: 'bg-emerald-950/20 border border-emerald-800/20' },
+            ].map(stat => (
               <div key={stat.label} className={`shipment-card ${stat.bg}`}>
                 <div className="flex justify-between items-start mb-4">
                   <div className={`p-3 rounded-2xl ${stat.color}`}><stat.icon size={24} /></div>
@@ -444,7 +369,7 @@ export default function AccountingPage() {
                   <AreaChart data={revenueChart}>
                     <defs>
                       <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#F15D38" stopOpacity={0.25} />
+                        <stop offset="5%"  stopColor="#F15D38" stopOpacity={0.25} />
                         <stop offset="95%" stopColor="#F15D38" stopOpacity={0} />
                       </linearGradient>
                     </defs>
@@ -458,10 +383,12 @@ export default function AccountingPage() {
               </div>
             </div>
 
+            {/* Payables snapshot — view only */}
             <div className="shipment-card border border-slate-800 bg-[#131B2E]">
-              <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest mb-8">Urgent Payables</h3>
-              <div className="space-y-6">
-                {bills.filter(b => b.status !== 'PAID').slice(0, 4).map((bill) => {
+              <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest mb-2">Pending Payables</h3>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-6">View only · manage in Expenses</p>
+              <div className="space-y-5">
+                {bills.filter(b => b.status !== 'PAID').slice(0, 5).map(bill => {
                   const days = daysFromToday(bill.due);
                   return (
                     <div key={bill.id} className="flex justify-between items-center">
@@ -481,99 +408,28 @@ export default function AccountingPage() {
                   );
                 })}
                 {bills.filter(b => b.status !== 'PAID').length === 0 && (
-                  <p className="text-xs font-bold text-slate-500 text-center py-6">All bills settled!</p>
+                  <p className="text-xs font-bold text-slate-500 text-center py-6">No pending bills</p>
                 )}
               </div>
-              <button
-                onClick={async () => {
-                  const pending = bills.filter(b => b.status !== 'PAID');
-                  if (!pending.length) { alert('No pending bills!'); return; }
-                  for (const bill of pending) {
-                    try { await fetch(`/api/bills?id=${bill.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'PAID' }) }); } catch {}
-                  }
-                  setBills(prev => prev.map(b => ({ ...b, status: 'PAID' as const })));
-                  alert('All bills settled!');
-                }}
-                className="w-full mt-10 py-4 bg-slate-950 hover:bg-[#F15D38] border border-slate-800 hover:border-transparent text-slate-300 hover:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
-              >
-                Settle All Bills
-              </button>
+              <div className="mt-8 pt-6 border-t border-slate-800/40">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Total unpaid: {money(totalPayables)}</p>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── VENDOR BILLS ── */}
+      {/* ── VENDOR BILLS (read only) ── */}
       {activeTab === 'bills' && (
         <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-          {isAddingBill && (
-            <form onSubmit={handleAddBill} className="shipment-card border border-slate-800 p-8 rounded-2xl bg-[#131B2E] animate-in slide-in-from-top-4 duration-300">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-base font-black text-slate-100 uppercase tracking-widest">Record Vendor Bill</h3>
-                <button type="button" onClick={() => setIsAddingBill(false)} className="text-slate-400 hover:text-slate-200"><X size={20} /></button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Vendor Name</label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                    <input type="text" required placeholder="e.g. Berbera Harbor Authority" className="search-input w-full !pl-10" value={billVendor} onChange={e => setBillVendor(e.target.value)} />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Amount (USD)</label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                    <input type="number" required placeholder="0.00" className="search-input w-full !pl-10" value={billAmount} onChange={e => setBillAmount(e.target.value)} />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Category</label>
-                  <div className="space-y-2">
-                    <select className="search-input w-full" value={['Port Taxes','Freight Fuel','Truck Dispatch','Office Costs','Brokerage'].includes(billCategory) ? billCategory : ''} onChange={(e) => { if (e.target.value) setBillCategory(e.target.value); }}>
-                      <option value="">Quick pick…</option>
-                      <option value="Port Taxes">Port Taxes / Fees</option>
-                      <option value="Freight Fuel">Freight Fuel</option>
-                      <option value="Truck Dispatch">Truck Dispatch</option>
-                      <option value="Office Costs">Office Costs</option>
-                      <option value="Brokerage">Customs Brokerage</option>
-                    </select>
-                    <input type="text" required className="search-input w-full" placeholder="Or type custom category" value={billCategory} onChange={(e) => setBillCategory(e.target.value)} />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Due Date</label>
-                  <input type="date" className="search-input w-full" value={billDueDate} onChange={e => setBillDueDate(e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Payment Method</label>
-                  <select className="search-input w-full" value={billPaymentMethod} onChange={(e) => setBillPaymentMethod(e.target.value)}>
-                    <option value="ZAAD">Zaad</option><option value="EDAHAB">E-Dahab</option><option value="WAAFI">Waafi</option>
-                    <option value="CASH">Cash</option><option value="BANK">Bank Transfer</option><option value="OTHER">Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Status</label>
-                  <div className="flex gap-4 mt-3">
-                    {(['PENDING', 'PAID'] as const).map((s) => (
-                      <label key={s} className="flex items-center gap-2 text-xs font-bold text-slate-300 cursor-pointer">
-                        <input type="radio" name="billStatus" checked={billStatus === s} onChange={() => setBillStatus(s)} className="accent-[#F15D38]" />
-                        {s === 'PENDING' ? 'Pending' : 'Pre-Paid'}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 border-t border-slate-800/40 pt-6">
-                <button type="button" onClick={() => setIsAddingBill(false)} className="px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400 hover:text-slate-200">Cancel</button>
-                <button type="submit" className="btn btn-primary">Record Bill</button>
-              </div>
-            </form>
-          )}
+          <div className="flex items-center gap-3 px-5 py-3 bg-slate-900/60 border border-slate-800 rounded-2xl text-xs font-bold text-slate-400">
+            <CreditCard size={16} className="text-slate-500" />
+            This is a read-only view. To add or edit vendor bills, go to <span className="text-[#F15D38] ml-1">Expenses</span>.
+          </div>
 
           <div className="relative group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#F15D38] transition-colors" size={20} />
-            <input type="text" placeholder="Search by vendor or category..." className="search-input !pl-12 w-full" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            <input type="text" placeholder="Search by vendor or category…" className="search-input !pl-12 w-full" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
           </div>
 
           <div className="shipment-card !p-0 overflow-hidden border border-slate-800">
@@ -581,48 +437,43 @@ export default function AccountingPage() {
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-slate-900/40 border-b border-slate-800">
-                    {['Vendor / Category', 'Date', 'Due Date', 'Status', 'Amount', 'Actions'].map(h => (
+                    {['Vendor / Category','Date','Due Date','Status','Amount'].map(h => (
                       <th key={h} className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
-                  {bills.filter(b => b.vendor.toLowerCase().includes(searchTerm.toLowerCase()) || b.category.toLowerCase().includes(searchTerm.toLowerCase())).map((bill) => {
-                    const days = daysFromToday(bill.due);
-                    const isOverdue = bill.status !== 'PAID' && days > 0;
-                    return (
-                      <tr key={bill.id} className={`hover:bg-slate-800/30 transition-all group ${isOverdue ? 'border-l-2 border-rose-500/50' : ''}`}>
-                        <td className="px-6 py-5">
-                          <p className="font-bold text-slate-100">{bill.vendor}</p>
-                          <p className="text-[10px] font-bold text-slate-500 uppercase mt-0.5">{bill.category}</p>
-                        </td>
-                        <td className="px-6 py-5 text-xs font-bold text-slate-400">{bill.date}</td>
-                        <td className="px-6 py-5">
-                          <p className="text-xs font-bold text-slate-400">{bill.due}</p>
-                          {isOverdue && <p className="text-[10px] font-black text-rose-400 mt-0.5">{days}d overdue</p>}
-                        </td>
-                        <td className="px-6 py-5">
-                          <span className={`inline-flex items-center gap-1.5 text-[10px] font-black px-3 py-1 rounded-full ${
-                            bill.status === 'PAID' ? 'bg-emerald-950/30 text-emerald-400 border border-emerald-800/20'
-                            : isOverdue ? 'bg-rose-950/30 text-rose-400 border border-rose-800/20'
-                            : 'bg-amber-950/30 text-amber-400 border border-amber-800/20'
-                          }`}>
-                            <div className={`w-1.5 h-1.5 rounded-full ${bill.status === 'PAID' ? 'bg-emerald-500' : isOverdue ? 'bg-rose-500' : 'bg-amber-500'}`} />
-                            {bill.status === 'PAID' ? 'PAID' : isOverdue ? 'OVERDUE' : 'PENDING'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-5 font-black text-slate-100">${bill.amount.toLocaleString()}</td>
-                        <td className="px-6 py-5">
-                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => setEditingBill(bill)} className="p-2 hover:bg-slate-800 text-slate-400 hover:text-slate-100 rounded-lg" title="Edit"><Pencil size={15} /></button>
-                            {bill.status !== 'PAID' && <button onClick={() => handleSettleBill(bill.id)} className="p-2 hover:bg-emerald-950/30 text-slate-400 hover:text-emerald-400 rounded-lg" title="Mark Paid"><Wallet size={15} /></button>}
-                            <button onClick={() => handleDeleteBill(bill.id)} className="p-2 hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-lg" title="Delete"><Trash2 size={15} /></button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {bills.length === 0 && <tr><td colSpan={6} className="px-6 py-12 text-center text-xs font-bold text-slate-500">No vendor bills recorded.</td></tr>}
+                  {bills
+                    .filter(b => b.vendor.toLowerCase().includes(searchTerm.toLowerCase()) || b.category.toLowerCase().includes(searchTerm.toLowerCase()))
+                    .map(bill => {
+                      const days      = daysFromToday(bill.due);
+                      const isOverdue = bill.status !== 'PAID' && days > 0;
+                      return (
+                        <tr key={bill.id} className={`hover:bg-slate-800/20 transition-all ${isOverdue ? 'border-l-2 border-rose-500/50' : ''}`}>
+                          <td className="px-6 py-5">
+                            <p className="font-bold text-slate-100">{bill.vendor}</p>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase mt-0.5">{bill.category}</p>
+                          </td>
+                          <td className="px-6 py-5 text-xs font-bold text-slate-400">{bill.date}</td>
+                          <td className="px-6 py-5">
+                            <p className="text-xs font-bold text-slate-400">{bill.due}</p>
+                            {isOverdue && <p className="text-[10px] font-black text-rose-400 mt-0.5">{days}d overdue</p>}
+                          </td>
+                          <td className="px-6 py-5">
+                            <span className={`inline-flex items-center gap-1.5 text-[10px] font-black px-3 py-1 rounded-full ${
+                              bill.status === 'PAID'  ? 'bg-emerald-950/30 text-emerald-400 border border-emerald-800/20'
+                              : isOverdue             ? 'bg-rose-950/30 text-rose-400 border border-rose-800/20'
+                              :                         'bg-amber-950/30 text-amber-400 border border-amber-800/20'
+                            }`}>
+                              <div className={`w-1.5 h-1.5 rounded-full ${bill.status === 'PAID' ? 'bg-emerald-500' : isOverdue ? 'bg-rose-500' : 'bg-amber-500'}`} />
+                              {bill.status === 'PAID' ? 'PAID' : isOverdue ? 'OVERDUE' : 'PENDING'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-5 font-black text-slate-100">${bill.amount.toLocaleString()}</td>
+                        </tr>
+                      );
+                    })}
+                  {bills.length === 0 && <tr><td colSpan={5} className="px-6 py-12 text-center text-xs font-bold text-slate-500">No vendor bills recorded.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -630,15 +481,15 @@ export default function AccountingPage() {
         </div>
       )}
 
-      {/* ── CUSTOMER INVOICES ── */}
+      {/* ── CUSTOMER INVOICES (read only) ── */}
       {activeTab === 'invoices' && (
         <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
           <div className="grid grid-cols-3 gap-4">
             {[
-              { label: 'Paid', d: invoiceSummary.paid, color: 'text-emerald-400', bg: 'bg-emerald-950/20 border-emerald-800/20' },
-              { label: 'Partial', d: invoiceSummary.partial, color: 'text-amber-400', bg: 'bg-amber-950/20 border-amber-800/20' },
-              { label: 'Unpaid', d: invoiceSummary.unpaid, color: 'text-rose-400', bg: 'bg-rose-950/20 border-rose-800/20' },
-            ].map((s) => (
+              { label: 'Paid',    d: invoiceSummary.paid,    color: 'text-emerald-400', bg: 'bg-emerald-950/20 border-emerald-800/20' },
+              { label: 'Partial', d: invoiceSummary.partial, color: 'text-amber-400',   bg: 'bg-amber-950/20 border-amber-800/20' },
+              { label: 'Unpaid',  d: invoiceSummary.unpaid,  color: 'text-rose-400',    bg: 'bg-rose-950/20 border-rose-800/20' },
+            ].map(s => (
               <div key={s.label} className={`shipment-card border ${s.bg} py-4`}>
                 <p className={`text-[10px] font-black uppercase tracking-widest ${s.color}`}>{s.label}</p>
                 <p className="text-xl font-black text-slate-100 mt-1">{money(s.d.amount)}</p>
@@ -647,9 +498,14 @@ export default function AccountingPage() {
             ))}
           </div>
 
+          <div className="flex items-center gap-3 px-5 py-3 bg-slate-900/60 border border-slate-800 rounded-2xl text-xs font-bold text-slate-400">
+            <DollarSign size={16} className="text-slate-500" />
+            Read-only view. To record payments go to <span className="text-[#F15D38] mx-1">Shipments</span> or <span className="text-[#F15D38] ml-1">Quotations</span>.
+          </div>
+
           <div className="relative group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#F15D38] transition-colors" size={20} />
-            <input type="text" placeholder="Search by customer name..." className="search-input !pl-12 w-full" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            <input type="text" placeholder="Search by customer name…" className="search-input !pl-12 w-full" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
           </div>
 
           <div className="shipment-card !p-0 overflow-hidden border border-slate-800">
@@ -657,14 +513,14 @@ export default function AccountingPage() {
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-slate-900/40 border-b border-slate-800">
-                    {['Invoice #', 'Customer', 'Date', 'Status', 'Total', 'Balance Due', 'Actions'].map(h => (
+                    {['Invoice #','Customer','Date','Status','Total','Balance Due','Receipt'].map(h => (
                       <th key={h} className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
-                  {invoices.filter(inv => inv.customer.toLowerCase().includes(searchTerm.toLowerCase())).map((inv) => (
-                    <tr key={inv.id} className="hover:bg-slate-800/30 transition-all group">
+                  {invoices.filter(inv => inv.customer.toLowerCase().includes(searchTerm.toLowerCase())).map(inv => (
+                    <tr key={inv.id} className="hover:bg-slate-800/20 transition-all">
                       <td className="px-6 py-5 font-mono text-sm font-black text-[#F15D38]">{inv.id}</td>
                       <td className="px-6 py-5">
                         <p className="font-bold text-slate-100">{inv.customer}</p>
@@ -673,9 +529,9 @@ export default function AccountingPage() {
                       <td className="px-6 py-5 text-xs font-bold text-slate-400">{inv.date}</td>
                       <td className="px-6 py-5">
                         <span className={`inline-flex items-center gap-1.5 text-[10px] font-black px-3 py-1 rounded-full ${
-                          inv.status === 'PAID' ? 'bg-emerald-950/30 text-emerald-400 border border-emerald-800/20'
-                          : inv.status === 'PARTIAL' ? 'bg-amber-950/30 text-amber-400 border border-amber-800/20'
-                          : 'bg-rose-950/30 text-rose-400 border border-rose-800/20'
+                          inv.status === 'PAID'    ? 'bg-emerald-950/30 text-emerald-400 border border-emerald-800/20'
+                          : inv.status === 'PARTIAL'? 'bg-amber-950/30 text-amber-400 border border-amber-800/20'
+                          :                           'bg-rose-950/30 text-rose-400 border border-rose-800/20'
                         }`}>
                           <div className={`w-1.5 h-1.5 rounded-full ${inv.status === 'PAID' ? 'bg-emerald-500' : inv.status === 'PARTIAL' ? 'bg-amber-500' : 'bg-rose-500'}`} />
                           {inv.status}
@@ -688,17 +544,12 @@ export default function AccountingPage() {
                           : <span className="font-black text-rose-400">{money(inv.balanceDue ?? inv.amount)}</span>}
                       </td>
                       <td className="px-6 py-5">
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {(inv.receiptPdfUrl || inv.mongoId) && (
-                            <a href={inv.receiptPdfUrl || `/api/invoices/${inv.mongoId}/pdf`} target="_blank" rel="noopener noreferrer" className="p-2 hover:bg-slate-800 text-slate-400 hover:text-slate-100 rounded-lg" title="PDF">
-                              <Download size={15} />
-                            </a>
-                          )}
-                          {inv.status !== 'PAID' && (
-                            <button onClick={() => handleSettleInvoice(inv.id)} className="p-2 hover:bg-emerald-950/30 text-slate-400 hover:text-emerald-400 rounded-lg" title="Mark Paid"><CheckCircle2 size={15} /></button>
-                          )}
-                          <button onClick={() => handleDeleteInvoice(inv)} className="p-2 hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-lg" title="Delete"><Trash2 size={15} /></button>
-                        </div>
+                        {(inv.receiptPdfUrl || inv.mongoId) && (
+                          <a href={inv.receiptPdfUrl || `/api/invoices/${inv.mongoId}/pdf`} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all" title="Download PDF">
+                            <Download size={13} /> PDF
+                          </a>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -732,30 +583,22 @@ export default function AccountingPage() {
               </div>
             </div>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {chartOfAccounts.map((account) => (
-              <div key={account.name} className="shipment-card group hover:border-[#F15D38]/40 border border-slate-800 bg-[#131B2E] transition-all">
-                <div className="flex justify-between items-center mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {chartOfAccounts.map(account => (
+              <div key={account.name} className="shipment-card border border-slate-800 bg-[#131B2E]">
+                <div className="mb-4">
                   <span className={`text-[10px] font-black px-2 py-1 rounded ${
-                    account.type === 'Asset' ? 'bg-[#F15D38]/10 text-[#F15D38] border border-[#F15D38]/20'
-                    : account.type === 'Liability' ? 'bg-rose-950/30 text-rose-400 border border-rose-800/20'
-                    : account.type === 'Income' ? 'bg-emerald-950/30 text-emerald-400 border border-emerald-800/20'
-                    : 'bg-slate-900 text-slate-400 border border-slate-800'
+                    account.type === 'Asset'     ? 'bg-[#F15D38]/10 text-[#F15D38] border border-[#F15D38]/20'
+                    : account.type === 'Liability'? 'bg-rose-950/30 text-rose-400 border border-rose-800/20'
+                    : account.type === 'Income'   ? 'bg-emerald-950/30 text-emerald-400 border border-emerald-800/20'
+                    :                               'bg-slate-900 text-slate-400 border border-slate-800'
                   }`}>{account.type.toUpperCase()}</span>
-                  <MoreVertical size={16} className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
-                <h4 className="text-base font-black text-slate-100 mb-1">{account.name}</h4>
-                <p className="text-3xl font-black text-slate-100">${account.balance.toLocaleString()}</p>
-                <div className="mt-6 pt-6 border-t border-slate-800/40">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Active Balance</span>
-                </div>
+                <h4 className="text-sm font-black text-slate-100 mb-1">{account.name}</h4>
+                <p className="text-2xl font-black text-slate-100">${account.balance.toLocaleString()}</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-4">Active Balance</p>
               </div>
             ))}
-            <button onClick={() => alert('Add new account — coming soon')} className="shipment-card border-2 border-dashed border-slate-800 flex flex-col items-center justify-center gap-4 hover:border-[#F15D38]/40 hover:bg-[#F15D38]/5 transition-all py-12 bg-transparent">
-              <div className="p-4 rounded-full bg-[#131B2E] text-slate-500 border border-slate-800"><Plus size={28} /></div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Add New Account</p>
-            </button>
           </div>
         </div>
       )}
@@ -767,15 +610,14 @@ export default function AccountingPage() {
             <h2 className="text-xl font-black text-slate-100">Accounts Receivable Aging</h2>
             <p className="text-slate-400 text-sm mt-1">Every customer who owes you money, grouped by how long they have owed it. Focus on red buckets first.</p>
           </div>
-
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {[
-              { label: 'Current', data: arAgingData.totals.current, color: 'text-emerald-400', bg: 'bg-emerald-950/20 border-emerald-800/20' },
-              { label: '1–30 Days', data: arAgingData.totals.b1_30, color: 'text-amber-400', bg: 'bg-amber-950/20 border-amber-800/20' },
-              { label: '31–60 Days', data: arAgingData.totals.b31_60, color: 'text-orange-400', bg: 'bg-orange-950/20 border-orange-800/20' },
-              { label: '61–90 Days', data: arAgingData.totals.b61_90, color: 'text-rose-400', bg: 'bg-rose-950/20 border-rose-800/20' },
-              { label: '90+ Days', data: arAgingData.totals.b90plus, color: 'text-red-400', bg: 'bg-red-950/30 border-red-800/30' },
-            ].map((bucket) => (
+              { label: 'Current',    data: arAgingData.totals.current, color: 'text-emerald-400', bg: 'bg-emerald-950/20 border-emerald-800/20' },
+              { label: '1–30 Days',  data: arAgingData.totals.b1_30,   color: 'text-amber-400',   bg: 'bg-amber-950/20 border-amber-800/20' },
+              { label: '31–60 Days', data: arAgingData.totals.b31_60,  color: 'text-orange-400',  bg: 'bg-orange-950/20 border-orange-800/20' },
+              { label: '61–90 Days', data: arAgingData.totals.b61_90,  color: 'text-rose-400',    bg: 'bg-rose-950/20 border-rose-800/20' },
+              { label: '90+ Days',   data: arAgingData.totals.b90plus, color: 'text-red-400',     bg: 'bg-red-950/30 border-red-800/30' },
+            ].map(bucket => (
               <div key={bucket.label} className={`shipment-card border ${bucket.bg} py-5`}>
                 <p className={`text-[10px] font-black uppercase tracking-widest ${bucket.color}`}>{bucket.label}</p>
                 <p className="text-xl font-black text-slate-100 mt-2">{money(bucket.data.amount)}</p>
@@ -783,7 +625,6 @@ export default function AccountingPage() {
               </div>
             ))}
           </div>
-
           {arAgingData.rows.length === 0 ? (
             <div className="shipment-card border border-slate-800 text-center py-16">
               <CheckCircle2 size={48} className="text-emerald-400 mx-auto mb-4" />
@@ -796,29 +637,21 @@ export default function AccountingPage() {
                 <table className="w-full text-left">
                   <thead>
                     <tr className="bg-slate-900/40 border-b border-slate-800">
-                      {['Customer', 'Invoice #', 'Total', 'Balance Due', 'Due Date', 'Days', 'Bucket'].map(h => (
+                      {['Customer','Invoice #','Total','Balance Due','Due Date','Days','Bucket'].map(h => (
                         <th key={h} className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
-                    {arAgingData.rows.map((row) => (
-                      <tr key={row.id} className="hover:bg-slate-800/30 transition-all">
+                    {arAgingData.rows.map(row => (
+                      <tr key={row.id} className="hover:bg-slate-800/20 transition-all">
                         <td className="px-6 py-5 font-bold text-slate-100">{row.customer}</td>
                         <td className="px-6 py-5 font-mono text-sm font-black text-[#F15D38]">{row.id}</td>
                         <td className="px-6 py-5 font-bold text-slate-300">{money(row.amount)}</td>
                         <td className="px-6 py-5 font-black text-slate-100">{money(row.balanceDue ?? row.amount)}</td>
                         <td className="px-6 py-5 text-xs font-bold text-slate-400">{row.due || '—'}</td>
-                        <td className="px-6 py-5">
-                          <span className={`font-black text-sm ${row.days <= 0 ? 'text-emerald-400' : row.days <= 30 ? 'text-amber-400' : row.days <= 60 ? 'text-orange-400' : 'text-rose-400'}`}>
-                            {row.days <= 0 ? 'On time' : `${row.days}d`}
-                          </span>
-                        </td>
-                        <td className="px-6 py-5">
-                          <span className={`inline-flex items-center gap-1.5 text-[10px] font-black px-3 py-1 rounded-full border ${row.bucket.bg} ${row.bucket.color} ${row.bucket.border}`}>
-                            {row.bucket.label}
-                          </span>
-                        </td>
+                        <td className="px-6 py-5"><span className={`font-black text-sm ${row.days <= 0 ? 'text-emerald-400' : row.days <= 30 ? 'text-amber-400' : row.days <= 60 ? 'text-orange-400' : 'text-rose-400'}`}>{row.days <= 0 ? 'On time' : `${row.days}d`}</span></td>
+                        <td className="px-6 py-5"><span className={`inline-flex items-center gap-1.5 text-[10px] font-black px-3 py-1 rounded-full border ${row.bucket.bg} ${row.bucket.color} ${row.bucket.border}`}>{row.bucket.label}</span></td>
                       </tr>
                     ))}
                   </tbody>
@@ -838,7 +671,7 @@ export default function AccountingPage() {
               <p className="text-slate-400 text-sm mt-1">Revenue vs expenses for the selected period.</p>
             </div>
             <div className="flex gap-1 p-1 bg-slate-900 border border-slate-800 rounded-2xl">
-              {(Object.keys(PL_PERIOD_LABELS) as PLPeriod[]).map((val) => (
+              {(Object.keys(PL_PERIOD_LABELS) as PLPeriod[]).map(val => (
                 <button key={val} onClick={() => setPlPeriod(val)}
                   className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${plPeriod === val ? 'bg-[#F15D38] text-white' : 'text-slate-400 hover:text-slate-200'}`}>
                   {PL_PERIOD_LABELS[val]}
@@ -846,7 +679,6 @@ export default function AccountingPage() {
               ))}
             </div>
           </div>
-
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 shipment-card border border-slate-800 bg-[#131B2E]">
               <div className="border-b border-slate-700 pb-6 mb-6">
@@ -854,39 +686,24 @@ export default function AccountingPage() {
                 <h3 className="text-lg font-black text-slate-100 mt-1">Profit &amp; Loss Statement</h3>
                 <p className="text-xs font-bold text-slate-500 mt-1">Period: {PL_PERIOD_LABELS[plPeriod]} · {plData.shipmentCount} shipments</p>
               </div>
-
               <div className="mb-6">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Income</p>
-                <div className="flex justify-between items-center py-3 border-b border-slate-800/50">
-                  <span className="text-sm font-bold text-slate-300">Freight Revenue (Shipments)</span>
-                  <span className="font-black text-slate-100">{money(plData.totalRevenue)}</span>
-                </div>
-                <div className="flex justify-between items-center py-3 border-b border-slate-800/50">
-                  <span className="text-sm font-bold text-slate-300">Cash Collected (Invoices)</span>
-                  <span className="font-black text-emerald-400">{money(plData.cashCollected)}</span>
-                </div>
-                <div className="flex justify-between items-center py-3 bg-slate-900/40 px-4 rounded-xl mt-3">
-                  <span className="text-sm font-black text-slate-100 uppercase tracking-wide">Total Revenue</span>
-                  <span className="font-black text-xl text-slate-100">{money(plData.totalRevenue)}</span>
-                </div>
+                <div className="flex justify-between py-3 border-b border-slate-800/50"><span className="text-sm font-bold text-slate-300">Freight Revenue (Shipments)</span><span className="font-black text-slate-100">{money(plData.totalRevenue)}</span></div>
+                <div className="flex justify-between py-3 border-b border-slate-800/50"><span className="text-sm font-bold text-slate-300">Cash Collected (Invoices)</span><span className="font-black text-emerald-400">{money(plData.cashCollected)}</span></div>
+                <div className="flex justify-between py-3 bg-slate-900/40 px-4 rounded-xl mt-3"><span className="text-sm font-black text-slate-100 uppercase">Total Revenue</span><span className="font-black text-xl text-slate-100">{money(plData.totalRevenue)}</span></div>
               </div>
-
               <div className="mb-6">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Operating Expenses</p>
                 {plData.categoryBreakdown.length === 0
                   ? <p className="text-xs font-bold text-slate-500 py-4">No expenses for this period.</p>
-                  : plData.categoryBreakdown.map((cat) => (
-                    <div key={cat.category} className="flex justify-between items-center py-3 border-b border-slate-800/50">
+                  : plData.categoryBreakdown.map(cat => (
+                    <div key={cat.category} className="flex justify-between py-3 border-b border-slate-800/50">
                       <span className="text-sm font-bold text-slate-300">{cat.category}</span>
                       <span className="font-black text-slate-400">({money(cat.amount)})</span>
                     </div>
                   ))}
-                <div className="flex justify-between items-center py-3 bg-slate-900/40 px-4 rounded-xl mt-3">
-                  <span className="text-sm font-black text-slate-100 uppercase tracking-wide">Total Expenses</span>
-                  <span className="font-black text-xl text-rose-400">({money(plData.totalExpenses)})</span>
-                </div>
+                <div className="flex justify-between py-3 bg-slate-900/40 px-4 rounded-xl mt-3"><span className="text-sm font-black text-slate-100 uppercase">Total Expenses</span><span className="font-black text-xl text-rose-400">({money(plData.totalExpenses)})</span></div>
               </div>
-
               <div className={`flex justify-between items-center py-5 px-6 rounded-2xl border-2 ${plData.grossProfit >= 0 ? 'border-emerald-700/40 bg-emerald-950/20' : 'border-rose-700/40 bg-rose-950/20'}`}>
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Net Profit</p>
@@ -895,30 +712,20 @@ export default function AccountingPage() {
                 <span className={`text-3xl font-black ${plData.grossProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{money(plData.grossProfit)}</span>
               </div>
             </div>
-
             <div className="shipment-card border border-slate-800 bg-[#131B2E]">
               <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest mb-6">Expense Breakdown</h3>
               {plData.categoryBreakdown.length === 0
                 ? <p className="text-xs font-bold text-slate-500 text-center py-10">No expenses this period</p>
-                : (
-                  <div className="space-y-5">
-                    {plData.categoryBreakdown.map((cat) => {
-                      const pct = plData.totalExpenses > 0 ? (cat.amount / plData.totalExpenses) * 100 : 0;
-                      return (
-                        <div key={cat.category}>
-                          <div className="flex justify-between items-center mb-1.5">
-                            <span className="text-xs font-bold text-slate-300 truncate pr-2">{cat.category}</span>
-                            <span className="text-xs font-black text-slate-400 whitespace-nowrap">{pct.toFixed(0)}%</span>
-                          </div>
-                          <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-[#F15D38] rounded-full" style={{ width: `${pct}%` }} />
-                          </div>
-                          <p className="text-[10px] font-bold text-slate-500 mt-1">{money(cat.amount)}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                : <div className="space-y-5">{plData.categoryBreakdown.map(cat => {
+                    const pct = plData.totalExpenses > 0 ? (cat.amount / plData.totalExpenses) * 100 : 0;
+                    return (
+                      <div key={cat.category}>
+                        <div className="flex justify-between mb-1.5"><span className="text-xs font-bold text-slate-300 truncate pr-2">{cat.category}</span><span className="text-xs font-black text-slate-400">{pct.toFixed(0)}%</span></div>
+                        <div className="h-2 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-[#F15D38] rounded-full" style={{ width: `${pct}%` }} /></div>
+                        <p className="text-[10px] font-bold text-slate-500 mt-1">{money(cat.amount)}</p>
+                      </div>
+                    );
+                  })}</div>}
             </div>
           </div>
         </div>
@@ -931,13 +738,12 @@ export default function AccountingPage() {
             <h2 className="text-xl font-black text-slate-100">Cash Flow</h2>
             <p className="text-slate-400 text-sm mt-1">Money coming in from customers vs going out to vendors — last 6 months.</p>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { label: 'Cash In (6 months)', value: money(cashFlowChart.totalIn), color: 'text-emerald-400', bg: 'bg-emerald-950/20 border-emerald-800/20', desc: 'Collected from customers' },
-              { label: 'Cash Out (6 months)', value: money(cashFlowChart.totalOut), color: 'text-rose-400', bg: 'bg-rose-950/20 border-rose-800/20', desc: 'Paid to vendors' },
-              { label: 'Net Cash', value: money(cashFlowChart.net), color: cashFlowChart.net >= 0 ? 'text-sky-400' : 'text-rose-400', bg: cashFlowChart.net >= 0 ? 'bg-sky-950/20 border-sky-800/20' : 'bg-rose-950/20 border-rose-800/20', desc: cashFlowChart.net >= 0 ? 'Positive cash flow' : 'Negative — review expenses' },
-            ].map((s) => (
+              { label: 'Cash In (6 months)',  value: money(cashFlowChart.totalIn),  color: 'text-emerald-400', bg: 'bg-emerald-950/20 border-emerald-800/20', desc: 'Collected from customers' },
+              { label: 'Cash Out (6 months)', value: money(cashFlowChart.totalOut), color: 'text-rose-400',    bg: 'bg-rose-950/20 border-rose-800/20',       desc: 'Paid to vendors' },
+              { label: 'Net Cash',            value: money(cashFlowChart.net),      color: cashFlowChart.net >= 0 ? 'text-sky-400' : 'text-rose-400', bg: cashFlowChart.net >= 0 ? 'bg-sky-950/20 border-sky-800/20' : 'bg-rose-950/20 border-rose-800/20', desc: cashFlowChart.net >= 0 ? 'Positive cash flow' : 'Negative — review expenses' },
+            ].map(s => (
               <div key={s.label} className={`shipment-card border ${s.bg}`}>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{s.label}</p>
                 <p className={`text-3xl font-black mt-2 ${s.color}`}>{s.value}</p>
@@ -945,7 +751,6 @@ export default function AccountingPage() {
               </div>
             ))}
           </div>
-
           <div className="shipment-card border border-slate-800 bg-[#131B2E]">
             <div className="flex justify-between items-center mb-8">
               <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest">Monthly Cash Flow</h3>
@@ -960,30 +765,28 @@ export default function AccountingPage() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} dy={10} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />
-                  <Tooltip contentStyle={{ backgroundColor: '#131B2E', borderRadius: '16px', border: '1px solid #1e293b' }} labelStyle={{ color: '#f1f5f9', fontWeight: 'bold' }} // eslint-disable-next-line @typescript-eslint/no-explicit-any
-formatter={(val: any) => [`$${Number(val).toLocaleString()}`, '']} />
-                  <Bar dataKey="Cash In" fill="#10b981" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Cash Out" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                  <Tooltip contentStyle={{ backgroundColor: '#131B2E', borderRadius: '16px', border: '1px solid #1e293b' }} labelStyle={{ color: '#f1f5f9', fontWeight: 'bold' }}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(val: any) => [`$${Number(val).toLocaleString()}`, '']} />
+                  <Bar dataKey="Cash In"  fill="#10b981" radius={[4,4,0,0]} />
+                  <Bar dataKey="Cash Out" fill="#f43f5e" radius={[4,4,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
-
           <div className="shipment-card !p-0 overflow-hidden border border-slate-800">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-slate-900/40 border-b border-slate-800">
-                    {['Month', 'Cash In', 'Cash Out', 'Net'].map(h => (
-                      <th key={h} className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>
-                    ))}
+                    {['Month','Cash In','Cash Out','Net'].map(h => <th key={h} className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
-                  {cashFlowChart.points.map((row) => {
+                  {cashFlowChart.points.map(row => {
                     const net = row['Cash In'] - row['Cash Out'];
                     return (
-                      <tr key={row.name} className="hover:bg-slate-800/30 transition-all">
+                      <tr key={row.name} className="hover:bg-slate-800/20 transition-all">
                         <td className="px-6 py-5 font-bold text-slate-200">{row.name}</td>
                         <td className="px-6 py-5 font-black text-emerald-400">{money(row['Cash In'])}</td>
                         <td className="px-6 py-5 font-black text-rose-400">{money(row['Cash Out'])}</td>
