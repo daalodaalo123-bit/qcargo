@@ -9,6 +9,7 @@ export interface ICustomer extends Document {
   totalSpent?: number;
   status?: string;
   notes?: string;
+  creditLimit?: number;
 }
 
 const CustomerSchema = new Schema<ICustomer>({
@@ -20,6 +21,7 @@ const CustomerSchema = new Schema<ICustomer>({
   totalSpent: { type: Number, default: 0 },
   status: { type: String, default: 'ACTIVE' },
   notes: { type: String },
+  creditLimit: { type: Number, default: 0 },
 }, { timestamps: true });
 
 export default mongoose.models.Customer || mongoose.model<ICustomer>('Customer', CustomerSchema);

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   TrendingUp, DollarSign, CreditCard, Search, MoreVertical,
   Download, Building2, PieChart, CheckCircle2, AlertCircle, BarChart3,
+  Landmark, Users,
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -20,7 +21,7 @@ import {
 } from '@/lib/accounting-summary';
 import { parseExpenseDate } from '@/lib/expense-analytics';
 
-type TabType = 'overview' | 'invoices' | 'bills' | 'accounts' | 'ar-aging' | 'pl-statement' | 'cashflow';
+type TabType = 'overview' | 'invoices' | 'bills' | 'accounts' | 'ar-aging' | 'ap-aging' | 'pl-statement' | 'cashflow' | 'credit-limits';
 type PLPeriod = 'this_month' | 'last_month' | 'this_year' | 'all';
 
 interface Invoice {
@@ -80,6 +81,9 @@ export default function AccountingPage() {
   const [shipments, setShipments]   = useState<IntelShipment[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [plPeriod, setPlPeriod]     = useState<PLPeriod>('this_month');
+  const [customers, setCustomers]           = useState<{ _id: string; name: string; phone: string; creditLimit?: number }[]>([]);
+  const [editingCreditId, setEditingCreditId] = useState<string | null>(null);
+  const [creditInputVal, setCreditInputVal]   = useState('');
 
   const loadBills = async () => {
     try {
@@ -143,7 +147,16 @@ export default function AccountingPage() {
     } catch (e) { console.error(e); }
   };
 
-  useEffect(() => { loadBills(); loadInvoices(); loadShipments(); }, []);
+  const loadCustomers = async () => {
+    try {
+      const res = await fetch('/api/customers');
+      if (!res.ok) return;
+      const data = await res.json();
+      setCustomers(data);
+    } catch (e) { console.error(e); }
+  };
+
+  useEffect(() => { loadBills(); loadInvoices(); loadShipments(); loadCustomers(); }, []);
 
   const intelExpenses: IntelExpense[] = bills.map((b) => ({
     id: b.id, batchId: b.batchId || 'GENERAL', category: b.category,
@@ -196,6 +209,33 @@ export default function AccountingPage() {
     }
     return { rows: rows.sort((a, b) => b.days - a.days), totals };
   }, [invoices]);
+
+  // ── AP AGING ─────────────────────────────────────────────────────────────
+  const apAgingData = useMemo(() => {
+    const unpaid = bills.filter(b => b.status !== 'PAID');
+    const rows   = unpaid.map(b => ({ ...b, days: daysFromToday(b.due || b.date), bucket: agingBucket(daysFromToday(b.due || b.date)) }));
+    const totals = { current: { count: 0, amount: 0 }, b1_30: { count: 0, amount: 0 }, b31_60: { count: 0, amount: 0 }, b61_90: { count: 0, amount: 0 }, b90plus: { count: 0, amount: 0 } };
+    for (const r of rows) {
+      if (r.days <= 0)       { totals.current.count++; totals.current.amount += r.amount; }
+      else if (r.days <= 30) { totals.b1_30.count++;   totals.b1_30.amount   += r.amount; }
+      else if (r.days <= 60) { totals.b31_60.count++;  totals.b31_60.amount  += r.amount; }
+      else if (r.days <= 90) { totals.b61_90.count++;  totals.b61_90.amount  += r.amount; }
+      else                   { totals.b90plus.count++;  totals.b90plus.amount  += r.amount; }
+    }
+    return { rows: rows.sort((a, b) => b.days - a.days), totals };
+  }, [bills]);
+
+  // ── CREDIT LIMITS ─────────────────────────────────────────────────────────
+  const creditData = useMemo(() => {
+    return customers.map(c => {
+      const outstanding = invoices
+        .filter(inv => inv.customer === c.name && inv.status !== 'PAID')
+        .reduce((s, inv) => s + (inv.balanceDue ?? inv.amount), 0);
+      const limit   = c.creditLimit ?? 0;
+      const utilPct = limit > 0 ? (outstanding / limit) * 100 : null;
+      return { ...c, outstanding, utilPct };
+    }).sort((a, b) => b.outstanding - a.outstanding);
+  }, [customers, invoices]);
 
   // ── P&L ──────────────────────────────────────────────────────────────────
   const plData = useMemo(() => {
@@ -280,6 +320,12 @@ export default function AccountingPage() {
     } else if (activeTab === 'ar-aging') {
       rows = [['Customer','Invoice #','Amount ($)','Balance Due ($)','Due Date','Days','Bucket'], ...arAgingData.rows.map(r => [r.customer, r.id, String(r.amount), String(r.balanceDue ?? r.amount), r.due, String(Math.max(0, r.days)), r.bucket.label])];
       filename = `qcargo_ar_aging_${new Date().toISOString().slice(0,10)}.csv`;
+    } else if (activeTab === 'ap-aging') {
+      rows = [['Vendor','Category','Amount ($)','Due Date','Days','Bucket'], ...apAgingData.rows.map(r => [r.vendor, r.category, String(r.amount), r.due, String(Math.max(0, r.days)), r.bucket.label])];
+      filename = `qcargo_ap_aging_${new Date().toISOString().slice(0,10)}.csv`;
+    } else if (activeTab === 'credit-limits') {
+      rows = [['Customer','Phone','Outstanding ($)','Credit Limit ($)','Utilization %','Status'], ...creditData.map(c => [c.name, c.phone, String(c.outstanding), String(c.creditLimit ?? 0), c.utilPct != null ? `${c.utilPct.toFixed(0)}%` : '—', c.utilPct != null && c.utilPct >= 100 ? 'OVER LIMIT' : c.utilPct != null && c.utilPct >= 80 ? 'NEAR LIMIT' : c.outstanding === 0 ? 'CLEAR' : 'OK'])];
+      filename = `qcargo_credit_limits_${new Date().toISOString().slice(0,10)}.csv`;
     } else if (activeTab === 'pl-statement') {
       rows = [['Q Cargo — P&L'],['Period', PL_PERIOD_LABELS[plPeriod]],[],['INCOME'],['Freight Revenue', String(plData.totalRevenue)],['Cash Collected', String(plData.cashCollected)],[],['EXPENSES'],...plData.categoryBreakdown.map(c => [c.category, String(c.amount)]),['TOTAL EXPENSES', String(plData.totalExpenses)],[],['NET PROFIT', String(plData.grossProfit)],['NET MARGIN %', plData.marginPercent != null ? `${plData.marginPercent.toFixed(1)}%` : 'N/A']];
       filename = `qcargo_pl_${plPeriod}_${new Date().toISOString().slice(0,10)}.csv`;
@@ -300,6 +346,8 @@ export default function AccountingPage() {
     { id: 'bills',         name: 'Vendor Bills',   icon: CreditCard  },
     { id: 'accounts',      name: 'Accounts',       icon: Building2   },
     { id: 'ar-aging',      name: 'AR Aging',       icon: AlertCircle },
+    { id: 'ap-aging',      name: 'AP Aging',       icon: Landmark    },
+    { id: 'credit-limits', name: 'Credit Limits',  icon: Users       },
     { id: 'pl-statement',  name: 'P&L',            icon: BarChart3   },
     { id: 'cashflow',      name: 'Cash Flow',      icon: TrendingUp  },
   ];
@@ -659,6 +707,179 @@ export default function AccountingPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── AP AGING ── */}
+      {activeTab === 'ap-aging' && (
+        <div className="space-y-8 animate-in fade-in duration-300">
+          <div>
+            <h2 className="text-xl font-black text-slate-100">Accounts Payable Aging</h2>
+            <p className="text-slate-400 text-sm mt-1">Every vendor bill you still owe, grouped by how long overdue. Pay the red buckets first.</p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {[
+              { label: 'Current',    data: apAgingData.totals.current, color: 'text-emerald-400', bg: 'bg-emerald-950/20 border-emerald-800/20' },
+              { label: '1–30 Days',  data: apAgingData.totals.b1_30,   color: 'text-amber-400',   bg: 'bg-amber-950/20 border-amber-800/20' },
+              { label: '31–60 Days', data: apAgingData.totals.b31_60,  color: 'text-orange-400',  bg: 'bg-orange-950/20 border-orange-800/20' },
+              { label: '61–90 Days', data: apAgingData.totals.b61_90,  color: 'text-rose-400',    bg: 'bg-rose-950/20 border-rose-800/20' },
+              { label: '90+ Days',   data: apAgingData.totals.b90plus, color: 'text-red-400',     bg: 'bg-red-950/30 border-red-800/30' },
+            ].map(bucket => (
+              <div key={bucket.label} className={`shipment-card border ${bucket.bg} py-5`}>
+                <p className={`text-[10px] font-black uppercase tracking-widest ${bucket.color}`}>{bucket.label}</p>
+                <p className="text-xl font-black text-slate-100 mt-2">{money(bucket.data.amount)}</p>
+                <p className="text-[10px] font-bold text-slate-500 mt-1">{bucket.data.count} bill{bucket.data.count !== 1 ? 's' : ''}</p>
+              </div>
+            ))}
+          </div>
+          {apAgingData.rows.length === 0 ? (
+            <div className="shipment-card border border-slate-800 text-center py-16">
+              <CheckCircle2 size={48} className="text-emerald-400 mx-auto mb-4" />
+              <p className="text-lg font-black text-slate-100">All bills are paid!</p>
+              <p className="text-sm text-slate-400 mt-2">No outstanding payables.</p>
+            </div>
+          ) : (
+            <div className="shipment-card !p-0 overflow-hidden border border-slate-800">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-slate-900/40 border-b border-slate-800">
+                      {['Vendor','Category','Amount','Due Date','Days','Bucket'].map(h => (
+                        <th key={h} className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {apAgingData.rows.map(row => (
+                      <tr key={row.id} className="hover:bg-slate-800/20 transition-all">
+                        <td className="px-6 py-5 font-bold text-slate-100">{row.vendor}</td>
+                        <td className="px-6 py-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">{row.category}</td>
+                        <td className="px-6 py-5 font-black text-slate-100">{money(row.amount)}</td>
+                        <td className="px-6 py-5 text-xs font-bold text-slate-400">{row.due || '—'}</td>
+                        <td className="px-6 py-5">
+                          <span className={`font-black text-sm ${row.days <= 0 ? 'text-emerald-400' : row.days <= 30 ? 'text-amber-400' : row.days <= 60 ? 'text-orange-400' : 'text-rose-400'}`}>
+                            {row.days <= 0 ? 'On time' : `${row.days}d`}
+                          </span>
+                        </td>
+                        <td className="px-6 py-5">
+                          <span className={`inline-flex items-center gap-1.5 text-[10px] font-black px-3 py-1 rounded-full border ${row.bucket.bg} ${row.bucket.color} ${row.bucket.border}`}>
+                            {row.bucket.label}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── CREDIT LIMITS ── */}
+      {activeTab === 'credit-limits' && (
+        <div className="space-y-8 animate-in fade-in duration-300">
+          <div>
+            <h2 className="text-xl font-black text-slate-100">Customer Credit Limits</h2>
+            <p className="text-slate-400 text-sm mt-1">Set a credit limit per customer. Click any limit cell to edit it. Customers over 80% are flagged amber, over 100% are red.</p>
+          </div>
+          <div className="shipment-card !p-0 overflow-hidden border border-slate-800">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-slate-900/40 border-b border-slate-800">
+                    {['Customer','Outstanding Balance','Credit Limit','Utilization','Status'].map(h => (
+                      <th key={h} className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {creditData.map(c => {
+                    const isEditing   = editingCreditId === c._id;
+                    const isOverLimit = c.utilPct !== null && c.utilPct >= 100;
+                    const isNearLimit = c.utilPct !== null && c.utilPct >= 80 && c.utilPct < 100;
+                    return (
+                      <tr key={c._id} className={`hover:bg-slate-800/20 transition-all ${isOverLimit ? 'border-l-2 border-rose-500/50' : ''}`}>
+                        <td className="px-6 py-5">
+                          <p className="font-bold text-slate-100">{c.name}</p>
+                          <p className="text-[10px] font-bold text-slate-500">{c.phone}</p>
+                        </td>
+                        <td className="px-6 py-5 font-black text-slate-100">{money(c.outstanding)}</td>
+                        <td className="px-6 py-5">
+                          {isEditing ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-400 font-bold text-sm">$</span>
+                              <input
+                                type="number"
+                                className="w-28 bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm font-bold text-slate-100 focus:outline-none focus:border-[#F15D38]"
+                                value={creditInputVal}
+                                onChange={e => setCreditInputVal(e.target.value)}
+                                onKeyDown={async e => {
+                                  if (e.key === 'Enter') {
+                                    await fetch(`/api/customers?id=${c._id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ creditLimit: Number(creditInputVal) }) });
+                                    await loadCustomers();
+                                    setEditingCreditId(null);
+                                  }
+                                  if (e.key === 'Escape') setEditingCreditId(null);
+                                }}
+                                autoFocus
+                              />
+                              <button
+                                onClick={async () => {
+                                  await fetch(`/api/customers?id=${c._id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ creditLimit: Number(creditInputVal) }) });
+                                  await loadCustomers();
+                                  setEditingCreditId(null);
+                                }}
+                                className="text-[10px] font-black px-3 py-1.5 bg-[#F15D38] text-white rounded-lg hover:bg-[#d94f2e] transition-colors"
+                              >Save</button>
+                              <button onClick={() => setEditingCreditId(null)} className="text-[10px] font-black px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors">Cancel</button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => { setEditingCreditId(c._id); setCreditInputVal(String(c.creditLimit ?? 0)); }}
+                              className="font-black text-slate-100 hover:text-[#F15D38] transition-colors text-left group flex items-center gap-2"
+                              title="Click to edit"
+                            >
+                              {c.creditLimit ? money(c.creditLimit) : <span className="text-slate-500 font-bold text-xs">Set limit</span>}
+                              <span className="text-[10px] text-slate-600 group-hover:text-[#F15D38] transition-colors">✎</span>
+                            </button>
+                          )}
+                        </td>
+                        <td className="px-6 py-5 w-48">
+                          {c.utilPct !== null ? (
+                            <div>
+                              <div className="mb-1.5">
+                                <span className={`text-xs font-black ${isOverLimit ? 'text-rose-400' : isNearLimit ? 'text-amber-400' : 'text-emerald-400'}`}>{c.utilPct.toFixed(0)}%</span>
+                              </div>
+                              <div className="h-2 bg-slate-800 rounded-full overflow-hidden w-36">
+                                <div className={`h-full rounded-full transition-all ${isOverLimit ? 'bg-rose-500' : isNearLimit ? 'bg-amber-400' : 'bg-emerald-500'}`} style={{ width: `${Math.min(c.utilPct, 100)}%` }} />
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] font-bold text-slate-500">No limit set</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-5">
+                          <span className={`inline-flex items-center gap-1.5 text-[10px] font-black px-3 py-1 rounded-full border ${
+                            isOverLimit  ? 'bg-rose-950/30 text-rose-400 border-rose-800/20'
+                            : isNearLimit ? 'bg-amber-950/30 text-amber-400 border-amber-800/20'
+                            : c.outstanding === 0 ? 'bg-emerald-950/30 text-emerald-400 border-emerald-800/20'
+                            :                       'bg-slate-900 text-slate-400 border-slate-800'
+                          }`}>
+                            <div className={`w-1.5 h-1.5 rounded-full ${isOverLimit ? 'bg-rose-500' : isNearLimit ? 'bg-amber-400' : c.outstanding === 0 ? 'bg-emerald-500' : 'bg-slate-500'}`} />
+                            {isOverLimit ? 'OVER LIMIT' : isNearLimit ? 'NEAR LIMIT' : c.outstanding === 0 ? 'CLEAR' : 'OK'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {creditData.length === 0 && (
+                    <tr><td colSpan={5} className="px-6 py-12 text-center text-xs font-bold text-slate-500">No customers found.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
