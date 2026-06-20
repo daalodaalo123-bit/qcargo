@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useMemo } from 'react';
 import { X, DollarSign, Phone, CreditCard, Calendar, CheckCircle2, Loader2 } from 'lucide-react';
@@ -100,7 +100,7 @@ export default function RecordPaymentModal({ quote, onClose, onSuccess }: Record
           ? '\n\n' +
             data.deliverySteps
               .map((s: { step: string; ok: boolean; detail?: string }) =>
-                `${s.ok ? '✓' : '✗'} ${s.step}${s.detail ? `: ${s.detail}` : ''}`
+                `${s.ok ? 'âœ“' : 'âœ—'} ${s.step}${s.detail ? `: ${s.detail}` : ''}`
               )
               .join('\n')
           : '';
@@ -108,8 +108,8 @@ export default function RecordPaymentModal({ quote, onClose, onSuccess }: Record
       const whatsappNote = data.pdfSent
         ? 'PDF receipt attached on WhatsApp.'
         : data.whatsappSent
-          ? `WhatsApp message sent but NOT as PDF file.\n${data.whatsappError || 'Unknown error'}`
-          : `WhatsApp failed: ${data.whatsappError || 'check WAWP + Cloudinary in .env.local'}`;
+          ? 'WhatsApp sent text only (no PDF file).'
+          : 'WhatsApp not yet configured — receipt saved to Accounting.';
 
       alert(
         `${statusLabel}!\n\nInvoice: ${data.invoice.invoiceNumber}\nPaid now: $${data.invoice.amountPaid.toFixed(2)}\n` +
@@ -141,9 +141,9 @@ export default function RecordPaymentModal({ quote, onClose, onSuccess }: Record
             <div>
               <h2 className="text-sm font-black text-slate-100 uppercase tracking-wider">Record Payment</h2>
               <p className="text-[10px] text-slate-500 font-bold">
-                {quote.customer} · ${quote.price.toLocaleString()}
+                {quote.customer} Â· ${quote.price.toLocaleString()}
                 {balanceDue < quote.price && (
-                  <span className="text-amber-400"> · ${balanceDue.toFixed(2)} due</span>
+                  <span className="text-amber-400"> Â· ${balanceDue.toFixed(2)} due</span>
                 )}
               </p>
             </div>
@@ -296,7 +296,7 @@ export default function RecordPaymentModal({ quote, onClose, onSuccess }: Record
                     />
                   </div>
                   <p className="text-[10px] text-slate-500 mt-1">
-                    Max ${balanceDue.toFixed(2)} · After payment: $
+                    Max ${balanceDue.toFixed(2)} Â· After payment: $
                     {Math.max(0, balanceDue - (parseFloat(partialAmount) || 0)).toFixed(2)} remaining
                   </p>
                 </div>

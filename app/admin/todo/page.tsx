@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import {
@@ -52,7 +52,7 @@ const DEFAULT_TASKS: Task[] = [
   {
     id: 't3',
     title: 'Send WhatsApp notifications for new Hargeisa shipments',
-    description: 'Use the automated WAWP template to notify customers in Hargeisa branch about arrival dates.',
+    description: 'Set up WhatsApp notifications for customers in Hargeisa branch about arrival dates.',
     assignee: 'Khalid',
     status: 'Completed',
     priority: 'Medium',
@@ -305,9 +305,9 @@ export default function TodoPage() {
                 value={priority}
                 onChange={e => setPriority(e.target.value as 'High' | 'Medium' | 'Low')}
               >
-                <option value="High">🔴 High Priority</option>
-                <option value="Medium">🟡 Medium Priority</option>
-                <option value="Low">🟢 Low Priority</option>
+                <option value="High">ðŸ”´ High Priority</option>
+                <option value="Medium">ðŸŸ¡ Medium Priority</option>
+                <option value="Low">ðŸŸ¢ Low Priority</option>
               </select>
             </div>
             <div>
@@ -377,7 +377,7 @@ export default function TodoPage() {
                   </div>
                 </div>
                 <h4 className="text-sm font-black text-slate-100 mb-2 leading-snug">{task.title}</h4>
-                <p className="text-xs text-slate-400 leading-relaxed mb-4 line-clamp-2">{task.description || 'No description — click to add one.'}</p>
+                <p className="text-xs text-slate-400 leading-relaxed mb-4 line-clamp-2">{task.description || 'No description â€” click to add one.'}</p>
                 <div className="flex items-center justify-between pt-3 border-t border-slate-800/40">
                   <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
                     <Calendar size={12} />
@@ -435,7 +435,7 @@ export default function TodoPage() {
                   </div>
                 </div>
                 <h4 className="text-sm font-black text-slate-100 mb-2 leading-snug">{task.title}</h4>
-                <p className="text-xs text-slate-400 leading-relaxed mb-4 line-clamp-2">{task.description || 'No description — click to add one.'}</p>
+                <p className="text-xs text-slate-400 leading-relaxed mb-4 line-clamp-2">{task.description || 'No description â€” click to add one.'}</p>
                 <div className="flex items-center justify-between pt-3 border-t border-slate-800/40">
                   <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
                     <Calendar size={12} />

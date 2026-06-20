@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useMemo } from 'react';
 import { X, DollarSign, Phone, CreditCard, Calendar, CheckCircle2, Loader2 } from 'lucide-react';
@@ -104,7 +104,7 @@ export default function RecordShipmentPaymentModal({
           ? '\n\n' +
             data.deliverySteps
               .map((s: { step: string; ok: boolean; detail?: string }) =>
-                `${s.ok ? '✓' : '✗'} ${s.step}${s.detail ? `: ${s.detail}` : ''}`
+                `${s.ok ? 'âœ“' : 'âœ—'} ${s.step}${s.detail ? `: ${s.detail}` : ''}`
               )
               .join('\n')
           : '';
@@ -112,8 +112,8 @@ export default function RecordShipmentPaymentModal({
       const whatsappNote = data.pdfSent
         ? 'PDF receipt attached on WhatsApp.'
         : data.whatsappSent
-          ? `WhatsApp sent text only (no PDF file).\n${data.whatsappError || 'WAWP could not attach the document.'}`
-          : `WhatsApp failed: ${data.whatsappError || 'Check WAWP_* and CLOUDINARY_* on Vercel (Production env vars).'}`;
+          ? 'WhatsApp sent text only (no PDF file).'
+          : 'WhatsApp not yet configured — receipt saved to Accounting.';
 
       alert(
         `${statusLabel}!\n\nInvoice: ${data.invoice.invoiceNumber}\nPaid now: $${data.invoice.amountPaid.toFixed(2)}\n` +
@@ -143,9 +143,9 @@ export default function RecordShipmentPaymentModal({
             <div>
               <h2 className="text-sm font-black text-slate-100 uppercase tracking-wider">Record Payment</h2>
               <p className="text-[10px] text-slate-500 font-bold">
-                {shipment.shipmentNumber} · ${shipment.total.toLocaleString()}
+                {shipment.shipmentNumber} Â· ${shipment.total.toLocaleString()}
                 {balanceDue < shipment.total && (
-                  <span className="text-amber-400"> · ${balanceDue.toFixed(2)} due</span>
+                  <span className="text-amber-400"> Â· ${balanceDue.toFixed(2)} due</span>
                 )}
               </p>
             </div>
@@ -170,8 +170,8 @@ export default function RecordShipmentPaymentModal({
               <p className="text-sm text-slate-300">
                 Record payment for this shipment. Choose{' '}
                 <span className="text-emerald-400 font-bold">full</span> or{' '}
-                <span className="text-amber-400 font-bold">partial</span> — we will create an invoice, send the PDF on
-                WhatsApp, and list it under Accounting → Customer Invoices.
+                <span className="text-amber-400 font-bold">partial</span> â€” we will create an invoice, send the PDF on
+                WhatsApp, and list it under Accounting â†’ Customer Invoices.
               </p>
               <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-xs space-y-1">
                 <p className="text-slate-400">
@@ -305,7 +305,7 @@ export default function RecordShipmentPaymentModal({
                     />
                   </div>
                   <p className="text-[10px] text-slate-500 mt-1">
-                    Max ${balanceDue.toFixed(2)} · After payment: $
+                    Max ${balanceDue.toFixed(2)} Â· After payment: $
                     {Math.max(0, balanceDue - (parseFloat(partialAmount) || 0)).toFixed(2)} remaining
                   </p>
                 </div>
