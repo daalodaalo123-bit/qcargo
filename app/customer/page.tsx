@@ -66,11 +66,11 @@ export default function CustomerLoginPage() {
       <main className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
           <div className="text-center mb-10">
-            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6">
+            <div className="w-16 h-16 bg-blue-900/30 text-blue-400 border border-blue-800/40 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6">
               <Phone size={28} />
             </div>
-            <h1 className="text-3xl font-black text-slate-900 mb-2">Customer Portal</h1>
-            <p className="text-slate-500">
+            <h1 className="text-3xl font-black text-slate-100 mb-2">Customer Portal</h1>
+            <p className="text-slate-400">
               {step === 'phone'
                 ? 'Enter your registered phone number to receive a verification code on WhatsApp.'
                 : 'Enter the 6-digit code sent to your WhatsApp.'}

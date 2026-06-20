@@ -41,7 +41,10 @@ export async function POST(request: Request) {
   const sent = await sendWhatsAppMessage(fmt.phone, msg);
 
   if (!sent.success) {
-    return NextResponse.json({ error: 'Failed to send OTP. Try again or contact office.' }, { status: 502 });
+    console.error('[OTP] WhatsApp send failed | phone:', fmt.phone, '| error:', sent.error);
+    return NextResponse.json({
+      error: sent.error || 'Failed to send WhatsApp message. Please contact office.',
+    }, { status: 502 });
   }
 
   return NextResponse.json({ success: true, hint: `Code sent to WhatsApp ending in ${fmt.phone.slice(-4)}` });
