@@ -592,9 +592,9 @@ export default function AccountingPage() {
                           : <span className="font-black text-rose-400">{money(inv.balanceDue ?? inv.amount)}</span>}
                       </td>
                       <td className="px-6 py-5">
-                        {(inv.receiptPdfUrl || inv.mongoId) && (
-                          <a href={inv.receiptPdfUrl || `/api/invoices/${inv.mongoId}/pdf`} target="_blank" rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all" title="Download PDF">
+                        {inv.mongoId && (
+                          <a href={`/api/invoices/${inv.mongoId}/pdf`} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all" title="Open PDF">
                             <Download size={13} /> PDF
                           </a>
                         )}
