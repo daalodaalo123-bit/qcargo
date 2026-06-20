@@ -55,6 +55,18 @@ export default function AdminLayout({
     }
   }, [status, isLoginPage, router]);
 
+  // Tab-close logout: sessionStorage is wiped when the tab closes.
+  // If the NextAuth cookie is still valid but there is no tab flag, this is a
+  // fresh tab — sign out immediately so the user must log in again.
+  useEffect(() => {
+    if (isLoginPage || status === 'loading') return;
+    if (status === 'authenticated') {
+      if (!sessionStorage.getItem('qcargo_tab_active')) {
+        signOut({ callbackUrl: '/admin/login' });
+      }
+    }
+  }, [status, isLoginPage]);
+
   // Inactivity auto-logout
   useEffect(() => {
     if (isLoginPage || status !== 'authenticated') return;

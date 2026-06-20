@@ -29,6 +29,7 @@ export default function AdminLoginPage() {
       setError('Invalid credentials. Please check your access key.');
       setLoading(false);
     } else {
+      sessionStorage.setItem('qcargo_tab_active', '1');
       router.push('/admin');
     }
   };
