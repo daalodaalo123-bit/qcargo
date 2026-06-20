@@ -28,9 +28,14 @@ export async function GET(request: Request) {
   const customer = await Customer.findById(payload.sub, { passwordHash: 0 });
   if (!customer) return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
 
-  const shipments = await Shipment.find({ phone: { $regex: payload.phone.slice(-9) } })
+  const last9 = payload.phone.slice(-9);
+  const allShipments = await Shipment.find({})
     .sort({ createdAt: -1 })
-    .select('shipmentNumber type status date total paymentStatus batch weight cbm items');
+    .select('shipmentNumber type status date total paymentStatus batch weight cbm items phone')
+    .lean();
+  const shipments = allShipments.filter(
+    (s: { phone?: string }) => (s.phone || '').replace(/\D/g, '').endsWith(last9)
+  );
 
   return NextResponse.json({ customer, shipments });
 }

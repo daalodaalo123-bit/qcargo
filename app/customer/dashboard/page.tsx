@@ -149,7 +149,7 @@ export default function CustomerDashboardPage() {
 
         {/* Shipments */}
         <div>
-          <h2 className="text-lg font-black text-slate-900 mb-6">Your Shipments ({shipments.length})</h2>
+          <h2 className="text-lg font-black text-slate-100 mb-6">Your Shipments ({shipments.length})</h2>
 
           {shipments.length === 0 ? (
             <div className="bg-white rounded-[2rem] p-12 text-center border border-slate-100">

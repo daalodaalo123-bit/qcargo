@@ -15,8 +15,12 @@ export async function POST(request: Request) {
 
   await connectDB();
 
-  // Check customer exists
-  const customer = await Customer.findOne({ phone: { $regex: fmt.phone.slice(-9) } });
+  // Check customer exists — flexible match: strip non-digits and compare last 9 digits
+  const last9 = fmt.phone.slice(-9);
+  const allCustomers = await Customer.find({}).lean();
+  const customer = allCustomers.find(
+    (c: { phone?: string }) => (c.phone || '').replace(/\D/g, '').endsWith(last9)
+  );
   if (!customer) {
     return NextResponse.json({ error: 'No account found for this number. Contact our office.' }, { status: 404 });
   }

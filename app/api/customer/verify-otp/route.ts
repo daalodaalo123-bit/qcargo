@@ -24,8 +24,12 @@ export async function POST(request: Request) {
   // Delete used OTP
   await CustomerOtp.deleteOne({ _id: otp._id });
 
-  // Find customer
-  const customer = await Customer.findOne({ phone: { $regex: fmt.phone.slice(-9) } });
+  // Find customer — flexible match: strip non-digits and compare last 9 digits
+  const last9 = fmt.phone.slice(-9);
+  const allCustomers = await Customer.find({}).lean();
+  const customer = allCustomers.find(
+    (c: { phone?: string }) => (c.phone || '').replace(/\D/g, '').endsWith(last9)
+  );
   if (!customer) return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
 
   // Sign JWT
