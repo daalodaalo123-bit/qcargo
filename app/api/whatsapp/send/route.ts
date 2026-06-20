@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: result.error }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, data: result.data });
+    return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Error inside /api/whatsapp/send:', error);
     return NextResponse.json({ success: false, error: error.message || 'Internal Server Error' }, { status: 500 });
