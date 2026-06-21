@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Users, Target, Loader2, Trash2, X, ImagePlus, Globe, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, Users, Target, Loader2, Trash2, X, ImagePlus, Globe, Clock, CheckCircle2, Pencil } from 'lucide-react';
 import Link from 'next/link';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -25,6 +25,19 @@ export default function AdminPricingPage() {
   const [agents, setAgents] = useState<any[]>([]);
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [showNewAgent, setShowNewAgent] = useState(false);
+  const [editingAgent, setEditingAgent] = useState<any>(null);
+  const [showEditAgent, setShowEditAgent] = useState(false);
+
+  // Edit agent form
+  const [eaName, setEaName]     = useState('');
+  const [eaCity, setEaCity]     = useState('');
+  const [eaCountry, setEaCountry] = useState('');
+  const [eaCountryCustom, setEaCountryCustom] = useState('');
+  const [eaPhone, setEaPhone]   = useState('');
+  const [eaUser, setEaUser]     = useState('');
+  const [eaPass, setEaPass]     = useState('');
+  const [eaLang, setEaLang]     = useState('en');
+  const [eaSaving, setEaSaving] = useState(false);
 
   // New request form
   const [rCustomer, setRCustomer]   = useState('');
@@ -59,7 +72,60 @@ export default function AdminPricingPage() {
     if (tab !== 'agents') return;
     setAgentsLoading(true);
     fetch('/api/agents').then(r => r.json()).then(d => { if (Array.isArray(d)) setAgents(d); }).finally(() => setAgentsLoading(false));
+    // Poll every 30s to refresh online status
+    const interval = setInterval(() => {
+      fetch('/api/agents').then(r => r.json()).then(d => { if (Array.isArray(d)) setAgents(d); });
+    }, 30000);
+    return () => clearInterval(interval);
   }, [tab]);
+
+  const openEditAgent = (a: any) => {
+    const KNOWN = ['China','UAE','Hong Kong','Turkey','India','Somalia','Ethiopia','Kenya'];
+    setEditingAgent(a);
+    setEaName(a.name || ''); setEaCity(a.city || '');
+    setEaPhone(a.phone || ''); setEaUser(a.username || '');
+    setEaPass(''); setEaLang(a.language || 'en');
+    if (KNOWN.includes(a.country)) { setEaCountry(a.country); setEaCountryCustom(''); }
+    else { setEaCountry('Other'); setEaCountryCustom(a.country || ''); }
+    setShowEditAgent(true);
+  };
+
+  const handleSaveEditAgent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAgent) return;
+    setEaSaving(true);
+    const finalCountry = eaCountry === 'Other' ? eaCountryCustom || 'Other' : eaCountry;
+    const body: any = { id: editingAgent._id, name: eaName, city: eaCity, country: finalCountry, language: eaLang, phone: eaPhone, username: eaUser };
+    if (eaPass) body.password = eaPass;
+    try {
+      const res = await fetch('/api/agents', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const updated = await res.json();
+      setAgents(prev => prev.map(a => a._id === editingAgent._id ? { ...a, ...updated } : a));
+      setShowEditAgent(false);
+    } finally { setEaSaving(false); }
+  };
+
+  const handleToggleAgent = async (a: any) => {
+    const res = await fetch('/api/agents', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: a._id, active: !a.active }) });
+    const updated = await res.json();
+    setAgents(prev => prev.map(x => x._id === a._id ? { ...x, active: updated.active } : x));
+  };
+
+  const isOnline = (lastSeen?: string) => {
+    if (!lastSeen) return false;
+    return new Date(lastSeen) > new Date(Date.now() - 2 * 60 * 1000);
+  };
+
+  const lastSeenText = (lastSeen?: string) => {
+    if (!lastSeen) return 'Never';
+    const diff = Date.now() - new Date(lastSeen).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  };
 
   const uploadPhoto = async (file: File) => {
     setRUploading(true);
@@ -209,27 +275,51 @@ export default function AdminPricingPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {agents.map(a => (
-                <div key={a._id} className="shipment-card border border-slate-800">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-black text-slate-100">{a.name}</p>
-                      <p className="text-xs text-slate-400 font-bold flex items-center gap-1 mt-0.5"><Globe size={11} /> {a.city}, {a.country}</p>
-                      <p className="text-[10px] text-slate-500 mt-1 font-mono">@{a.username} · {LANG_LABEL[a.language] || a.language}</p>
-                      {a.phone && <p className="text-[10px] text-slate-500">{a.phone}</p>}
+              {agents.map(a => {
+                const online = isOnline(a.lastSeen);
+                return (
+                  <div key={a._id} className={`shipment-card border transition-all ${a.active ? 'border-slate-800' : 'border-slate-800/40 opacity-60'}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-3 min-w-0">
+                        {/* Online dot */}
+                        <div className="mt-1 shrink-0">
+                          <div className={`w-2.5 h-2.5 rounded-full ${online ? 'bg-emerald-400 shadow-lg shadow-emerald-400/50' : 'bg-slate-600'}`} title={online ? 'Online' : `Last seen ${lastSeenText(a.lastSeen)}`} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-black text-slate-100">{a.name}</p>
+                          <p className="text-xs text-slate-400 font-bold flex items-center gap-1 mt-0.5"><Globe size={11} /> {a.city}, {a.country}</p>
+                          <p className="text-[10px] text-slate-500 mt-1 font-mono">@{a.username} · {LANG_LABEL[a.language] || a.language}</p>
+                          {a.phone && <p className="text-[10px] text-slate-500">{a.phone}</p>}
+                          <p className="text-[10px] mt-1 font-bold">
+                            {online
+                              ? <span className="text-emerald-400">● Online</span>
+                              : <span className="text-slate-600">Last seen {lastSeenText(a.lastSeen)}</span>}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {/* Edit */}
+                        <button onClick={() => openEditAgent(a)} className="p-2 text-slate-500 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors" title="Edit agent">
+                          <Pencil size={14} />
+                        </button>
+                        {/* Enable/Disable toggle */}
+                        <button onClick={() => handleToggleAgent(a)}
+                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${a.active ? 'bg-emerald-950/20 text-emerald-400 border-emerald-800/20 hover:bg-rose-950/20 hover:text-rose-400 hover:border-rose-800/20' : 'bg-slate-900 text-slate-500 border-slate-800 hover:bg-emerald-950/20 hover:text-emerald-400 hover:border-emerald-800/20'}`}
+                          title={a.active ? 'Click to disable' : 'Click to enable'}>
+                          {a.active ? 'Active' : 'Disabled'}
+                        </button>
+                        {/* Delete */}
+                        <button onClick={() => handleDeleteAgent(a._id, a.name)} className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-950/20 rounded-lg transition-colors" title="Delete agent">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-[9px] font-black px-2 py-1 rounded-full border ${a.active ? 'bg-emerald-950/20 text-emerald-400 border-emerald-800/20' : 'bg-slate-900 text-slate-500 border-slate-800'}`}>
-                        {a.active ? 'Active' : 'Inactive'}
-                      </span>
-                      <button onClick={() => handleDeleteAgent(a._id, a.name)} className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg transition-colors"><Trash2 size={14} /></button>
+                    <div className="mt-3 pt-3 border-t border-slate-800/40">
+                      <p className="text-[9px] text-slate-600 font-bold">Login URL: <span className="text-slate-500 font-mono">qcargologistics.com/agent</span></p>
                     </div>
                   </div>
-                  <div className="mt-3 pt-3 border-t border-slate-800/40">
-                    <p className="text-[9px] text-slate-600 font-bold">Login URL: <span className="text-slate-500 font-mono">/agent/login</span></p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -388,6 +478,69 @@ export default function AdminPricingPage() {
                 <button type="button" onClick={() => setShowNewAgent(false)} className="btn bg-[#131B2E] border border-slate-800 text-slate-300 px-6">Cancel</button>
                 <button type="submit" disabled={aSaving} className="btn btn-primary px-8 flex items-center gap-2">
                   {aSaving ? <Loader2 size={14} className="animate-spin" /> : null} Add Agent
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── EDIT AGENT MODAL ── */}
+      {showEditAgent && editingAgent && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowEditAgent(false)}>
+          <div className="bg-[#0B0F19] border border-slate-800 rounded-3xl w-full max-w-md p-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-black text-slate-100">Edit Agent — {editingAgent.name}</h3>
+              <button onClick={() => setShowEditAgent(false)} className="p-2 text-slate-400 hover:text-slate-200"><X size={18} /></button>
+            </div>
+            <form onSubmit={handleSaveEditAgent} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Full Name *</label>
+                  <input type="text" required value={eaName} onChange={e => setEaName(e.target.value)} className="search-input w-full" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">City *</label>
+                  <input type="text" required value={eaCity} onChange={e => setEaCity(e.target.value)} className="search-input w-full" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Country</label>
+                  <select value={eaCountry} onChange={e => setEaCountry(e.target.value)} className="search-input w-full bg-[#0B0F19]">
+                    {['China','UAE','Hong Kong','Turkey','India','Somalia','Ethiopia','Kenya','Other'].map(c => <option key={c}>{c}</option>)}
+                  </select>
+                  {eaCountry === 'Other' && (
+                    <input type="text" value={eaCountryCustom} onChange={e => setEaCountryCustom(e.target.value)} placeholder="Type country name..." className="search-input w-full mt-2" required />
+                  )}
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Language</label>
+                  <select value={eaLang} onChange={e => setEaLang(e.target.value)} className="search-input w-full bg-[#0B0F19]">
+                    <option value="en">English</option>
+                    <option value="ar">Arabic</option>
+                    <option value="zh">Chinese</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Phone / WeChat</label>
+                <input type="text" value={eaPhone} onChange={e => setEaPhone(e.target.value)} className="search-input w-full" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Username *</label>
+                  <input type="text" required value={eaUser} onChange={e => setEaUser(e.target.value)} className="search-input w-full font-mono" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">New Password</label>
+                  <input type="text" value={eaPass} onChange={e => setEaPass(e.target.value)} className="search-input w-full" placeholder="Leave blank to keep current" />
+                </div>
+              </div>
+              <div className="flex gap-3 justify-end pt-2">
+                <button type="button" onClick={() => setShowEditAgent(false)} className="btn bg-[#131B2E] border border-slate-800 text-slate-300 px-6">Cancel</button>
+                <button type="submit" disabled={eaSaving} className="btn btn-primary px-8 flex items-center gap-2">
+                  {eaSaving ? <Loader2 size={14} className="animate-spin" /> : null} Save Changes
                 </button>
               </div>
             </form>

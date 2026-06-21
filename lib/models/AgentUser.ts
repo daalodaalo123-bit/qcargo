@@ -10,6 +10,7 @@ export interface IAgentUser extends Document {
   phone?: string;
   email?: string;
   active: boolean;
+  lastSeen?: Date;
 }
 
 const AgentUserSchema = new Schema<IAgentUser>({
@@ -22,6 +23,7 @@ const AgentUserSchema = new Schema<IAgentUser>({
   phone:        { type: String },
   email:        { type: String },
   active:       { type: Boolean, default: true },
+  lastSeen:     { type: Date },
 }, { timestamps: true });
 
 export default mongoose.models.AgentUser || mongoose.model<IAgentUser>('AgentUser', AgentUserSchema);

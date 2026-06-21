@@ -33,6 +33,8 @@ export default function AgentDashboard() {
   }, []);
 
   const changeLang = (l: Lang) => { setLang(l); localStorage.setItem('qcargo_agent_lang', l); };
+  const [adminOnline, setAdminOnline] = useState(false);
+  const [adminLastSeen, setAdminLastSeen] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('qcargo_agent_token');
@@ -41,6 +43,18 @@ export default function AgentDashboard() {
       .then(r => { if (r.status === 401) { localStorage.removeItem('qcargo_agent_token'); router.replace('/agent/login'); return null; } return r.json(); })
       .then(data => { if (!data) return; setAgent(data.agent); setRequests(data.requests); setResponseMap(data.responseMap || {}); setUnread(data.unread || 0); })
       .finally(() => setLoading(false));
+
+    // Ping agent heartbeat every 30s
+    const pingHeartbeat = () => fetch('/api/agent/heartbeat', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+    pingHeartbeat();
+    const hbInterval = setInterval(pingHeartbeat, 30000);
+
+    // Poll admin online status every 30s
+    const checkAdmin = () => fetch('/api/admin/heartbeat').then(r => r.json()).then(d => { setAdminOnline(d.online); setAdminLastSeen(d.lastSeen); }).catch(() => {});
+    checkAdmin();
+    const adminInterval = setInterval(checkAdmin, 30000);
+
+    return () => { clearInterval(hbInterval); clearInterval(adminInterval); };
   }, [router]);
 
   const handleLogout = () => {
@@ -66,7 +80,12 @@ export default function AgentDashboard() {
         <div className="flex items-center gap-3">
           <span className="text-lg font-black text-slate-100">Q<span className="text-[#F15D38]">CARGO</span></span>
           <span className="text-slate-700">·</span>
-          <span className="text-xs font-bold text-slate-400">Agent Portal</span>
+          <div className="flex items-center gap-1.5">
+            <div className={`w-2 h-2 rounded-full ${adminOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`} />
+            <span className={`text-[10px] font-black ${adminOnline ? 'text-emerald-400' : 'text-slate-500'}`}>
+              {adminOnline ? 'Q Cargo Online' : adminLastSeen ? `Q Cargo — ${(() => { const diff = Date.now() - new Date(adminLastSeen).getTime(); const m = Math.floor(diff/60000); return m < 60 ? `${m}m ago` : `${Math.floor(m/60)}h ago`; })()}` : 'Q Cargo Offline'}
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {unread > 0 && (

@@ -31,8 +31,9 @@ export default function AgentRequestPage({ params }: { params: Promise<{ id: str
   const [uploading, setUploading]         = useState(false);
 
   // Chat
-  const [chatText, setChatText] = useState('');
-  const [sending, setSending]   = useState(false);
+  const [chatText, setChatText]   = useState('');
+  const [sending, setSending]     = useState(false);
+  const [adminTyping, setAdminTyping] = useState(false);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('qcargo_agent_token') : '';
 
@@ -65,6 +66,22 @@ export default function AgentRequestPage({ params }: { params: Promise<{ id: str
     if (tab !== 'chat' || !agent) return;
     fetch(`/api/pricing/messages?requestId=${id}&agentId=${agent.id}`)
       .then(r => r.json()).then(d => { if (Array.isArray(d)) setMessages(d); });
+
+    // Ping agent heartbeat + poll admin typing + new messages every 2s
+    const agentToken = localStorage.getItem('qcargo_agent_token');
+    const poll = setInterval(async () => {
+      const [typingRes, msgRes] = await Promise.all([
+        fetch(`/api/pricing/typing?requestId=${id}&agentId=${agent.id}`).then(r => r.json()).catch(() => ({})),
+        fetch(`/api/pricing/messages?requestId=${id}&agentId=${agent.id}`).then(r => r.json()).catch(() => []),
+      ]);
+      setAdminTyping(typingRes.adminTyping || false);
+      if (Array.isArray(msgRes)) setMessages(msgRes);
+    }, 2000);
+    // Keep agent heartbeat alive while in chat
+    const hb = setInterval(() => {
+      if (agentToken) fetch('/api/agent/heartbeat', { method: 'POST', headers: { Authorization: `Bearer ${agentToken}` } }).catch(() => {});
+    }, 30000);
+    return () => { clearInterval(poll); clearInterval(hb); };
   }, [tab, agent, id]);
 
   useEffect(() => {
@@ -277,9 +294,24 @@ export default function AgentRequestPage({ params }: { params: Promise<{ id: str
                   </div>
                 </div>
               ))}
+              {/* Admin typing indicator */}
+              {adminTyping && (
+                <div className="flex justify-start">
+                  <div className="bg-[#131B2E] border border-slate-800 px-4 py-3 rounded-2xl rounded-bl-sm flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                </div>
+              )}
             </div>
             <form onSubmit={handleSendChat} className="flex gap-2 pt-3 border-t border-slate-800">
-              <input type="text" value={chatText} onChange={e => setChatText(e.target.value)} placeholder="Type a message..."
+              <input type="text" value={chatText}
+                onChange={e => {
+                  setChatText(e.target.value);
+                  if (agent) fetch('/api/pricing/typing', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ requestId: id, agentId: agent.id, role: 'agent' }) }).catch(() => {});
+                }}
+                placeholder="Type a message..."
                 className="flex-1 bg-[#131B2E] border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-[#F15D38] text-sm font-bold" />
               <button type="submit" disabled={sending || !chatText.trim()}
                 className="bg-[#F15D38] hover:bg-[#d64420] text-white px-4 rounded-xl transition-all disabled:opacity-40">

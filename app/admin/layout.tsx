@@ -94,6 +94,15 @@ export default function AdminLayout({
     };
   }, [isLoginPage, status]);
 
+  // Ping admin heartbeat every 30s so agents see admin as online
+  useEffect(() => {
+    if (isLoginPage || status !== 'authenticated') return;
+    const ping = () => fetch('/api/admin/heartbeat', { method: 'POST' }).catch(() => {});
+    ping();
+    const interval = setInterval(ping, 30000);
+    return () => clearInterval(interval);
+  }, [isLoginPage, status]);
+
   // Global search — Ctrl+K to open, Escape to close
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

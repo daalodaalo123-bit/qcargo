@@ -21,11 +21,15 @@ export default function AdminPricingDetailPage({ params }: { params: Promise<{ i
   const [sending, setSending]     = useState(false);
   const [tab, setTab]             = useState<'responses' | 'chat' | 'quote'>('responses');
   const chatRef                   = useRef<HTMLDivElement>(null);
+  const typingTimerRef            = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Quote state
   const [margin, setMargin]         = useState('15');
   const [shippingCost, setShipping] = useState('0');
   const [selectedResp, setSelected] = useState<string | null>(null);
+
+  // Typing indicator
+  const [agentTyping, setAgentTyping] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -40,13 +44,25 @@ export default function AdminPricingDetailPage({ params }: { params: Promise<{ i
     }).finally(() => setLoading(false));
   }, [id]);
 
-  // Load messages for active agent
+  // Load messages + poll typing when chat tab is open
   useEffect(() => {
     if (!activeAgent || !id) return;
     fetch(`/api/pricing/messages?requestId=${id}&agentId=${activeAgent}`)
       .then(r => r.json()).then(d => {
         if (Array.isArray(d)) setMessages(prev => ({ ...prev, [activeAgent]: d }));
       });
+
+    // Poll for agent typing + new messages every 2s when on chat tab
+    if (tab !== 'chat') return;
+    const poll = setInterval(async () => {
+      const [typingRes, msgRes] = await Promise.all([
+        fetch(`/api/pricing/typing?requestId=${id}&agentId=${activeAgent}`).then(r => r.json()).catch(() => ({})),
+        fetch(`/api/pricing/messages?requestId=${id}&agentId=${activeAgent}`).then(r => r.json()).catch(() => []),
+      ]);
+      setAgentTyping(typingRes.agentTyping || false);
+      if (Array.isArray(msgRes)) setMessages(prev => ({ ...prev, [activeAgent]: msgRes }));
+    }, 2000);
+    return () => clearInterval(poll);
   }, [activeAgent, id]);
 
   useEffect(() => {
@@ -309,9 +325,27 @@ export default function AdminPricingDetailPage({ params }: { params: Promise<{ i
                       </div>
                     </div>
                   ))}
+                  {/* Agent typing indicator */}
+                  {agentTyping && (
+                    <div className="flex justify-start">
+                      <div className="bg-slate-800 px-4 py-3 rounded-2xl rounded-bl-sm flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <form onSubmit={handleSendMessage} className="flex gap-2 p-3 border-t border-slate-800">
-                  <input type="text" value={chatText} onChange={e => setChatText(e.target.value)} placeholder="Message agent..."
+                  <input type="text" value={chatText}
+                    onChange={e => {
+                      setChatText(e.target.value);
+                      // Ping typing indicator
+                      if (activeAgent) {
+                        fetch('/api/pricing/typing', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requestId: id, agentId: activeAgent, role: 'admin' }) }).catch(() => {});
+                      }
+                    }}
+                    placeholder="Message agent..."
                     className="flex-1 bg-[#0B0F19] border border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-100 focus:outline-none focus:border-[#F15D38]" />
                   <button type="submit" disabled={sending || !chatText.trim()} className="bg-[#F15D38] hover:bg-[#d64420] text-white px-4 rounded-xl transition-all disabled:opacity-40">
                     <Send size={16} />
