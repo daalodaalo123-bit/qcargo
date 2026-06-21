@@ -153,7 +153,16 @@ export default function AgentRequestPage({ params }: { params: Promise<{ id: str
         {(['request', 'respond', 'chat'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${tab === t ? 'text-[#F15D38] border-b-2 border-[#F15D38]' : 'text-slate-400 hover:text-slate-200'}`}>
-            {t === 'request' ? 'Request' : t === 'respond' ? (myResponse ? '✓ My Price' : 'Submit Price') : `Chat${messages.filter(m => !m.fromAgent && !m.read).length > 0 ? ' 🔴' : ''}`}
+            {t === 'request' ? 'Request' : t === 'respond' ? (myResponse ? '✓ My Price' : 'Submit Price') : (
+              <span className="flex items-center justify-center gap-1.5">
+                Chat
+                {messages.filter(m => !m.fromAgent && !m.read).length > 0 && (
+                  <span className="bg-[#F15D38] text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+                    {messages.filter(m => !m.fromAgent && !m.read).length}
+                  </span>
+                )}
+              </span>
+            )}
           </button>
         ))}
       </div>

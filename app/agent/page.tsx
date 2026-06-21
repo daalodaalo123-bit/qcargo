@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, Package, Clock, CheckCircle2, AlertCircle, ChevronRight, Bell, MapPin } from 'lucide-react';
+import { LogOut, Package, Clock, CheckCircle2, AlertCircle, ChevronRight, Bell, MapPin, MessageSquare } from 'lucide-react';
 
 const STATUS_COLOR: Record<string, string> = {
   OPEN: 'bg-amber-950/30 text-amber-400 border-amber-800/30',
@@ -88,11 +88,12 @@ export default function AgentDashboard() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {unread > 0 && (
-            <div className="flex items-center gap-1.5 bg-rose-950/30 border border-rose-800/30 text-rose-400 px-3 py-1.5 rounded-xl text-[10px] font-black">
-              <Bell size={12} /> {unread}
-            </div>
-          )}
+          {/* Direct messages button */}
+          <button onClick={() => router.push('/agent/messages')}
+            className="relative p-2 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-xl transition-all">
+            <MessageSquare size={18} />
+            {unread > 0 && <span className="absolute -top-1 -right-1 bg-[#F15D38] text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center">{unread}</span>}
+          </button>
           {/* Language switcher */}
           <div className="flex gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1">
             {(['en','ar','zh'] as Lang[]).map(l => (
