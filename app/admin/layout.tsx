@@ -22,6 +22,7 @@ import {
   Warehouse,
   Megaphone,
   Search,
+  Globe,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -153,6 +154,7 @@ export default function AdminLayout({
     { name: 'Warehouse', icon: Warehouse, href: '/admin/warehouse' },
     { name: 'Purchases', icon: ShoppingCart, href: '/admin/purchases' },
     { name: 'Customers', icon: Users, href: '/admin/customers' },
+    { name: 'Sourcing', icon: Globe, href: '/admin/pricing' },
     { name: 'Quotations', icon: FileText, href: '/admin/quotations' },
     { name: 'Marketing', icon: Megaphone, href: '/admin/marketing' },
     { name: 'Expenses', icon: CreditCard, href: '/admin/expenses' },
