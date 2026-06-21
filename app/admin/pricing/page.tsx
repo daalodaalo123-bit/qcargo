@@ -54,6 +54,11 @@ export default function AdminPricingPage() {
   const [rUploading, setRUploading] = useState(false);
   const [rSaving, setRSaving]       = useState(false);
 
+  // Edit request
+  const [editingReq, setEditingReq]   = useState<any>(null);
+  const [showEditReq, setShowEditReq] = useState(false);
+  const [erSaving, setErSaving]       = useState(false);
+
   // New agent form
   const [aName, setAName]       = useState('');
   const [aCity, setACity]       = useState('');
@@ -85,14 +90,20 @@ export default function AdminPricingPage() {
   const dmChatRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch('/api/pricing/requests').then(r => r.json()).then(d => { if (Array.isArray(d)) setRequests(d); }).finally(() => setReqLoading(false));
+    // Load both requests AND agents on mount so agents appear in new request form
+    Promise.all([
+      fetch('/api/pricing/requests').then(r => r.json()),
+      fetch('/api/agents').then(r => r.json()),
+    ]).then(([reqs, agts]) => {
+      if (Array.isArray(reqs)) setRequests(reqs);
+      if (Array.isArray(agts)) setAgents(agts);
+    }).finally(() => setReqLoading(false));
   }, []);
 
   useEffect(() => {
     if (tab !== 'agents') return;
-    setAgentsLoading(true);
-    fetch('/api/agents').then(r => r.json()).then(d => { if (Array.isArray(d)) setAgents(d); }).finally(() => setAgentsLoading(false));
-    // Poll every 30s to refresh online status
+    setAgentsLoading(false);
+    // Already loaded — just poll for online status updates every 30s
     const interval = setInterval(() => {
       fetch('/api/agents').then(r => r.json()).then(d => { if (Array.isArray(d)) setAgents(d); });
     }, 30000);
@@ -239,6 +250,43 @@ export default function AdminPricingPage() {
     } finally { setRUploading(false); }
   };
 
+  const openEditRequest = (r: any) => {
+    setEditingReq(r);
+    setRCustomer(r.customerName || '');
+    setRProduct(r.productName || '');
+    setRDesc(r.description || '');
+    setRQty(String(r.quantity || 1));
+    setRUnit(r.unit || 'pcs');
+    setRBudget(r.targetPrice ? String(r.targetPrice) : '');
+    setRDeadline(r.deadline || '');
+    setRAgents(r.assignedAgents || []);
+    setRNotes(r.notes || '');
+    setRPhotos(r.photos || []);
+    setShowEditReq(true);
+  };
+
+  const handleSaveEditRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingReq) return;
+    setErSaving(true);
+    try {
+      const res = await fetch(`/api/pricing/requests/${editingReq._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: rCustomer, productName: rProduct, description: rDesc,
+          quantity: parseFloat(rQty), unit: rUnit,
+          targetPrice: rBudget ? parseFloat(rBudget) : undefined,
+          deadline: rDeadline, assignedAgents: rAgents, notes: rNotes, photos: rPhotos,
+        }),
+      });
+      const updated = await res.json();
+      setRequests(prev => prev.map(r => r._id === editingReq._id ? updated : r));
+      setShowEditReq(false);
+      setEditingReq(null);
+    } finally { setErSaving(false); }
+  };
+
   const handleCreateRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     setRSaving(true);
@@ -359,7 +407,8 @@ export default function AdminPricingPage() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <Link href={`/admin/pricing/${r._id}`} className="btn btn-primary py-2 px-4 text-xs">View →</Link>
-                <button onClick={() => handleDeleteRequest(r._id)} className="p-2 text-slate-500 hover:text-rose-400 rounded-lg transition-colors"><Trash2 size={15} /></button>
+                <button onClick={() => openEditRequest(r)} className="p-2 text-slate-500 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors" title="Edit request"><Pencil size={15} /></button>
+                <button onClick={() => handleDeleteRequest(r._id)} className="p-2 text-slate-500 hover:text-rose-400 rounded-lg transition-colors" title="Delete request"><Trash2 size={15} /></button>
               </div>
             </div>
           ))}
@@ -810,6 +859,104 @@ export default function AdminPricingPage() {
                 <button type="button" onClick={() => setShowEditAgent(false)} className="btn bg-[#131B2E] border border-slate-800 text-slate-300 px-6">Cancel</button>
                 <button type="submit" disabled={eaSaving} className="btn btn-primary px-8 flex items-center gap-2">
                   {eaSaving ? <Loader2 size={14} className="animate-spin" /> : null} Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── EDIT REQUEST MODAL ── */}
+      {showEditReq && editingReq && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowEditReq(false)}>
+          <div className="bg-[#0B0F19] border border-slate-800 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">{editingReq.requestNumber}</p>
+                <h3 className="text-xl font-black text-slate-100">Edit Request</h3>
+              </div>
+              <button onClick={() => setShowEditReq(false)} className="p-2 text-slate-400 hover:text-slate-200"><X size={18} /></button>
+            </div>
+            <form onSubmit={handleSaveEditRequest} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Customer Name *</label>
+                  <input type="text" required value={rCustomer} onChange={e => setRCustomer(e.target.value)} className="search-input w-full" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Product Name *</label>
+                  <input type="text" required value={rProduct} onChange={e => setRProduct(e.target.value)} className="search-input w-full" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Description / Specifications</label>
+                <textarea value={rDesc} onChange={e => setRDesc(e.target.value)} rows={3} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm font-bold text-slate-100 placeholder-slate-600 focus:outline-none focus:border-[#F15D38] resize-none" />
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Quantity *</label>
+                  <input type="number" required min="1" value={rQty} onChange={e => setRQty(e.target.value)} className="search-input w-full" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Unit</label>
+                  <select value={rUnit} onChange={e => setRUnit(e.target.value)} className="search-input w-full bg-[#0B0F19]">
+                    {['pcs', 'kg', 'sets', 'boxes', 'pairs', 'rolls', 'meters'].map(u => <option key={u}>{u}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Budget (USD)</label>
+                  <input type="number" step="0.01" value={rBudget} onChange={e => setRBudget(e.target.value)} className="search-input w-full" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Deadline</label>
+                <input type="date" value={rDeadline} onChange={e => setRDeadline(e.target.value)} className="search-input w-full" />
+              </div>
+              {/* Agents assignment */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+                  Assigned Agents ({rAgents.length} selected)
+                </label>
+                {agents.filter(a => a.active).length === 0 ? (
+                  <p className="text-xs text-slate-500 italic">No active agents.</p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {agents.filter(a => a.active).map(a => (
+                      <label key={a._id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${rAgents.includes(a._id) ? 'border-[#F15D38] bg-[#F15D38]/10' : 'border-slate-800 hover:border-slate-600'}`}>
+                        <input type="checkbox" className="accent-[#F15D38]" checked={rAgents.includes(a._id)} onChange={e => setRAgents(prev => e.target.checked ? [...prev, a._id] : prev.filter(id => id !== a._id))} />
+                        <div>
+                          <p className="text-xs font-black text-slate-100">{a.name}</p>
+                          <p className="text-[10px] text-slate-500">{a.city}, {a.country}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* Photos */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Product Photos</label>
+                <div className="flex gap-2 flex-wrap">
+                  {rPhotos.map((url, i) => (
+                    <div key={i} className="relative">
+                      <img src={url} alt="" className="w-20 h-20 object-cover rounded-xl border border-slate-800" />
+                      <button type="button" onClick={() => setRPhotos(prev => prev.filter((_, j) => j !== i))} className="absolute -top-1 -right-1 bg-rose-500 text-white rounded-full p-0.5"><X size={10} /></button>
+                    </div>
+                  ))}
+                  <label className="w-20 h-20 border-2 border-dashed border-slate-700 hover:border-[#F15D38] rounded-xl flex flex-col items-center justify-center cursor-pointer transition-colors text-slate-500 hover:text-[#F15D38]">
+                    {rUploading ? <Loader2 size={16} className="animate-spin" /> : <><ImagePlus size={16} /><span className="text-[9px] font-bold mt-1">Add</span></>}
+                    <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && uploadPhoto(e.target.files[0])} />
+                  </label>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Internal Notes</label>
+                <textarea value={rNotes} onChange={e => setRNotes(e.target.value)} rows={2} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm font-bold text-slate-100 placeholder-slate-600 focus:outline-none focus:border-[#F15D38] resize-none" />
+              </div>
+              <div className="flex gap-3 justify-end pt-2">
+                <button type="button" onClick={() => setShowEditReq(false)} className="btn bg-[#131B2E] border border-slate-800 text-slate-300 px-6">Cancel</button>
+                <button type="submit" disabled={erSaving} className="btn btn-primary px-8 flex items-center gap-2">
+                  {erSaving ? <Loader2 size={14} className="animate-spin" /> : null} Save Changes
                 </button>
               </div>
             </form>
