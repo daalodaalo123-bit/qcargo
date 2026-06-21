@@ -362,6 +362,24 @@ export default function BatchDetail({ params }: { params: Promise<{ id: string }
               >
                 🧾 Commercial Invoice
               </Link>
+              {batch?.type === 'SEA' && (
+                <Link
+                  href={`/admin/batches/${id}/bill-of-lading`}
+                  target="_blank"
+                  className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  🚢 Bill of Lading
+                </Link>
+              )}
+              {batch?.type === 'AIR' && (
+                <Link
+                  href={`/admin/batches/${id}/airway-bill`}
+                  target="_blank"
+                  className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  ✈️ Air Waybill (AWB)
+                </Link>
+              )}
               <Link href="/admin/expenses/new" className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-colors flex items-center justify-center">
                 💸 Log New Expense
               </Link>
