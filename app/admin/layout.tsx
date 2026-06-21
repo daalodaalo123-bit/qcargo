@@ -165,7 +165,6 @@ export default function AdminLayout({
     { name: 'Purchases', icon: ShoppingCart, href: '/admin/purchases' },
     { name: 'Customers', icon: Users, href: '/admin/customers' },
     { name: 'Sourcing', icon: Globe, href: '/admin/pricing' },
-    { name: 'Messages', icon: MessageSquare, href: '/admin/messages' },
     { name: 'Quotations', icon: FileText, href: '/admin/quotations' },
     { name: 'Marketing', icon: Megaphone, href: '/admin/marketing' },
     { name: 'Expenses', icon: CreditCard, href: '/admin/expenses' },

@@ -40,7 +40,10 @@ export default function AdminPricingDetailPage({ params }: { params: Promise<{ i
       setRequest(req);
       if (Array.isArray(resp)) setResponses(resp);
       if (Array.isArray(agts)) setAgents(agts);
-      if (Array.isArray(agts) && agts.length > 0) setActiveAgent(agts[0]._id);
+      // Auto-select the FIRST ASSIGNED agent, not first agent overall
+      if (req?.assignedAgents?.length > 0) {
+        setActiveAgent(req.assignedAgents[0]);
+      }
     }).finally(() => setLoading(false));
   }, [id]);
 
@@ -283,33 +286,75 @@ export default function AdminPricingDetailPage({ params }: { params: Promise<{ i
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Agent list sidebar */}
           <div className="md:col-span-1 space-y-2">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Agents</p>
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">
+              Agents ({assignedAgentObjects.length})
+            </p>
             {assignedAgentObjects.length === 0 ? (
-              <p className="text-xs text-slate-600">No agents assigned.</p>
+              <p className="text-xs text-slate-600">No agents assigned to this request.</p>
             ) : assignedAgentObjects.map(a => {
               const agentMsgs = messages[a._id] || [];
               const unread = agentMsgs.filter(m => m.fromAgent && !m.read).length;
+              const agentResp = responses.find(r => r.agentId === a._id);
               return (
                 <button key={a._id} onClick={() => setActiveAgent(a._id)}
                   className={`w-full text-left p-3 rounded-xl border transition-all ${activeAgent === a._id ? 'border-[#F15D38] bg-[#F15D38]/10' : 'border-slate-800 hover:border-slate-600'}`}>
-                  <p className="text-xs font-black text-slate-100">{a.name}</p>
+                  <div className="flex items-center justify-between gap-1">
+                    <p className="text-xs font-black text-slate-100 truncate">{a.name}</p>
+                    {unread > 0 && <span className="shrink-0 bg-rose-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center">{unread}</span>}
+                  </div>
                   <p className="text-[10px] text-slate-500">{a.city}</p>
-                  {unread > 0 && <span className="text-[9px] font-black text-rose-400 mt-1 block">{unread} new</span>}
+                  {agentResp ? (
+                    <p className="text-[10px] font-black text-emerald-400 mt-1">
+                      {agentResp.unitPrice} {agentResp.currency} · {agentResp.supplierName}
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-slate-600 mt-1 italic">No price yet</p>
+                  )}
                 </button>
               );
             })}
           </div>
 
           {/* Chat window */}
-          <div className="md:col-span-3 bg-[#131B2E] border border-slate-800 rounded-2xl flex flex-col" style={{ height: '500px' }}>
+          <div className="md:col-span-3 bg-[#131B2E] border border-slate-800 rounded-2xl flex flex-col" style={{ height: '550px' }}>
             {!activeAgent ? (
-              <div className="flex-1 flex items-center justify-center text-slate-500 text-sm font-bold">Select an agent to chat</div>
+              <div className="flex-1 flex items-center justify-center text-slate-500 text-sm font-bold">Select an agent on the left to chat</div>
             ) : (
               <>
-                <div className="px-4 py-3 border-b border-slate-800 flex items-center gap-2">
-                  <span className="text-sm font-black text-slate-100">{agents.find(a => a._id === activeAgent)?.name}</span>
-                  <span className="text-[10px] text-slate-500">{agents.find(a => a._id === activeAgent)?.city}</span>
-                </div>
+                {/* Agent header + price summary */}
+                {(() => {
+                  const a = agents.find(x => x._id === activeAgent);
+                  const resp = responses.find(r => r.agentId === activeAgent);
+                  return (
+                    <div className="px-4 py-3 border-b border-slate-800 shrink-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-black text-slate-100">{a?.name}</span>
+                          <span className="text-[10px] text-slate-500 font-bold">{a?.city}</span>
+                        </div>
+                        {resp && (
+                          <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-right">
+                            <div>
+                              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Their Price</p>
+                              <p className="text-sm font-black text-[#F15D38]">{resp.unitPrice} {resp.currency} / {request?.unit}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Supplier</p>
+                              <p className="text-xs font-bold text-slate-300">{resp.supplierName}</p>
+                            </div>
+                            {resp.leadTimeDays && (
+                              <div>
+                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Lead Time</p>
+                                <p className="text-xs font-bold text-slate-300">{resp.leadTimeDays}d</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {!resp && <p className="text-xs text-slate-600 italic">Waiting for price...</p>}
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-3">
                   {(messages[activeAgent] || []).length === 0 && (
                     <div className="text-center py-10 text-slate-600 text-xs font-bold">No messages yet. Start the conversation.</div>

@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Users, Target, Loader2, Trash2, X, ImagePlus, Globe, Clock, CheckCircle2, Pencil } from 'lucide-react';
+import { Plus, Users, Target, Loader2, Trash2, X, ImagePlus, Globe, Clock, CheckCircle2, Pencil, MessageSquare, Send } from 'lucide-react';
 import Link from 'next/link';
+import { useRef } from 'react';
 
 const STATUS_COLOR: Record<string, string> = {
   OPEN:        'bg-amber-950/30 text-amber-400 border-amber-800/30',
@@ -14,7 +15,7 @@ const STATUS_COLOR: Record<string, string> = {
 const LANG_LABEL: Record<string, string> = { en: 'English', ar: 'Arabic', zh: 'Chinese' };
 
 export default function AdminPricingPage() {
-  const [tab, setTab] = useState<'requests' | 'agents'>('requests');
+  const [tab, setTab] = useState<'requests' | 'agents' | 'messages'>('requests');
 
   // Requests
   const [requests, setRequests] = useState<any[]>([]);
@@ -64,6 +65,25 @@ export default function AdminPricingPage() {
   const [aPhone, setAPhone]     = useState('');
   const [aSaving, setASaving]   = useState(false);
 
+  // ── Messages state ──────────────────────────────────────────────────────────
+  const [selectedMsgAgent, setSelectedMsgAgent] = useState<any>(null);
+  const [dmMessages, setDmMessages]   = useState<any[]>([]);
+  const [dmTasks, setDmTasks]         = useState<any[]>([]);
+  const [dmUnread, setDmUnread]       = useState<Record<string, number>>({});
+  const [dmText, setDmText]           = useState('');
+  const [dmSending, setDmSending]     = useState(false);
+  const [dmAgentTyping, setDmAgentTyping] = useState(false);
+  const [dmTab, setDmTab]             = useState<'chat' | 'tasks'>('chat');
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [editingTask, setEditingTask] = useState<any>(null);
+  const [tCustomer, setTCustomer]     = useState('');
+  const [tProduct, setTProduct]       = useState('');
+  const [tPriority, setTPriority]     = useState('1');
+  const [tDeadline, setTDeadline]     = useState('');
+  const [tNotes, setTNotes]           = useState('');
+  const [savingTask, setSavingTask]   = useState(false);
+  const dmChatRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     fetch('/api/pricing/requests').then(r => r.json()).then(d => { if (Array.isArray(d)) setRequests(d); }).finally(() => setReqLoading(false));
   }, []);
@@ -78,6 +98,88 @@ export default function AdminPricingPage() {
     }, 30000);
     return () => clearInterval(interval);
   }, [tab]);
+
+  // Messages effects
+  useEffect(() => {
+    if (tab !== 'messages') return;
+    // Load agents + unread counts when messages tab opens
+    if (agents.length === 0) {
+      fetch('/api/agents').then(r => r.json()).then(d => { if (Array.isArray(d)) setAgents(d); });
+    }
+    fetch('/api/direct-messages/unread').then(r => r.json()).then(d => setDmUnread(d || {})).catch(() => {});
+    const interval = setInterval(() => {
+      fetch('/api/direct-messages/unread').then(r => r.json()).then(d => setDmUnread(d || {})).catch(() => {});
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [tab]);
+
+  useEffect(() => {
+    if (!selectedMsgAgent) return;
+    Promise.all([
+      fetch(`/api/direct-messages?agentId=${selectedMsgAgent._id}`).then(r => r.json()),
+      fetch(`/api/priority-tasks?agentId=${selectedMsgAgent._id}`).then(r => r.json()),
+    ]).then(([msgs, tasks]) => {
+      if (Array.isArray(msgs)) setDmMessages(msgs);
+      if (Array.isArray(tasks)) setDmTasks(tasks);
+      setDmUnread(prev => ({ ...prev, [selectedMsgAgent._id]: 0 }));
+    });
+    const poll = setInterval(async () => {
+      const [msgs, typing] = await Promise.all([
+        fetch(`/api/direct-messages?agentId=${selectedMsgAgent._id}`).then(r => r.json()).catch(() => []),
+        fetch(`/api/pricing/typing?requestId=dm&agentId=${selectedMsgAgent._id}`).then(r => r.json()).catch(() => ({})),
+      ]);
+      if (Array.isArray(msgs)) setDmMessages(msgs);
+      setDmAgentTyping(typing.agentTyping || false);
+    }, 2000);
+    return () => clearInterval(poll);
+  }, [selectedMsgAgent]);
+
+  useEffect(() => {
+    if (dmChatRef.current) dmChatRef.current.scrollTop = dmChatRef.current.scrollHeight;
+  }, [dmMessages, dmAgentTyping]);
+
+  const handleDmSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!dmText.trim() || !selectedMsgAgent) return;
+    setDmSending(true);
+    try {
+      const res = await fetch('/api/direct-messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agentId: selectedMsgAgent._id, text: dmText, fromAdmin: true }) });
+      const msg = await res.json();
+      setDmMessages(prev => [...prev, msg]);
+      setDmText('');
+    } finally { setDmSending(false); }
+  };
+
+  const openTaskForm = (task?: any) => {
+    if (task) { setEditingTask(task); setTCustomer(task.customerName); setTProduct(task.product); setTPriority(String(task.priority)); setTDeadline(task.deadline || ''); setTNotes(task.notes || ''); }
+    else { setEditingTask(null); setTCustomer(''); setTProduct(''); setTPriority(String(dmTasks.length + 1)); setTDeadline(''); setTNotes(''); }
+    setShowTaskForm(true);
+  };
+
+  const handleSaveTask = async (e: React.FormEvent) => {
+    e.preventDefault(); setSavingTask(true);
+    try {
+      const body = { customerName: tCustomer, product: tProduct, priority: parseInt(tPriority), deadline: tDeadline, notes: tNotes };
+      if (editingTask) {
+        const res = await fetch('/api/priority-tasks', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editingTask._id, ...body }) });
+        const u = await res.json(); setDmTasks(prev => prev.map(t => t._id === editingTask._id ? u : t).sort((a, b) => a.priority - b.priority));
+      } else {
+        const res = await fetch('/api/priority-tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agentId: selectedMsgAgent._id, ...body }) });
+        const c = await res.json(); setDmTasks(prev => [...prev, c].sort((a, b) => a.priority - b.priority));
+      }
+      setShowTaskForm(false);
+    } finally { setSavingTask(false); }
+  };
+
+  const handleToggleTask = async (task: any) => {
+    const res = await fetch('/api/priority-tasks', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: task._id, done: !task.done }) });
+    const u = await res.json(); setDmTasks(prev => prev.map(t => t._id === task._id ? u : t));
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    await fetch('/api/priority-tasks', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: taskId }) });
+    setDmTasks(prev => prev.filter(t => t._id !== taskId));
+  };
 
   const openEditAgent = (a: any) => {
     const KNOWN = ['China','UAE','Hong Kong','Turkey','India','Somalia','Ethiopia','Kenya'];
@@ -219,12 +321,17 @@ export default function AdminPricingPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 bg-slate-900 border border-slate-800 rounded-[1.5rem] mb-8">
-        {(['requests', 'agents'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`flex items-center gap-2 px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${tab === t ? 'bg-[#F15D38] text-white' : 'text-slate-400 hover:text-slate-200'}`}>
-            {t === 'requests' ? <><Target size={13} /> Requests</> : <><Users size={13} /> Agents</>}
-          </button>
-        ))}
+        {(['requests', 'agents', 'messages'] as const).map(t => {
+          const totalUnread = Object.values(dmUnread).reduce((a, b) => a + b, 0);
+          return (
+            <button key={t} onClick={() => setTab(t)}
+              className={`flex items-center gap-2 px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${tab === t ? 'bg-[#F15D38] text-white' : 'text-slate-400 hover:text-slate-200'}`}>
+              {t === 'requests' ? <><Target size={13} /> Requests</>
+                : t === 'agents' ? <><Users size={13} /> Agents</>
+                : <><MessageSquare size={13} /> Messages {totalUnread > 0 && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${tab === 'messages' ? 'bg-white/20' : 'bg-rose-500 text-white'}`}>{totalUnread}</span>}</>}
+            </button>
+          );
+        })}
       </div>
 
       {/* ── REQUESTS TAB ── */}
@@ -322,6 +429,168 @@ export default function AdminPricingPage() {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── MESSAGES TAB ── */}
+      {tab === 'messages' && (
+        <div className="flex gap-5" style={{ height: '600px' }}>
+          {/* Agent list */}
+          <div className="w-64 shrink-0 flex flex-col gap-2 overflow-y-auto">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Your Agents</p>
+            {agents.filter(a => a.active).length === 0 && <p className="text-sm text-slate-600 font-bold">No agents yet.</p>}
+            {agents.filter(a => a.active).map(a => {
+              const online = a.lastSeen && new Date(a.lastSeen) > new Date(Date.now() - 2 * 60 * 1000);
+              const unread = dmUnread[a._id] || 0;
+              return (
+                <button key={a._id} onClick={() => { setSelectedMsgAgent(a); setDmMessages([]); setDmTasks([]); setDmTab('chat'); }}
+                  className={`w-full text-left p-3 rounded-2xl border transition-all ${selectedMsgAgent?._id === a._id ? 'border-[#F15D38] bg-[#F15D38]/10' : 'border-slate-800 bg-[#131B2E] hover:border-slate-600'}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${online ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                      <div className="min-w-0">
+                        <p className="font-black text-slate-100 text-sm truncate">{a.name}</p>
+                        <p className="text-[10px] text-slate-500">{a.city}, {a.country}</p>
+                      </div>
+                    </div>
+                    {unread > 0 && <span className="shrink-0 bg-[#F15D38] text-white text-[8px] font-black w-5 h-5 rounded-full flex items-center justify-center">{unread}</span>}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Conversation + tasks */}
+          <div className="flex-1 bg-[#131B2E] border border-slate-800 rounded-2xl flex flex-col min-w-0">
+            {!selectedMsgAgent ? (
+              <div className="flex-1 flex items-center justify-center text-center p-10">
+                <div>
+                  <MessageSquare size={32} className="mx-auto mb-3 text-slate-700" />
+                  <p className="text-sm font-bold text-slate-500">Select an agent to chat</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Header */}
+                <div className="px-5 py-3 border-b border-slate-800 flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2.5 h-2.5 rounded-full ${selectedMsgAgent.lastSeen && new Date(selectedMsgAgent.lastSeen) > new Date(Date.now() - 120000) ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                    <div>
+                      <p className="font-black text-slate-100 text-sm">{selectedMsgAgent.name}</p>
+                      <p className="text-[10px] text-slate-500">{selectedMsgAgent.city}, {selectedMsgAgent.country}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1">
+                    {(['chat', 'tasks'] as const).map(dt => (
+                      <button key={dt} onClick={() => setDmTab(dt)}
+                        className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${dmTab === dt ? 'bg-[#F15D38] text-white' : 'text-slate-400 hover:text-slate-200'}`}>
+                        {dt === 'chat' ? 'Chat' : `Priority Sheet (${dmTasks.filter(t => !t.done).length})`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Chat */}
+                {dmTab === 'chat' && (
+                  <>
+                    <div ref={dmChatRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+                      {dmMessages.length === 0 && <div className="text-center py-10 text-slate-600 text-sm font-bold">No messages yet. Say hello!</div>}
+                      {dmMessages.map(m => (
+                        <div key={m._id} className={`flex ${!m.fromAgent ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[70%] px-4 py-3 rounded-2xl text-sm font-bold ${!m.fromAgent ? 'bg-[#F15D38] text-white rounded-br-sm' : 'bg-slate-800 text-slate-100 rounded-bl-sm'}`}>
+                            {m.fromAgent && <p className="text-[9px] font-black text-slate-400 mb-1 uppercase">{m.agentName}</p>}
+                            <p className="leading-relaxed">{m.text}</p>
+                            <p className={`text-[9px] mt-1 ${!m.fromAgent ? 'text-white/60' : 'text-slate-500'}`}>
+                              {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {!m.fromAgent && <span className="ml-1">{m.read ? '✓✓' : '✓'}</span>}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                      {dmAgentTyping && (
+                        <div className="flex justify-start">
+                          <div className="bg-slate-800 px-4 py-3 rounded-2xl rounded-bl-sm flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <form onSubmit={handleDmSend} className="flex gap-2 p-3 border-t border-slate-800 shrink-0">
+                      <input type="text" value={dmText}
+                        onChange={e => {
+                          setDmText(e.target.value);
+                          fetch('/api/pricing/typing', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requestId: 'dm', agentId: selectedMsgAgent._id, role: 'admin' }) }).catch(() => {});
+                        }}
+                        placeholder={`Message ${selectedMsgAgent.name}...`}
+                        className="flex-1 bg-[#0B0F19] border border-slate-700 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-100 focus:outline-none focus:border-[#F15D38]" />
+                      <button type="submit" disabled={dmSending || !dmText.trim()} className="bg-[#F15D38] hover:bg-[#d64420] text-white px-4 rounded-xl transition-all disabled:opacity-40">
+                        {dmSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                      </button>
+                    </form>
+                  </>
+                )}
+
+                {/* Priority sheet */}
+                {dmTab === 'tasks' && (
+                  <div className="flex-1 flex flex-col min-h-0">
+                    <div className="flex items-center justify-between px-5 py-2.5 border-b border-slate-800 shrink-0">
+                      <p className="text-xs font-bold text-slate-400">{dmTasks.filter(t => !t.done).length} pending · {dmTasks.filter(t => t.done).length} done</p>
+                      <button onClick={() => openTaskForm()} className="flex items-center gap-1.5 bg-[#F15D38] hover:bg-[#d64420] text-white px-3 py-1.5 rounded-xl text-xs font-black transition-all">
+                        <Plus size={12} /> Add Task
+                      </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
+                      {dmTasks.length === 0 ? (
+                        <div className="flex items-center justify-center h-full text-center p-8">
+                          <div>
+                            <CheckCircle2 size={28} className="mx-auto mb-2 text-slate-700" />
+                            <p className="text-sm font-bold text-slate-500">No tasks yet.</p>
+                            <p className="text-xs text-slate-600 mt-1">Add tasks to tell {selectedMsgAgent.name} what to work on first.</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <table className="w-full text-left">
+                          <thead className="sticky top-0 bg-[#0B0F19]">
+                            <tr className="border-b border-slate-800">
+                              {['#', 'Customer', 'Product / Request', 'Deadline', 'Notes', 'Done', ''].map(h => (
+                                <th key={h} className="px-4 py-2.5 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/50">
+                            {dmTasks.map(t => (
+                              <tr key={t._id} className={`transition-all ${t.done ? 'opacity-40' : 'hover:bg-slate-800/20'}`}>
+                                <td className="px-4 py-3">
+                                  <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black ${t.priority === 1 ? 'bg-[#F15D38] text-white' : t.priority === 2 ? 'bg-amber-500 text-black' : 'bg-slate-700 text-slate-300'}`}>{t.priority}</span>
+                                </td>
+                                <td className="px-4 py-3 font-bold text-slate-100 text-sm whitespace-nowrap">{t.customerName}</td>
+                                <td className="px-4 py-3 text-slate-300 text-sm">{t.product}</td>
+                                <td className="px-4 py-3 text-slate-400 text-xs font-bold whitespace-nowrap">{t.deadline || '—'}</td>
+                                <td className="px-4 py-3 text-slate-500 text-xs max-w-[160px] truncate">{t.notes || '—'}</td>
+                                <td className="px-4 py-3">
+                                  <button onClick={() => handleToggleTask(t)} className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${t.done ? 'bg-emerald-500 border-emerald-500' : 'border-slate-600 hover:border-emerald-400'}`}>
+                                    {t.done && <CheckCircle2 size={12} className="text-white" />}
+                                  </button>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex gap-1">
+                                    <button onClick={() => openTaskForm(t)} className="p-1.5 text-slate-600 hover:text-slate-200 rounded-lg transition-colors"><Pencil size={12} /></button>
+                                    <button onClick={() => handleDeleteTask(t._id)} className="p-1.5 text-slate-600 hover:text-rose-400 rounded-lg transition-colors"><Trash2 size={12} /></button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -541,6 +810,48 @@ export default function AdminPricingPage() {
                 <button type="button" onClick={() => setShowEditAgent(false)} className="btn bg-[#131B2E] border border-slate-800 text-slate-300 px-6">Cancel</button>
                 <button type="submit" disabled={eaSaving} className="btn btn-primary px-8 flex items-center gap-2">
                   {eaSaving ? <Loader2 size={14} className="animate-spin" /> : null} Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── TASK FORM MODAL ── */}
+      {showTaskForm && selectedMsgAgent && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowTaskForm(false)}>
+          <div className="bg-[#0B0F19] border border-slate-800 rounded-3xl w-full max-w-md p-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-black text-slate-100">{editingTask ? 'Edit Task' : `Add Task for ${selectedMsgAgent.name}`}</h3>
+              <button onClick={() => setShowTaskForm(false)} className="p-2 text-slate-400 hover:text-slate-200"><X size={18} /></button>
+            </div>
+            <form onSubmit={handleSaveTask} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Customer Name *</label>
+                  <input type="text" required value={tCustomer} onChange={e => setTCustomer(e.target.value)} className="search-input w-full" placeholder="e.g. Ahmed Mohamed" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Priority #</label>
+                  <input type="number" min="1" value={tPriority} onChange={e => setTPriority(e.target.value)} className="search-input w-full" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Product / Request *</label>
+                <input type="text" required value={tProduct} onChange={e => setTProduct(e.target.value)} className="search-input w-full" placeholder="e.g. 500 pcs phone cases" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Deadline</label>
+                <input type="date" value={tDeadline} onChange={e => setTDeadline(e.target.value)} className="search-input w-full" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Notes for Agent</label>
+                <textarea value={tNotes} onChange={e => setTNotes(e.target.value)} rows={2} placeholder="Special instructions..." className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm font-bold text-slate-100 placeholder-slate-600 focus:outline-none focus:border-[#F15D38] resize-none" />
+              </div>
+              <div className="flex gap-3 justify-end pt-2">
+                <button type="button" onClick={() => setShowTaskForm(false)} className="btn bg-[#131B2E] border border-slate-800 text-slate-300 px-6">Cancel</button>
+                <button type="submit" disabled={savingTask} className="btn btn-primary px-8 flex items-center gap-2">
+                  {savingTask ? <Loader2 size={14} className="animate-spin" /> : null} {editingTask ? 'Save' : 'Add Task'}
                 </button>
               </div>
             </form>
