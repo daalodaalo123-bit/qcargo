@@ -7,6 +7,7 @@ interface QuotationItem {
   description: string;
   qty: string;
   price: string;
+  totalPrice: string;
 }
 
 export interface EditQuotationData {
@@ -26,13 +27,13 @@ interface EditQuotationModalProps {
 }
 
 function lineTotal(item: QuotationItem): number {
-  return (parseFloat(item.qty) || 0) * (parseFloat(item.price) || 0);
+  return parseFloat(item.totalPrice) || 0;
 }
 
 export default function EditQuotationModal({ quotation, onClose, onSuccess }: EditQuotationModalProps) {
   const [customer, setCustomer] = useState('');
   const [phone, setPhone] = useState('');
-  const [items, setItems] = useState<QuotationItem[]>([{ description: '', qty: '1', price: '' }]);
+  const [items, setItems] = useState<QuotationItem[]>([{ description: '', qty: '1', price: '', totalPrice: '' }]);
   const [estimatedPrice, setEstimatedPrice] = useState('');
   const [commissionRate, setCommissionRate] = useState('0');
   const [freightType, setFreightType] = useState<'AIR' | 'SEA'>('SEA');
@@ -62,6 +63,7 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
               description: it.description,
               qty: String(it.qty),
               price: String(it.price),
+              totalPrice: (it.qty * it.price).toFixed(2),
             }))
           );
           const total = data.items.reduce(
@@ -72,12 +74,12 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
           setEstimatedPrice(total > 0 ? String(total) : String(Math.max(0, (data.price || quotation.price) - commAmt)));
         } else {
           const subtotalFallback = Math.max(0, (data.price || quotation.price) - commAmt);
-          setItems([{ description: data.goods || quotation.goods, qty: '1', price: String(subtotalFallback) }]);
+          setItems([{ description: data.goods || quotation.goods, qty: '1', price: String(subtotalFallback), totalPrice: String(subtotalFallback) }]);
           setEstimatedPrice(String(subtotalFallback));
         }
       })
       .catch(() => {
-        setItems([{ description: quotation.goods, qty: '1', price: String(quotation.price) }]);
+        setItems([{ description: quotation.goods, qty: '1', price: String(quotation.price), totalPrice: String(quotation.price) }]);
         setEstimatedPrice(String(quotation.price));
         setCommissionRate('0');
       })
@@ -99,10 +101,17 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
   const grandTotal = subtotal + commissionAmount;
 
   const updateItem = (index: number, field: keyof QuotationItem, value: string) => {
-    setItems(items.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
+    setItems(items.map((item, i) => {
+      if (i !== index) return item;
+      const updated = { ...item, [field]: value };
+      const total = parseFloat(updated.totalPrice) || 0;
+      const qty = parseFloat(updated.qty) || 1;
+      updated.price = total > 0 ? (total / qty).toFixed(2) : '';
+      return updated;
+    }));
   };
 
-  const addItem = () => setItems([...items, { description: '', qty: '1', price: '' }]);
+  const addItem = () => setItems([...items, { description: '', qty: '1', price: '', totalPrice: '' }]);
 
   const removeItem = (index: number) => {
     if (items.length > 1) setItems(items.filter((_, i) => i !== index));
@@ -220,14 +229,15 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-3">Items</label>
                 <div className="hidden sm:grid sm:grid-cols-12 gap-3 mb-1 px-1">
-                  <span className="sm:col-span-6 text-[10px] font-bold text-slate-500 uppercase">Description</span>
+                  <span className="sm:col-span-5 text-[10px] font-bold text-slate-500 uppercase">Description</span>
                   <span className="sm:col-span-2 text-[10px] font-bold text-slate-500 uppercase">Qty</span>
-                  <span className="sm:col-span-3 text-[10px] font-bold text-slate-500 uppercase">Price (USD)</span>
+                  <span className="sm:col-span-2 text-[10px] font-bold text-slate-500 uppercase">Unit Price</span>
+                  <span className="sm:col-span-2 text-[10px] font-bold text-slate-500 uppercase">Total (USD)</span>
                   <span className="sm:col-span-1" />
                 </div>
                 {items.map((item, idx) => (
                   <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-3 mb-3 p-3 bg-[#0B0F19] rounded-xl border border-slate-800 items-end">
-                    <div className="sm:col-span-6">
+                    <div className="sm:col-span-5">
                       <input
                         type="text"
                         placeholder="e.g. Solar panels"
@@ -246,15 +256,24 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
                         onChange={(e) => updateItem(idx, 'qty', e.target.value)}
                       />
                     </div>
-                    <div className="sm:col-span-3">
+                    <div className="sm:col-span-2">
+                      <input
+                        type="number"
+                        readOnly
+                        placeholder="0.00"
+                        className="search-input !py-2 min-w-0 text-sm opacity-50 cursor-not-allowed bg-slate-900/50"
+                        value={item.price}
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
                       <input
                         type="number"
                         min={0}
                         step="0.01"
                         placeholder="0.00"
                         className="search-input !py-2 min-w-0 text-sm"
-                        value={item.price}
-                        onChange={(e) => updateItem(idx, 'price', e.target.value)}
+                        value={item.totalPrice}
+                        onChange={(e) => updateItem(idx, 'totalPrice', e.target.value)}
                       />
                     </div>
                     <div className="sm:col-span-1 flex sm:justify-end">

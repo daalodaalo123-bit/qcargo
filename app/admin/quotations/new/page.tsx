@@ -22,12 +22,11 @@ interface QuotationItem {
   notes: string;
   qty: string;
   price: string;
+  totalPrice: string;
 }
 
 function lineTotal(item: QuotationItem): number {
-  const qty = parseFloat(item.qty) || 0;
-  const price = parseFloat(item.price) || 0;
-  return qty * price;
+  return parseFloat(item.totalPrice) || 0;
 }
 
 interface ImportedItem {
@@ -44,7 +43,7 @@ export default function NewQuotation() {
   // State variables
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
-  const [items, setItems] = useState<QuotationItem[]>([{ description: '', notes: '', qty: '1', price: '' }]);
+  const [items, setItems] = useState<QuotationItem[]>([{ description: '', notes: '', qty: '1', price: '', totalPrice: '' }]);
   const [estimatedPrice, setEstimatedPrice] = useState('');
   const [freightType, setFreightType] = useState('SEA');
   const [commissionRate, setCommissionRate] = useState('7');
@@ -139,10 +138,17 @@ export default function NewQuotation() {
     router.push('/admin/quotations');
   };
 
-  const addItem = () => setItems([...items, { description: '', notes: '', qty: '1', price: '' }]);
+  const addItem = () => setItems([...items, { description: '', notes: '', qty: '1', price: '', totalPrice: '' }]);
 
   const updateItem = (index: number, field: keyof QuotationItem, value: string) => {
-    const newItems = items.map((item, i) => (i === index ? { ...item, [field]: value } : item));
+    const newItems = items.map((item, i) => {
+      if (i !== index) return item;
+      const updated = { ...item, [field]: value };
+      const total = parseFloat(updated.totalPrice) || 0;
+      const qty = parseFloat(updated.qty) || 1;
+      updated.price = total > 0 ? (total / qty).toFixed(2) : '';
+      return updated;
+    });
     setItems(newItems);
   };
 
@@ -174,8 +180,9 @@ export default function NewQuotation() {
       notes: it.notes || '',
       qty: String(it.qty),
       price: String(it.price),
+      totalPrice: (it.qty * it.price).toFixed(2),
     }));
-    setItems(newItems.length > 0 ? newItems : [{ description: '', notes: '', qty: '1', price: '' }]);
+    setItems(newItems.length > 0 ? newItems : [{ description: '', notes: '', qty: '1', price: '', totalPrice: '' }]);
     if (importPreview.customerName && !customerName.trim()) {
       setCustomerName(importPreview.customerName);
     }
@@ -240,15 +247,16 @@ export default function NewQuotation() {
               <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">Description of Goods</h3>
             </div>
             <div className="hidden sm:grid sm:grid-cols-12 gap-4 mb-2 px-1">
-              <span className="sm:col-span-6 text-[10px] font-bold text-slate-500 uppercase">Good Name</span>
+              <span className="sm:col-span-5 text-[10px] font-bold text-slate-500 uppercase">Good Name</span>
               <span className="sm:col-span-2 text-[10px] font-bold text-slate-500 uppercase">Qty</span>
-              <span className="sm:col-span-3 text-[10px] font-bold text-slate-500 uppercase">Price (USD)</span>
+              <span className="sm:col-span-2 text-[10px] font-bold text-slate-500 uppercase">Unit Price</span>
+              <span className="sm:col-span-2 text-[10px] font-bold text-slate-500 uppercase">Total (USD)</span>
               <span className="sm:col-span-1" />
             </div>
             {items.map((item, idx) => (
               <div key={idx} className="mb-4 p-4 bg-[#0B0F19] rounded-xl border border-slate-800/80 space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-                  <div className="sm:col-span-6">
+                  <div className="sm:col-span-5">
                     <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Good Name</label>
                     <input
                       type="text"
@@ -269,16 +277,26 @@ export default function NewQuotation() {
                       onChange={e => updateItem(idx, 'qty', e.target.value)}
                     />
                   </div>
-                  <div className="sm:col-span-3">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Price (USD)</label>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Unit Price</label>
+                    <input
+                      type="number"
+                      readOnly
+                      placeholder="0.00"
+                      className="search-input !py-2.5 min-w-0 opacity-50 cursor-not-allowed bg-slate-900/50"
+                      value={item.price}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Total (USD)</label>
                     <input
                       type="number"
                       min={0}
                       step="0.01"
                       placeholder="0.00"
                       className="search-input !py-2.5 min-w-0"
-                      value={item.price}
-                      onChange={e => updateItem(idx, 'price', e.target.value)}
+                      value={item.totalPrice}
+                      onChange={e => updateItem(idx, 'totalPrice', e.target.value)}
                     />
                   </div>
                   <div className="sm:col-span-1 flex sm:justify-end">
