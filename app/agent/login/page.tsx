@@ -34,6 +34,8 @@ export default function AgentLoginPage() {
       if (!res.ok) { setError(t.error); return; }
       localStorage.setItem('qcargo_agent_token', data.token);
       localStorage.setItem('qcargo_agent', JSON.stringify(data.agent));
+      localStorage.setItem('qcargo_agent_last_active', String(Date.now()));
+      sessionStorage.setItem('qcargo_agent_session', '1');
       router.push('/agent');
     } catch { setError(t.error); }
     finally { setLoading(false); }
