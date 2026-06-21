@@ -44,6 +44,7 @@ export default function AdminPricingPage() {
   const [aName, setAName]       = useState('');
   const [aCity, setACity]       = useState('');
   const [aCountry, setACountry] = useState('China');
+  const [aCountryCustom, setACountryCustom] = useState('');
   const [aUser, setAUser]       = useState('');
   const [aPass, setAPass]       = useState('');
   const [aLang, setALang]       = useState('en');
@@ -93,7 +94,7 @@ export default function AdminPricingPage() {
       const res = await fetch('/api/agents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: aName, city: aCity, country: aCountry, username: aUser, password: aPass, language: aLang, phone: aPhone }),
+        body: JSON.stringify({ name: aName, city: aCity, country: aCountry === 'Other' ? aCountryCustom || 'Other' : aCountry, username: aUser, password: aPass, language: aLang, phone: aPhone }),
       });
       if (!res.ok) { const e = await res.json(); alert(e.error); return; }
       const saved = await res.json();
@@ -354,8 +355,11 @@ export default function AdminPricingPage() {
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Country</label>
                   <select value={aCountry} onChange={e => setACountry(e.target.value)} className="search-input w-full bg-[#0B0F19]">
-                    {['China', 'UAE', 'Hong Kong', 'Turkey', 'India', 'Other'].map(c => <option key={c}>{c}</option>)}
+                    {['China', 'UAE', 'Hong Kong', 'Turkey', 'India', 'Somalia', 'Ethiopia', 'Kenya', 'Other'].map(c => <option key={c}>{c}</option>)}
                   </select>
+                  {aCountry === 'Other' && (
+                    <input type="text" value={aCountryCustom} onChange={e => setACountryCustom(e.target.value)} placeholder="Type country name..." className="search-input w-full mt-2" required />
+                  )}
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Language</label>
