@@ -341,16 +341,27 @@ export default function BatchDetail({ params }: { params: Promise<{ id: string }
             </button>
           </div>
 
-          {/* Quick Info */}
+          {/* Quick Actions */}
           <div className="bg-[#131B2E] border border-slate-800 rounded-2xl p-6">
             <div className="flex items-center gap-3 text-emerald-400 mb-4">
               <CheckCircle2 size={20} />
               <h4 className="font-bold text-slate-200 text-sm">Quick Actions</h4>
             </div>
             <div className="space-y-2">
-              <button onClick={() => alert('Printing label...')} className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-colors">
-                🖨️ Print Manifest Label
-              </button>
+              <Link
+                href={`/admin/batches/${id}/packing-list`}
+                target="_blank"
+                className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-colors flex items-center justify-center gap-2"
+              >
+                📄 Packing List
+              </Link>
+              <Link
+                href={`/admin/batches/${id}/commercial-invoice`}
+                target="_blank"
+                className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-colors flex items-center justify-center gap-2"
+              >
+                🧾 Commercial Invoice
+              </Link>
               <Link href="/admin/expenses/new" className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-colors flex items-center justify-center">
                 💸 Log New Expense
               </Link>
