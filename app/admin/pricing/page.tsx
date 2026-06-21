@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Users, Target, Loader2, Trash2, X, ImagePlus, Globe, Clock, CheckCircle2, Pencil, MessageSquare, Send } from 'lucide-react';
+import { Plus, Users, Target, Loader2, Trash2, X, ImagePlus, Globe, Clock, CheckCircle2, Pencil, MessageSquare, Send, Copy } from 'lucide-react';
 import Link from 'next/link';
 import { useRef } from 'react';
 
@@ -26,6 +26,8 @@ export default function AdminPricingPage() {
   const [agents, setAgents] = useState<any[]>([]);
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [showNewAgent, setShowNewAgent] = useState(false);
+  const [newAgentCredentials, setNewAgentCredentials] = useState<{ username: string; password: string; name: string } | null>(null);
+  const [credsCopied, setCredsCopied] = useState(false);
   const [editingAgent, setEditingAgent] = useState<any>(null);
   const [showEditAgent, setShowEditAgent] = useState(false);
 
@@ -316,6 +318,8 @@ export default function AdminPricingPage() {
       const saved = await res.json();
       setAgents(prev => [saved, ...prev]);
       setShowNewAgent(false);
+      // Show credentials popup for copy-paste to agent
+      setNewAgentCredentials({ username: aUser, password: aPass, name: aName });
       setAName(''); setACity(''); setAUser(''); setAPass(''); setAPhone('');
     } finally { setASaving(false); }
   };
@@ -960,6 +964,48 @@ export default function AdminPricingPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── AGENT CREDENTIALS POPUP ── */}
+      {newAgentCredentials && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0B0F19] border border-emerald-800/40 rounded-3xl w-full max-w-sm p-8 shadow-2xl">
+            <div className="text-center mb-6">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-950/30 border border-emerald-800/30 flex items-center justify-center mx-auto mb-3">
+                <CheckCircle2 size={28} className="text-emerald-400" />
+              </div>
+              <h3 className="text-xl font-black text-slate-100">Agent Created!</h3>
+              <p className="text-xs text-slate-400 mt-1">Send these credentials to <span className="text-emerald-400 font-black">{newAgentCredentials.name}</span></p>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-5 font-mono text-sm space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 text-xs">Login URL</span>
+                <span className="text-slate-300 font-bold text-xs">qcargologistics.com/agent</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 text-xs">Username</span>
+                <span className="text-[#F15D38] font-black">{newAgentCredentials.username}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 text-xs">Password</span>
+                <span className="text-[#F15D38] font-black">{newAgentCredentials.password}</span>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                const text = `Q Cargo Agent Portal\n\nLogin: https://qcargologistics.com/agent\nUsername: ${newAgentCredentials.username}\nPassword: ${newAgentCredentials.password}`;
+                navigator.clipboard.writeText(text).catch(() => {});
+                setCredsCopied(true);
+                setTimeout(() => { setCredsCopied(false); setNewAgentCredentials(null); }, 1500);
+              }}
+              className="w-full flex items-center justify-center gap-2 bg-[#F15D38] hover:bg-[#d64420] text-white font-black py-3.5 rounded-2xl transition-all mb-3">
+              {credsCopied ? <><CheckCircle2 size={16} /> Copied to clipboard!</> : <>📋 Copy Credentials</>}
+            </button>
+            <button onClick={() => setNewAgentCredentials(null)} className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-300 transition-colors py-1">
+              Close
+            </button>
           </div>
         </div>
       )}
