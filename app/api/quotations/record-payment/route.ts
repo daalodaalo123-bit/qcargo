@@ -65,13 +65,14 @@ export async function POST(request: Request) {
   try {
     await connectDB();
     const body = await request.json();
-    const { quotationId, phone, paymentMethod, paymentDate, paymentType, amountPaid: amountPaidInput } = body as {
+    const { quotationId, phone, paymentMethod, paymentDate, paymentType, amountPaid: amountPaidInput, discountAmount: discountInput } = body as {
       quotationId?: string;
       phone?: string;
       paymentMethod?: string;
       paymentDate?: string;
       paymentType?: 'FULL' | 'PARTIAL';
       amountPaid?: number;
+      discountAmount?: number;
     };
 
     if (!quotationId || !phone?.trim()) {
@@ -97,7 +98,8 @@ export async function POST(request: Request) {
 
     const lineItems = buildInvoiceItems(quotation);
     const subtotal = lineItems.reduce((sum, it) => sum + it.lineTotal, 0);
-    const totalDue = quotation.price;
+    const discountApplied = Math.max(0, Number(discountInput) || 0);
+    const totalDue = Math.max(0, quotation.price - discountApplied);
     const previouslyPaid = quotation.amountPaid || 0;
     const balanceBefore = Math.max(0, totalDue - previouslyPaid);
 
@@ -133,6 +135,10 @@ export async function POST(request: Request) {
     quotation.phone = phone.trim();
     quotation.amountPaid = newTotalPaid;
     quotation.paymentStatus = isPaidInFull ? 'PAID' : 'PARTIAL';
+    if (discountApplied > 0) {
+      quotation.price = totalDue;
+      quotation.discountAmount = (quotation.discountAmount || 0) + discountApplied;
+    }
     await quotation.save();
 
     const invoiceNumber = nextInvoiceNumber();
@@ -153,7 +159,7 @@ export async function POST(request: Request) {
       paymentMethod,
       paymentDate,
       paymentStatus: isPaidInFull ? 'PAID' : 'PARTIAL',
-      notes: `${paymentType === 'FULL' ? 'Full' : 'Partial'} payment for quotation dated ${quotation.date}`,
+      notes: `${paymentType === 'FULL' ? 'Full' : 'Partial'} payment for quotation dated ${quotation.date}${discountApplied > 0 ? ` · Discount applied: $${discountApplied.toFixed(2)}` : ''}`,
     });
 
     const methodLabel = paymentMethod.replace(/_/g, ' ');

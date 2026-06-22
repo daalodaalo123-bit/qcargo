@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, use } from 'react';
-import { 
-  ArrowLeft, Save, Package, Hash, Truck, DollarSign, 
+import {
+  ArrowLeft, Save, Package, Hash, Truck, DollarSign,
   Plus, Trash2, CheckCircle2, User, Scale, Box, Calendar, FileText
 } from 'lucide-react';
 import Link from 'next/link';
@@ -273,7 +273,74 @@ export default function BatchDetail({ params }: { params: Promise<{ id: string }
 
         {/* Right sidebar */}
         <div className="space-y-8">
-          
+
+          {/* Shipping Documents — always visible at top */}
+          <div className="bg-[#131B2E] border-2 border-[#F15D38]/30 rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-5 pb-4 border-b border-[#F15D38]/10">
+              <div className="p-2 rounded-xl bg-[#F15D38]/10 text-[#F15D38]">
+                <FileText size={18} />
+              </div>
+              <div>
+                <h4 className="font-black text-slate-100 text-sm uppercase tracking-widest">Shipping Documents</h4>
+                <p className="text-[9px] text-slate-500 font-bold mt-0.5">Click any document to open &amp; print</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Link
+                href={`/admin/batches/${id}/packing-list`}
+                target="_blank"
+                className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-[#F15D38]/10 hover:text-[#F15D38] border border-slate-800 hover:border-[#F15D38]/30 rounded-xl transition-colors flex items-center justify-between px-4 gap-2"
+              >
+                <span>📄 Packing List</span>
+                <span className="text-[9px] text-slate-500 font-bold uppercase">All</span>
+              </Link>
+              <Link
+                href={`/admin/batches/${id}/commercial-invoice`}
+                target="_blank"
+                className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-[#F15D38]/10 hover:text-[#F15D38] border border-slate-800 hover:border-[#F15D38]/30 rounded-xl transition-colors flex items-center justify-between px-4 gap-2"
+              >
+                <span>🧾 Commercial Invoice</span>
+                <span className="text-[9px] text-slate-500 font-bold uppercase">All</span>
+              </Link>
+              {batch?.type === 'SEA' && (
+                <Link
+                  href={`/admin/batches/${id}/bill-of-lading`}
+                  target="_blank"
+                  className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-[#F15D38]/10 hover:text-[#F15D38] border border-slate-800 hover:border-[#F15D38]/30 rounded-xl transition-colors flex items-center justify-between px-4 gap-2"
+                >
+                  <span>🚢 Bill of Lading</span>
+                  <span className="text-[9px] text-blue-400 font-black uppercase">SEA</span>
+                </Link>
+              )}
+              {batch?.type === 'AIR' && (
+                <Link
+                  href={`/admin/batches/${id}/airway-bill`}
+                  target="_blank"
+                  className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-[#F15D38]/10 hover:text-[#F15D38] border border-slate-800 hover:border-[#F15D38]/30 rounded-xl transition-colors flex items-center justify-between px-4 gap-2"
+                >
+                  <span>✈️ Air Waybill (AWB)</span>
+                  <span className="text-[9px] text-[#F15D38] font-black uppercase">AIR</span>
+                </Link>
+              )}
+              <Link
+                href={`/admin/batches/${id}/certificate-of-origin`}
+                target="_blank"
+                className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-[#F15D38]/10 hover:text-[#F15D38] border border-slate-800 hover:border-[#F15D38]/30 rounded-xl transition-colors flex items-center justify-between px-4 gap-2"
+              >
+                <span>🌐 Certificate of Origin</span>
+                <span className="text-[9px] text-slate-500 font-bold uppercase">All</span>
+              </Link>
+              <Link
+                href={`/admin/batches/${id}/customs-declaration`}
+                target="_blank"
+                className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-[#F15D38]/10 hover:text-[#F15D38] border border-slate-800 hover:border-[#F15D38]/30 rounded-xl transition-colors flex items-center justify-between px-4 gap-2"
+              >
+                <span>🛃 Customs Declaration</span>
+                <span className="text-[9px] text-slate-500 font-bold uppercase">All</span>
+              </Link>
+            </div>
+          </div>
+
           {/* Tracking Numbers */}
           <div className="shipment-card">
             <div className="flex items-center gap-2 mb-6 pb-4 border-b border-slate-800/40">
@@ -348,52 +415,6 @@ export default function BatchDetail({ params }: { params: Promise<{ id: string }
               <h4 className="font-bold text-slate-200 text-sm">Quick Actions</h4>
             </div>
             <div className="space-y-2">
-              <Link
-                href={`/admin/batches/${id}/packing-list`}
-                target="_blank"
-                className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-colors flex items-center justify-center gap-2"
-              >
-                📄 Packing List
-              </Link>
-              <Link
-                href={`/admin/batches/${id}/commercial-invoice`}
-                target="_blank"
-                className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-colors flex items-center justify-center gap-2"
-              >
-                🧾 Commercial Invoice
-              </Link>
-              {batch?.type === 'SEA' && (
-                <Link
-                  href={`/admin/batches/${id}/bill-of-lading`}
-                  target="_blank"
-                  className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-colors flex items-center justify-center gap-2"
-                >
-                  🚢 Bill of Lading
-                </Link>
-              )}
-              {batch?.type === 'AIR' && (
-                <Link
-                  href={`/admin/batches/${id}/airway-bill`}
-                  target="_blank"
-                  className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-colors flex items-center justify-center gap-2"
-                >
-                  ✈️ Air Waybill (AWB)
-                </Link>
-              )}
-              <Link
-                href={`/admin/batches/${id}/certificate-of-origin`}
-                target="_blank"
-                className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-colors flex items-center justify-center gap-2"
-              >
-                🌐 Certificate of Origin
-              </Link>
-              <Link
-                href={`/admin/batches/${id}/customs-declaration`}
-                target="_blank"
-                className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-colors flex items-center justify-center gap-2"
-              >
-                🛃 Customs Declaration
-              </Link>
               <Link href="/admin/expenses/new" className="w-full py-2.5 text-xs font-bold text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-colors flex items-center justify-center">
                 💸 Log New Expense
               </Link>

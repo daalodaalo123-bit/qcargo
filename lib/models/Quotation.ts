@@ -20,6 +20,8 @@ export interface IQuotation extends Document {
   items: IQuotationItem[];
   commissionRate: number;
   commissionAmount: number;
+  discountRate: number;
+  discountAmount: number;
 }
 
 const QuotationItemSchema = new Schema<IQuotationItem>({
@@ -42,6 +44,8 @@ const QuotationSchema = new Schema<IQuotation>({
   items: [QuotationItemSchema],
   commissionRate: { type: Number, default: 7 },
   commissionAmount: { type: Number, default: 0 },
+  discountRate: { type: Number, default: 0 },
+  discountAmount: { type: Number, default: 0 },
 }, { timestamps: true });
 
 export default mongoose.models.Quotation || mongoose.model<IQuotation>('Quotation', QuotationSchema);

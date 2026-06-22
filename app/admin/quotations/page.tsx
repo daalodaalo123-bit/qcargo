@@ -48,6 +48,7 @@ const DEFAULT_QUOTATIONS: Quotation[] = [
 
 export default function QuotationsPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'AIR' | 'SEA'>('ALL');
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [paymentQuote, setPaymentQuote] = useState<PaymentQuotation | null>(null);
   const [editQuote, setEditQuote] = useState<EditQuotationData | null>(null);
@@ -150,12 +151,13 @@ export default function QuotationsPage() {
     document.body.removeChild(link);
   };
 
-  // Filter based on search
-  const filteredQuotations = quotations.filter(q => 
-    q.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  // Filter based on search + type
+  const filteredQuotations = quotations.filter(q =>
+    (typeFilter === 'ALL' || q.type === typeFilter) &&
+    (q.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
     q.goods.toLowerCase().includes(searchTerm.toLowerCase()) ||
     q.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    q.status.toLowerCase().includes(searchTerm.toLowerCase())
+    q.status.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   // Stats calculation
@@ -230,21 +232,39 @@ export default function QuotationsPage() {
       </div>
 
       {/* Filters & Search */}
-      <div className="flex flex-col md:flex-row gap-4 mb-8">
-        <div className="relative flex-1 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#F15D38] transition-colors" size={20} />
-          <input 
-            type="text" 
-            placeholder="Search by Customer or Items..." 
-            className="search-input !pl-12 w-full"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      <div className="flex flex-col gap-3 mb-8">
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="relative flex-1 group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#F15D38] transition-colors" size={20} />
+            <input
+              type="text"
+              placeholder="Search by customer, goods, status..."
+              className="search-input !pl-12 w-full"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
-        <button className="btn bg-white border border-slate-800 text-slate-300 flex items-center gap-2 hover:bg-slate-800 px-6">
-          <Filter size={18} />
-          Filters
-        </button>
+        <div className="flex gap-2">
+          {(['ALL', 'AIR', 'SEA'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setTypeFilter(t)}
+              className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                typeFilter === t
+                  ? t === 'AIR' ? 'bg-[#F15D38] text-white border-[#F15D38] shadow-md shadow-[#F15D38]/20'
+                    : t === 'SEA' ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-900/30'
+                    : 'bg-slate-700 text-white border-slate-600'
+                  : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-600 hover:text-slate-200'
+              }`}
+            >
+              {t === 'ALL' ? 'All Types' : t === 'AIR' ? '✈ Air Freight' : '🚢 Sea Freight'}
+              {t !== 'ALL' && (
+                <span className="ml-1.5 opacity-70">({quotations.filter(q => q.type === t).length})</span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Quotations Table */}

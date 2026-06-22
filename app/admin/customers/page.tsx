@@ -39,6 +39,7 @@ export default function CustomersPage() {
   // ── Customers ──
   const [customers, setCustomers]   = useState<Customer[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [tierFilter, setTierFilter] = useState<'ALL' | 'VIP' | 'ACTIVE'>('ALL');
   const [showModal, setShowModal]   = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingId, setEditingId]   = useState<string | null>(null);
@@ -189,7 +190,10 @@ export default function CustomersPage() {
   };
 
   // ── Derived data ──────────────────────────────────────────────────────────
-  const filteredCustomers = useMemo(() => customers.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm) || c.city.toLowerCase().includes(searchTerm.toLowerCase())), [customers, searchTerm]);
+  const filteredCustomers = useMemo(() => customers.filter(c =>
+    (tierFilter === 'ALL' || c.status === tierFilter) &&
+    (c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm) || c.city.toLowerCase().includes(searchTerm.toLowerCase()))
+  ), [customers, searchTerm, tierFilter]);
   const leadsBy = useMemo(() => (stage: LeadStage) => leads.filter(l => l.stage === stage), [leads]);
   const pendingFollowups = followups.filter(f => f.status === 'PENDING');
   const overdueCount = pendingFollowups.filter(f => f.dueDate < today).length;
@@ -260,10 +264,25 @@ export default function CustomersPage() {
       {/* ── CUSTOMERS TAB ── */}
       {activeTab === 'customers' && (
         <div className="space-y-6 animate-in fade-in duration-300">
-          <div className="flex gap-4">
+          <div className="flex flex-col gap-3">
             <div className="relative flex-1 group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#F15D38] transition-colors" size={18} />
               <input type="text" placeholder="Search by name, phone, city…" className="search-input !pl-12 w-full" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+            </div>
+            <div className="flex gap-2">
+              {(['ALL', 'VIP', 'ACTIVE'] as const).map(t => (
+                <button key={t} onClick={() => setTierFilter(t)}
+                  className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                    tierFilter === t
+                      ? t === 'VIP' ? 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-900/30'
+                        : t === 'ACTIVE' ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-900/30'
+                        : 'bg-slate-700 text-white border-slate-600'
+                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-600 hover:text-slate-200'
+                  }`}>
+                  {t === 'ALL' ? 'All Customers' : t === 'VIP' ? '⭐ VIP' : '✓ Active'}
+                  <span className="ml-1.5 opacity-70">({t === 'ALL' ? customers.length : customers.filter(c => c.status === t).length})</span>
+                </button>
+              ))}
             </div>
           </div>
           <div className="shipment-card !p-0 overflow-hidden border border-slate-800">

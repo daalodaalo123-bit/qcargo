@@ -47,6 +47,7 @@ export default function NewQuotation() {
   const [estimatedPrice, setEstimatedPrice] = useState('');
   const [freightType, setFreightType] = useState('SEA');
   const [commissionRate, setCommissionRate] = useState('7');
+  const [discountAmount, setDiscountAmount] = useState('0');
 
   // Import state
   const [importing, setImporting] = useState(false);
@@ -58,7 +59,8 @@ export default function NewQuotation() {
   const commissionAmount = parseFloat(commissionRate) > 0
     ? subtotal * (parseFloat(commissionRate) / 100)
     : 0;
-  const grandTotal = subtotal + commissionAmount;
+  const discountAmt = Math.max(0, parseFloat(discountAmount) || 0);
+  const grandTotal = Math.max(0, subtotal + commissionAmount - discountAmt);
 
   // Sum item prices to estimate total price
   useEffect(() => {
@@ -84,6 +86,8 @@ export default function NewQuotation() {
       type: freightType.toUpperCase() as 'AIR' | 'SEA',
       commissionRate: parseFloat(commissionRate) || 0,
       commissionAmount,
+      discountAmount: discountAmt,
+      discountRate: 0,
       items: items.filter(it => it.description.trim()).map(it => ({
         description: it.description.trim(),
         notes: it.notes.trim(),
@@ -465,7 +469,7 @@ export default function NewQuotation() {
                 </select>
               </div>
 
-              {/* Commission */}
+              {/* Commission & Discount */}
               <div className="p-4 rounded-xl bg-[#0B0F19] border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-400 uppercase">Commission</label>
@@ -482,17 +486,42 @@ export default function NewQuotation() {
                     <span className="text-slate-400 font-bold text-sm">%</span>
                   </div>
                 </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-500">Subtotal</span>
-                  <span className="font-bold text-slate-300">${subtotal.toFixed(2)}</span>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-400 uppercase">Discount ($)</label>
+                  <div className="flex items-center gap-1">
+                    <span className="text-slate-400 font-bold text-sm">-$</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      placeholder="0.00"
+                      className="w-20 bg-slate-900 border border-slate-700 rounded-lg py-1 px-2 text-emerald-400 font-black text-sm text-center focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                      value={discountAmount}
+                      onChange={e => setDiscountAmount(e.target.value)}
+                    />
+                  </div>
                 </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-500">Commission ({commissionRate}%)</span>
-                  <span className="font-bold text-[#F15D38]">+${commissionAmount.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center justify-between border-t border-slate-800 pt-2">
-                  <span className="text-xs font-black text-slate-300 uppercase tracking-wider">Total</span>
-                  <span className="font-black text-slate-100 text-base">${grandTotal.toFixed(2)}</span>
+                <div className="border-t border-slate-800/60 pt-2 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">Subtotal</span>
+                    <span className="font-bold text-slate-300">${subtotal.toFixed(2)}</span>
+                  </div>
+                  {commissionAmount > 0 && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-500">Commission ({commissionRate}%)</span>
+                      <span className="font-bold text-[#F15D38]">+${commissionAmount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {discountAmt > 0 && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-500">Discount</span>
+                      <span className="font-bold text-emerald-400">-${discountAmt.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between border-t border-slate-800 pt-2">
+                    <span className="text-xs font-black text-slate-300 uppercase tracking-wider">Total</span>
+                    <span className="font-black text-slate-100 text-base">${grandTotal.toFixed(2)}</span>
+                  </div>
                 </div>
               </div>
 

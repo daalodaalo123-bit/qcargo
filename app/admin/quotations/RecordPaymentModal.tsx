@@ -36,14 +36,17 @@ export default function RecordPaymentModal({ quote, onClose, onSuccess }: Record
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentType, setPaymentType] = useState<'FULL' | 'PARTIAL'>('FULL');
   const [partialAmount, setPartialAmount] = useState('');
+  const [discountInput, setDiscountInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const discountApplied = Math.max(0, parseFloat(discountInput) || 0);
   const balanceDue = useMemo(() => {
     if (!quote) return 0;
     const paid = quote.amountPaid || 0;
     return Math.max(0, quote.price - paid);
   }, [quote]);
+  const effectiveBalance = Math.max(0, balanceDue - discountApplied);
 
   useEffect(() => {
     if (quote) {
@@ -53,6 +56,7 @@ export default function RecordPaymentModal({ quote, onClose, onSuccess }: Record
       setPaymentMethod('ZAAD');
       setPaymentDate(new Date().toISOString().split('T')[0]);
       setPaymentType('FULL');
+      setDiscountInput('');
       const due = Math.max(0, quote.price - (quote.amountPaid || 0));
       setPartialAmount(due > 0 ? due.toFixed(2) : '');
     }
@@ -66,13 +70,13 @@ export default function RecordPaymentModal({ quote, onClose, onSuccess }: Record
       return;
     }
     const paidNow =
-      paymentType === 'FULL' ? balanceDue : parseFloat(partialAmount) || 0;
-    if (paidNow <= 0) {
+      paymentType === 'FULL' ? effectiveBalance : parseFloat(partialAmount) || 0;
+    if (paidNow <= 0 && effectiveBalance > 0) {
       setError('Enter a valid payment amount');
       return;
     }
-    if (paymentType === 'PARTIAL' && paidNow > balanceDue + 0.001) {
-      setError(`Amount cannot exceed balance due ($${balanceDue.toFixed(2)})`);
+    if (paymentType === 'PARTIAL' && paidNow > effectiveBalance + 0.001) {
+      setError(`Amount cannot exceed effective balance ($${effectiveBalance.toFixed(2)})`);
       return;
     }
 
@@ -89,6 +93,7 @@ export default function RecordPaymentModal({ quote, onClose, onSuccess }: Record
           paymentDate,
           paymentType,
           amountPaid: paymentType === 'PARTIAL' ? paidNow : undefined,
+          discountAmount: discountApplied > 0 ? discountApplied : undefined,
         }),
       });
       const data = await res.json();
@@ -246,6 +251,31 @@ export default function RecordPaymentModal({ quote, onClose, onSuccess }: Record
 
           {step === 3 && (
             <>
+              {/* Discount */}
+              <div className="p-3 rounded-xl bg-emerald-950/20 border border-emerald-800/30">
+                <label className="block text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2">
+                  Apply Discount (optional)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500 font-black text-sm">-$</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={balanceDue}
+                    step="0.01"
+                    className="search-input !pl-9 w-full !border-emerald-800/40 focus:!ring-emerald-500/40"
+                    placeholder="0.00"
+                    value={discountInput}
+                    onChange={(e) => setDiscountInput(e.target.value)}
+                  />
+                </div>
+                {discountApplied > 0 && (
+                  <p className="text-[10px] text-emerald-400 font-bold mt-1.5">
+                    Customer saves ${discountApplied.toFixed(2)} · Effective balance: ${effectiveBalance.toFixed(2)}
+                  </p>
+                )}
+              </div>
+
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-2">Payment Amount</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -253,7 +283,7 @@ export default function RecordPaymentModal({ quote, onClose, onSuccess }: Record
                     type="button"
                     onClick={() => {
                       setPaymentType('FULL');
-                      setPartialAmount(balanceDue.toFixed(2));
+                      setPartialAmount(effectiveBalance.toFixed(2));
                     }}
                     className={`py-3 rounded-xl text-xs font-black uppercase border transition-colors ${
                       paymentType === 'FULL'
@@ -261,7 +291,7 @@ export default function RecordPaymentModal({ quote, onClose, onSuccess }: Record
                         : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-600'
                     }`}
                   >
-                    Full (${balanceDue.toFixed(2)})
+                    Full (${effectiveBalance.toFixed(2)})
                   </button>
                   <button
                     type="button"
@@ -287,7 +317,7 @@ export default function RecordPaymentModal({ quote, onClose, onSuccess }: Record
                     <input
                       type="number"
                       min={0.01}
-                      max={balanceDue}
+                      max={effectiveBalance}
                       step="0.01"
                       className="search-input !pl-10 w-full"
                       placeholder="0.00"
@@ -296,8 +326,8 @@ export default function RecordPaymentModal({ quote, onClose, onSuccess }: Record
                     />
                   </div>
                   <p className="text-[10px] text-slate-500 mt-1">
-                    Max ${balanceDue.toFixed(2)} Â· After payment: $
-                    {Math.max(0, balanceDue - (parseFloat(partialAmount) || 0)).toFixed(2)} remaining
+                    Max ${effectiveBalance.toFixed(2)} · After payment: $
+                    {Math.max(0, effectiveBalance - (parseFloat(partialAmount) || 0)).toFixed(2)} remaining
                   </p>
                 </div>
               )}
