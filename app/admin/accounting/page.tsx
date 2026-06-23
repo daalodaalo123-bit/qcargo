@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   TrendingUp, DollarSign, CreditCard, Search, MoreVertical,
   Download, Building2, PieChart, CheckCircle2, AlertCircle, BarChart3,
-  Landmark, Users,
+  Landmark, Users, Trash2,
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -154,6 +154,15 @@ export default function AccountingPage() {
       const data = await res.json();
       setCustomers(data);
     } catch (e) { console.error(e); }
+  };
+
+  const handleDeleteInvoice = async (mongoId: string, invoiceNum: string) => {
+    if (!confirm(`Delete invoice ${invoiceNum}? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/invoices?id=${mongoId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete');
+      setInvoices(prev => prev.filter(i => i.mongoId !== mongoId));
+    } catch (e) { alert('Failed to delete invoice'); }
   };
 
   useEffect(() => { loadBills(); loadInvoices(); loadShipments(); loadCustomers(); }, []);
@@ -561,7 +570,7 @@ export default function AccountingPage() {
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-slate-900/40 border-b border-slate-800">
-                    {['Invoice #','Customer','Date','Status','Total','Balance Due','Receipt'].map(h => (
+                    {['Invoice #','Customer','Date','Status','Total','Balance Due','Receipt',''].map(h => (
                       <th key={h} className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>
                     ))}
                   </tr>
@@ -599,9 +608,20 @@ export default function AccountingPage() {
                           </a>
                         )}
                       </td>
+                      <td className="px-6 py-5">
+                        {inv.mongoId && (
+                          <button
+                            onClick={() => handleDeleteInvoice(inv.mongoId!, inv.id)}
+                            className="p-2 hover:bg-rose-950/30 text-slate-600 hover:text-rose-400 rounded-lg transition-colors"
+                            title="Delete invoice"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
-                  {invoices.length === 0 && <tr><td colSpan={7} className="px-6 py-12 text-center text-xs font-bold text-slate-500">No invoices found.</td></tr>}
+                  {invoices.length === 0 && <tr><td colSpan={8} className="px-6 py-12 text-center text-xs font-bold text-slate-500">No invoices found.</td></tr>}
                 </tbody>
               </table>
             </div>
