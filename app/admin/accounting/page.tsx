@@ -310,8 +310,8 @@ export default function AccountingPage() {
     const unpaid  = invoices.filter(i => i.status === 'UNPAID');
     return {
       paid:    { count: paid.length,    amount: paid.reduce((s, i)    => s + i.amount, 0) },
-      partial: { count: partial.length, amount: partial.reduce((s, i) => s + i.amount, 0) },
-      unpaid:  { count: unpaid.length,  amount: unpaid.reduce((s, i)  => s + i.amount, 0) },
+      partial: { count: partial.length, amount: partial.reduce((s, i) => s + (i.balanceDue ?? i.amount), 0) },
+      unpaid:  { count: unpaid.length,  amount: unpaid.reduce((s, i)  => s + (i.balanceDue ?? i.amount), 0) },
     };
   }, [invoices]);
 
@@ -543,14 +543,14 @@ export default function AccountingPage() {
         <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
           <div className="grid grid-cols-3 gap-4">
             {[
-              { label: 'Paid',    d: invoiceSummary.paid,    color: 'text-emerald-400', bg: 'bg-emerald-950/20 border-emerald-800/20' },
-              { label: 'Partial', d: invoiceSummary.partial, color: 'text-amber-400',   bg: 'bg-amber-950/20 border-amber-800/20' },
-              { label: 'Unpaid',  d: invoiceSummary.unpaid,  color: 'text-rose-400',    bg: 'bg-rose-950/20 border-rose-800/20' },
+              { label: 'Paid',                d: invoiceSummary.paid,    color: 'text-emerald-400', bg: 'bg-emerald-950/20 border-emerald-800/20', sub: 'Total collected' },
+              { label: 'Partial — Balance Due', d: invoiceSummary.partial, color: 'text-amber-400',   bg: 'bg-amber-950/20 border-amber-800/20',   sub: 'Remaining owed' },
+              { label: 'Unpaid',               d: invoiceSummary.unpaid,  color: 'text-rose-400',    bg: 'bg-rose-950/20 border-rose-800/20',     sub: 'Not yet paid' },
             ].map(s => (
               <div key={s.label} className={`shipment-card border ${s.bg} py-4`}>
                 <p className={`text-[10px] font-black uppercase tracking-widest ${s.color}`}>{s.label}</p>
                 <p className="text-xl font-black text-slate-100 mt-1">{money(s.d.amount)}</p>
-                <p className="text-[10px] font-bold text-slate-500 mt-0.5">{s.d.count} invoice{s.d.count !== 1 ? 's' : ''}</p>
+                <p className="text-[10px] font-bold text-slate-500 mt-0.5">{s.d.count} invoice{s.d.count !== 1 ? 's' : ''} · {(s as any).sub}</p>
               </div>
             ))}
           </div>
