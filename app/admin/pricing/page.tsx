@@ -446,10 +446,19 @@ export default function AdminPricingPage() {
                           <div className={`w-2.5 h-2.5 rounded-full ${online ? 'bg-emerald-400 shadow-lg shadow-emerald-400/50' : 'bg-slate-600'}`} title={online ? 'Online' : `Last seen ${lastSeenText(a.lastSeen)}`} />
                         </div>
                         <div className="min-w-0">
-                          <p className="font-black text-slate-100">{a.name}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-black text-slate-100">{a.name}</p>
+                            {a.profileComplete
+                              ? <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-emerald-950/30 text-emerald-400 border border-emerald-800/30 uppercase tracking-widest">Profile ✓</span>
+                              : <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-amber-950/30 text-amber-400 border border-amber-800/30 uppercase tracking-widest">Pending profile</span>}
+                          </div>
                           <p className="text-xs text-slate-400 font-bold flex items-center gap-1 mt-0.5"><Globe size={11} /> {a.city}, {a.country}</p>
                           <p className="text-[10px] text-slate-500 mt-1 font-mono">@{a.username} · {LANG_LABEL[a.language] || a.language}</p>
-                          {a.phone && <p className="text-[10px] text-slate-500">{a.phone}</p>}
+                          {a.email && <p className="text-[10px] text-slate-500 mt-0.5">✉️ {a.email}</p>}
+                          {a.phone && <p className="text-[10px] text-slate-500">📞 {a.phone}</p>}
+                          {a.whatsapp && <p className="text-[10px] text-slate-500">💬 {a.whatsapp}</p>}
+                          {a.wechat && <p className="text-[10px] text-slate-500">💚 WeChat: {a.wechat}</p>}
+                          {a.company && <p className="text-[10px] text-slate-500">🏢 {a.company}</p>}
                           <p className="text-[10px] mt-1 font-bold">
                             {online
                               ? <span className="text-emerald-400">● Online</span>

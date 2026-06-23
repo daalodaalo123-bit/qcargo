@@ -9,6 +9,12 @@ export interface IAgentUser extends Document {
   language: 'en' | 'ar' | 'zh';
   phone?: string;
   email?: string;
+  wechat?: string;
+  whatsapp?: string;
+  company?: string;
+  bio?: string;
+  avatarColor?: string;
+  profileComplete: boolean;
   active: boolean;
   lastSeen?: Date;
 }
@@ -22,6 +28,12 @@ const AgentUserSchema = new Schema<IAgentUser>({
   language:     { type: String, enum: ['en', 'ar', 'zh'], default: 'en' },
   phone:        { type: String },
   email:        { type: String },
+  wechat:       { type: String },
+  whatsapp:     { type: String },
+  company:      { type: String },
+  bio:          { type: String },
+  avatarColor:  { type: String },
+  profileComplete: { type: Boolean, default: false },
   active:       { type: Boolean, default: true },
   lastSeen:     { type: Date },
 }, { timestamps: true });

@@ -3,7 +3,7 @@ import { connectDB } from '@/lib/mongoose';
 import AgentUser from '@/lib/models/AgentUser';
 import PricingRequest from '@/lib/models/PricingRequest';
 import PricingResponse from '@/lib/models/PricingResponse';
-import PricingMessage from '@/lib/models/PricingMessage';
+import DirectMessage from '@/lib/models/DirectMessage';
 import { jwtVerify } from 'jose';
 
 export const dynamic = 'force-dynamic';
@@ -37,8 +37,9 @@ export async function GET(req: Request) {
   const responses = await PricingResponse.find({ agentId: agent.sub }).lean();
   const responseMap = Object.fromEntries(responses.map(r => [r.requestId, r]));
 
-  // Unread messages count (admin sent to this agent)
-  const unread = await PricingMessage.countDocuments({ agentId: agent.sub, fromAgent: false, read: false });
+  // Unread messages count — messages the admin sent to this agent that are still unread.
+  // Uses the SAME DirectMessage model the chat actually writes to, so the count and the chat stay in sync.
+  const unread = await DirectMessage.countDocuments({ agentId: agent.sub, fromAgent: false, read: false });
 
   return NextResponse.json({ agent: agentDoc, requests, responseMap, unread });
 }
