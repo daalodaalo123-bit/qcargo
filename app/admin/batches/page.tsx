@@ -41,8 +41,9 @@ interface Batch {
 export default function BatchesPage() {
 const [searchTerm, setSearchTerm] = useState('');
   const [batches, setBatches] = useState<Batch[]>([]);
+  const [totalClients, setTotalClients] = useState<number>(0);
 
-  // Load batches from DB on mount
+  // Load batches and customer count from DB on mount
   useEffect(() => {
     const fetchBatches = async () => {
       try {
@@ -54,7 +55,18 @@ const [searchTerm, setSearchTerm] = useState('');
         console.error(e);
       }
     };
+    const fetchCustomerCount = async () => {
+      try {
+        const res = await fetch('/api/customers');
+        if (!res.ok) return;
+        const data = await res.json();
+        setTotalClients(Array.isArray(data) ? data.length : 0);
+      } catch (e) {
+        console.error(e);
+      }
+    };
     fetchBatches();
+    fetchCustomerCount();
   }, []);
 
 
@@ -215,7 +227,7 @@ const [searchTerm, setSearchTerm] = useState('');
             </div>
           </div>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Clients</p>
-          <h3 className="text-2xl font-black text-slate-100">412</h3>
+          <h3 className="text-2xl font-black text-slate-100">{totalClients}</h3>
         </div>
       </div>
 

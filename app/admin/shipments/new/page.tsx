@@ -227,9 +227,6 @@ export default function NewShipmentPage() {
         setBatches(batchData);
         setCustomers(customerData);
         setQuotations(quoteData);
-        if (batchData.length > 0) {
-          setFormData(prev => ({ ...prev, batchId: batchData[0].batchId }));
-        }
       } catch (err) {
         console.error('Error fetching data:', err);
       } finally {
@@ -469,7 +466,15 @@ export default function NewShipmentPage() {
                 <SearchCombobox
                   options={batchOptions}
                   value={formData.batchId}
-                  onChange={(val) => setFormData(prev => ({ ...prev, batchId: val }))}
+                  onChange={(val) => {
+                    setFormData(prev => ({ ...prev, batchId: val }));
+                    if (val !== 'UNASSIGNED') {
+                      const batch = batches.find((b: any) => b.batchId === val);
+                      if (batch?.type === 'AIR' || batch?.type === 'SEA') {
+                        setShipmentType(batch.type);
+                      }
+                    }
+                  }}
                   placeholder={loading ? 'Loading batches…' : 'Search or select batch'}
                   icon={Hash}
                 />
