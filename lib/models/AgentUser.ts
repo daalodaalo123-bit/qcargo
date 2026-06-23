@@ -14,6 +14,7 @@ export interface IAgentUser extends Document {
   company?: string;
   bio?: string;
   avatarColor?: string;
+  photo?: string;
   profileComplete: boolean;
   active: boolean;
   lastSeen?: Date;
@@ -33,6 +34,7 @@ const AgentUserSchema = new Schema<IAgentUser>({
   company:      { type: String },
   bio:          { type: String },
   avatarColor:  { type: String },
+  photo:        { type: String },
   profileComplete: { type: Boolean, default: false },
   active:       { type: Boolean, default: true },
   lastSeen:     { type: Date },

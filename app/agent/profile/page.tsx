@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Loader2, Check, User, Mail, Phone, MapPin,
-  MessageCircle, Building2, Globe, BadgeCheck, AlertCircle,
+  MessageCircle, Building2, Globe, BadgeCheck, AlertCircle, Camera, X,
 } from 'lucide-react';
 
 type Lang = 'en' | 'ar' | 'zh';
@@ -22,6 +22,7 @@ const T: Record<Lang, Record<string, string>> = {
     wechatPh: 'your WeChat ID', whatsappPh: '+86 ...', cityPh: 'e.g. Yiwu', countryPh: 'e.g. China',
     companyPh: 'e.g. Yiwu Market Sourcing', bioPh: 'A line about what you source...',
     missing: 'Please fill in your name, email and phone.', verified: 'Profile complete',
+    uploadPhoto: 'Upload Photo', removePhoto: 'Remove', photoHint: 'JPG or PNG · max 5 MB',
   },
   ar: {
     title: 'ملفي الشخصي', sub: 'حافظ على تحديث بياناتك لدى Q كارغو',
@@ -35,6 +36,7 @@ const T: Record<Lang, Record<string, string>> = {
     wechatPh: 'معرف ويتشات', whatsappPh: '+86 ...', cityPh: 'مثال: ييوو', countryPh: 'مثال: الصين',
     companyPh: 'مثال: سوق ييوو', bioPh: 'سطر عن المنتجات التي تصدّرها...',
     missing: 'يرجى إدخال الاسم والبريد والهاتف.', verified: 'الملف مكتمل',
+    uploadPhoto: 'رفع صورة', removePhoto: 'حذف', photoHint: 'JPG أو PNG · 5 ميغا بايت كحد أقصى',
   },
   zh: {
     title: '我的资料', sub: '请保持您的信息为最新',
@@ -48,6 +50,7 @@ const T: Record<Lang, Record<string, string>> = {
     wechatPh: '您的微信号', whatsappPh: '+86 ...', cityPh: '例如：义乌', countryPh: '例如：中国',
     companyPh: '例如：义乌市场采购', bioPh: '一句话介绍您采购的产品...',
     missing: '请填写姓名、邮箱和电话。', verified: '资料已完善',
+    uploadPhoto: '上传照片', removePhoto: '删除', photoHint: 'JPG 或 PNG · 最大 5MB',
   },
 };
 
@@ -59,19 +62,47 @@ function initials(name: string) {
   return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '?';
 }
 
+function compressImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const SIZE = 300;
+        const canvas = document.createElement('canvas');
+        canvas.width = SIZE;
+        canvas.height = SIZE;
+        const ctx = canvas.getContext('2d')!;
+        // crop to square from center
+        const min = Math.min(img.width, img.height);
+        const sx = (img.width - min) / 2;
+        const sy = (img.height - min) / 2;
+        ctx.drawImage(img, sx, sy, min, min, 0, 0, SIZE, SIZE);
+        resolve(canvas.toDataURL('image/jpeg', 0.75));
+      };
+      img.onerror = reject;
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function AgentProfilePage() {
   const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [lang, setLang] = useState<Lang>('en');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const [photoError, setPhotoError] = useState('');
   const [forceComplete, setForceComplete] = useState(false);
 
   const [form, setForm] = useState({
     name: '', email: '', phone: '', wechat: '', whatsapp: '',
     city: '', country: '', company: '', bio: '', language: 'en' as Lang,
-    avatarColor: AVATAR_COLORS[0],
+    avatarColor: AVATAR_COLORS[0], photo: '',
   });
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('qcargo_agent_token') : '';
@@ -90,6 +121,7 @@ export default function AgentProfilePage() {
           name: d.name || '', email: d.email || '', phone: d.phone || '', wechat: d.wechat || '',
           whatsapp: d.whatsapp || '', city: d.city || '', country: d.country || '', company: d.company || '',
           bio: d.bio || '', language: d.language || 'en', avatarColor: d.avatarColor || AVATAR_COLORS[0],
+          photo: d.photo || '',
         });
         setForceComplete(!d.profileComplete);
       })
@@ -97,6 +129,21 @@ export default function AgentProfilePage() {
   }, [router, token]);
 
   const set = (k: string, v: string) => setForm(prev => ({ ...prev, [k]: v }));
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoError('');
+    if (file.size > 5 * 1024 * 1024) { setPhotoError('File is too large. Max 5 MB.'); return; }
+    if (!file.type.startsWith('image/')) { setPhotoError('Please select an image file.'); return; }
+    try {
+      const compressed = await compressImage(file);
+      set('photo', compressed);
+    } catch {
+      setPhotoError('Could not process image. Try another file.');
+    }
+    e.target.value = '';
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,9 +158,10 @@ export default function AgentProfilePage() {
       });
       if (!res.ok) throw new Error();
       const updated = await res.json();
-      // Keep cached agent in sync with the new details
       const cached = JSON.parse(localStorage.getItem('qcargo_agent') || '{}');
-      localStorage.setItem('qcargo_agent', JSON.stringify({ ...cached, name: updated.name, city: updated.city, country: updated.country }));
+      localStorage.setItem('qcargo_agent', JSON.stringify({
+        ...cached, name: updated.name, city: updated.city, country: updated.country, photo: updated.photo,
+      }));
       localStorage.setItem('qcargo_agent_lang', form.language);
       setLang(form.language);
       setForceComplete(false);
@@ -179,7 +227,6 @@ export default function AgentProfilePage() {
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 pb-16">
 
-        {/* First-login welcome */}
         {forceComplete && (
           <div className="mb-6 flex items-start gap-3 bg-[#F15D38]/10 border border-[#F15D38]/30 rounded-2xl px-4 py-4">
             <div className="w-9 h-9 bg-[#F15D38] rounded-xl flex items-center justify-center shrink-0">
@@ -194,17 +241,34 @@ export default function AgentProfilePage() {
 
         <form onSubmit={handleSave} className="grid lg:grid-cols-[280px_1fr] gap-6">
 
-          {/* Left: avatar preview */}
+          {/* Left: avatar + photo upload */}
           <div className="lg:sticky lg:top-24 h-fit">
             <div className="bg-[#131B2E] border border-slate-800 rounded-3xl p-6 text-center">
-              <div className="w-24 h-24 rounded-3xl mx-auto flex items-center justify-center text-3xl font-black text-white shadow-lg"
-                style={{ backgroundColor: form.avatarColor }}>
-                {initials(form.name)}
+
+              {/* Photo / initials avatar */}
+              <div className="relative w-24 h-24 mx-auto">
+                {form.photo ? (
+                  <img src={form.photo} alt="Profile" className="w-24 h-24 rounded-3xl object-cover shadow-lg" />
+                ) : (
+                  <div className="w-24 h-24 rounded-3xl flex items-center justify-center text-3xl font-black text-white shadow-lg"
+                    style={{ backgroundColor: form.avatarColor }}>
+                    {initials(form.name)}
+                  </div>
+                )}
+                {/* Camera overlay button */}
+                <button type="button" onClick={() => fileRef.current?.click()}
+                  className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#F15D38] hover:bg-[#d64420] rounded-xl flex items-center justify-center shadow-lg transition-all hover:scale-110 active:scale-95">
+                  <Camera size={14} className="text-white" />
+                </button>
               </div>
-              <p className="font-black text-slate-100 mt-4 text-lg leading-tight">{form.name || '—'}</p>
+
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+
+              <p className="font-black text-slate-100 mt-5 text-lg leading-tight">{form.name || '—'}</p>
               <p className="text-xs text-slate-500 font-bold mt-0.5">
                 {[form.city, form.country].filter(Boolean).join(', ') || '—'}
               </p>
+
               {!forceComplete && (
                 <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full bg-emerald-950/30 border border-emerald-800/30">
                   <BadgeCheck size={12} className="text-emerald-400" />
@@ -212,17 +276,35 @@ export default function AgentProfilePage() {
                 </div>
               )}
 
-              {/* Avatar colour */}
-              <div className="mt-5 pt-5 border-t border-slate-800/60">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">{t.avatarColor}</p>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {AVATAR_COLORS.map(c => (
-                    <button key={c} type="button" onClick={() => set('avatarColor', c)}
-                      className={`w-7 h-7 rounded-lg transition-all ${form.avatarColor === c ? 'ring-2 ring-offset-2 ring-offset-[#131B2E] ring-white scale-110' : 'hover:scale-105'}`}
-                      style={{ backgroundColor: c }} aria-label={c} />
-                  ))}
-                </div>
+              {/* Upload / remove buttons */}
+              <div className="mt-4 flex flex-col gap-2">
+                <button type="button" onClick={() => fileRef.current?.click()}
+                  className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-black transition-all flex items-center justify-center gap-2">
+                  <Camera size={13} /> {t.uploadPhoto}
+                </button>
+                {form.photo && (
+                  <button type="button" onClick={() => set('photo', '')}
+                    className="w-full py-2 rounded-xl bg-rose-950/30 hover:bg-rose-950/50 text-rose-400 text-xs font-black transition-all flex items-center justify-center gap-2 border border-rose-800/30">
+                    <X size={12} /> {t.removePhoto}
+                  </button>
+                )}
+                <p className="text-[9px] text-slate-600 font-bold">{t.photoHint}</p>
+                {photoError && <p className="text-[10px] text-rose-400 font-bold">{photoError}</p>}
               </div>
+
+              {/* Avatar colour — only shown when no photo */}
+              {!form.photo && (
+                <div className="mt-5 pt-5 border-t border-slate-800/60">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">{t.avatarColor}</p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {AVATAR_COLORS.map(c => (
+                      <button key={c} type="button" onClick={() => set('avatarColor', c)}
+                        className={`w-7 h-7 rounded-lg transition-all ${form.avatarColor === c ? 'ring-2 ring-offset-2 ring-offset-[#131B2E] ring-white scale-110' : 'hover:scale-105'}`}
+                        style={{ backgroundColor: c }} aria-label={c} />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

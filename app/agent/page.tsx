@@ -334,9 +334,11 @@ export default function AgentDashboard() {
             </button>
             {/* Avatar */}
             <button onClick={() => router.push('/agent/profile')}
-              className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-white text-xs shrink-0 hover:ring-2 hover:ring-white/20 transition-all"
-              style={{ backgroundColor: avatarColor }} title={agent?.name}>
-              {initials(agent?.name)}
+              className="w-8 h-8 rounded-lg overflow-hidden shrink-0 hover:ring-2 hover:ring-white/20 transition-all flex items-center justify-center font-black text-white text-xs"
+              style={agent?.photo ? {} : { backgroundColor: avatarColor }} title={agent?.name}>
+              {agent?.photo
+                ? <img src={agent.photo} alt={agent.name} className="w-full h-full object-cover" />
+                : initials(agent?.name)}
             </button>
             <button onClick={handleLogout} className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-950/20 rounded-lg transition-all" title="Logout">
               <LogOut size={17} />
@@ -351,9 +353,11 @@ export default function AgentDashboard() {
         <div className="py-6 border-b border-slate-800/40">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center font-black text-white text-lg sm:text-xl shrink-0 shadow-lg"
-                style={{ backgroundColor: avatarColor }}>
-                {initials(agent?.name)}
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden shrink-0 shadow-lg flex items-center justify-center font-black text-white text-lg sm:text-xl"
+                style={agent?.photo ? {} : { backgroundColor: avatarColor }}>
+                {agent?.photo
+                  ? <img src={agent.photo} alt={agent.name} className="w-full h-full object-cover" />
+                  : initials(agent?.name)}
               </div>
               <div>
                 <h1 className="text-xl sm:text-2xl font-black text-slate-100 leading-tight">
