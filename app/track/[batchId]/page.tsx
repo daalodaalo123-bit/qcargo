@@ -205,19 +205,51 @@ export default function BatchTrackPage({ params }: { params: Promise<{ batchId: 
                 const saving = savingKey === key;
                 const disabled = line.lineType === 'none';
                 return (
-                  <div key={key} className="px-4 py-3.5">
-                    {/* Top row: product info + arrived button */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
+                  <div key={key} className="px-4 py-3">
+                    {/* One line: product name + KG + CBM + arrived + note */}
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <div className="min-w-0 flex-1 basis-[110px]">
                         <p className="font-bold text-sm text-slate-200 break-words">{line.product}</p>
                         <p className="text-[11px] text-slate-500 font-medium mt-0.5">
                           Qty: {line.qty}{line.tracking ? ` · ${line.tracking}` : ''}
                         </p>
                       </div>
+
+                      {!disabled && (
+                        <>
+                          <label className="flex flex-col gap-0.5 shrink-0">
+                            <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider">KG</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              inputMode="decimal"
+                              defaultValue={line.measuredWeight ?? ''}
+                              placeholder="—"
+                              onBlur={(e) => saveMeasure(c, line, 'measuredWeight', e.target.value)}
+                              className="w-16 px-2 py-1.5 rounded-lg bg-[#0B0F19] border border-slate-700 text-sm font-bold text-slate-100 placeholder-slate-600 focus:border-[#F15D38] focus:outline-none text-center"
+                            />
+                          </label>
+                          <label className="flex flex-col gap-0.5 shrink-0">
+                            <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider">CBM</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              inputMode="decimal"
+                              defaultValue={line.measuredCbm ?? ''}
+                              placeholder="—"
+                              onBlur={(e) => saveMeasure(c, line, 'measuredCbm', e.target.value)}
+                              className="w-16 px-2 py-1.5 rounded-lg bg-[#0B0F19] border border-slate-700 text-sm font-bold text-slate-100 placeholder-slate-600 focus:border-[#F15D38] focus:outline-none text-center"
+                            />
+                          </label>
+                        </>
+                      )}
+
                       <button
                         onClick={() => toggle(c, line)}
                         disabled={saving || disabled}
-                        className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[11px] font-black uppercase tracking-wider border transition-colors disabled:opacity-60 ${
+                        className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-full text-[11px] font-black uppercase tracking-wider border transition-colors disabled:opacity-60 ${
                           line.received
                             ? 'bg-emerald-500 text-white border-emerald-500'
                             : 'bg-transparent text-slate-300 border-slate-600 hover:border-[#F15D38] hover:text-[#F15D38]'
@@ -226,50 +258,21 @@ export default function BatchTrackPage({ params }: { params: Promise<{ batchId: 
                         {line.received ? <Check size={13} /> : <Clock size={13} />}
                         {line.received ? 'Received' : 'Not yet'}
                       </button>
-                    </div>
 
-                    {/* Measured KG / CBM + Note */}
-                    {!disabled && (
-                      <div className="flex items-end gap-3 mt-3 flex-wrap">
-                        <label className="flex flex-col gap-1">
-                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">KG (measured)</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            inputMode="decimal"
-                            defaultValue={line.measuredWeight ?? ''}
-                            placeholder="—"
-                            onBlur={(e) => saveMeasure(c, line, 'measuredWeight', e.target.value)}
-                            className="w-24 px-2.5 py-1.5 rounded-lg bg-[#0B0F19] border border-slate-700 text-sm font-bold text-slate-100 placeholder-slate-600 focus:border-[#F15D38] focus:outline-none"
-                          />
-                        </label>
-                        <label className="flex flex-col gap-1">
-                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">CBM (measured)</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            inputMode="decimal"
-                            defaultValue={line.measuredCbm ?? ''}
-                            placeholder="—"
-                            onBlur={(e) => saveMeasure(c, line, 'measuredCbm', e.target.value)}
-                            className="w-24 px-2.5 py-1.5 rounded-lg bg-[#0B0F19] border border-slate-700 text-sm font-bold text-slate-100 placeholder-slate-600 focus:border-[#F15D38] focus:outline-none"
-                          />
-                        </label>
+                      {!disabled && (
                         <button
                           onClick={() => setNotePanel({ shipmentId: c.shipmentId, line })}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider border transition-colors ${
+                          className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-black uppercase tracking-wider border transition-colors ${
                             line.notes.length > 0
                               ? 'border-[#F15D38] text-[#F15D38] bg-[#F15D38]/10'
                               : 'border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200'
                           }`}
                         >
                           <StickyNote size={13} />
-                          Note{line.notes.length > 0 ? ` (${line.notes.length})` : ''}
+                          {line.notes.length > 0 ? line.notes.length : ''}
                         </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 );
               })}
