@@ -4,6 +4,19 @@ import { useState, useEffect, use } from 'react';
 import { Printer, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
+// Sum the warehouse keeper's measured values across a shipment's products.
+// Returns null when nothing has been measured yet (so we can show "—").
+function measuredTotal(s: any, isAir: boolean): number | null {
+  const lines = s.courierPackages?.length > 0 ? s.courierPackages : (s.items?.length > 0 ? s.items : []);
+  const field = isAir ? 'measuredWeight' : 'measuredCbm';
+  let sum = 0;
+  let any = false;
+  for (const l of lines) {
+    if (typeof l[field] === 'number' && !isNaN(l[field])) { sum += l[field]; any = true; }
+  }
+  return any ? sum : null;
+}
+
 export default function PackingListPage({ params }: { params: Promise<{ id: string }> | { id: string } }) {
   const resolvedParams = params && 'then' in params ? use(params) : params;
   const id = resolvedParams?.id;
@@ -30,9 +43,13 @@ export default function PackingListPage({ params }: { params: Promise<{ id: stri
   let totalQty = 0;
   let totalWeight = 0;
   let totalCBM = 0;
+  let totalMeasured = 0;
+  let anyMeasured = false;
   shipments.forEach(s => {
     if (isAir) totalWeight += Number(s.weight) || 0;
     else totalCBM += Number(s.cbm) || 0;
+    const m = measuredTotal(s, isAir);
+    if (m != null) { totalMeasured += m; anyMeasured = true; }
     if (s.courierPackages?.length > 0) totalQty += s.courierPackages.reduce((sum: number, p: any) => sum + (p.qty || 1), 0);
     else if (s.items?.length > 0) totalQty += s.items.reduce((sum: number, it: any) => sum + (it.qty || 1), 0);
     else totalQty += 1;
@@ -99,14 +116,17 @@ export default function PackingListPage({ params }: { params: Promise<{ id: stri
               <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-black">Description of Goods</th>
               <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-black w-20">Cartons</th>
               <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-black w-24">
-                {isAir ? 'Weight (KG)' : 'CBM'}
+                {isAir ? 'Booked KG' : 'Booked CBM'}
+              </th>
+              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-black w-28">
+                {isAir ? 'Measured KG' : 'Measured CBM'}
               </th>
             </tr>
           </thead>
           <tbody>
             {shipments.length === 0 ? (
               <tr>
-                <td colSpan={6} className="border border-gray-300 px-3 py-6 text-center text-gray-400 text-xs font-bold italic">
+                <td colSpan={7} className="border border-gray-300 px-3 py-6 text-center text-gray-400 text-xs font-bold italic">
                   No shipments assigned to this batch
                 </td>
               </tr>
@@ -130,6 +150,12 @@ export default function PackingListPage({ params }: { params: Promise<{ id: stri
                   <td className="border border-gray-300 px-3 py-2.5 text-center font-bold">
                     {isAir ? (Number(s.weight) || 0).toFixed(1) : (Number(s.cbm) || 0).toFixed(2)}
                   </td>
+                  <td className="border border-gray-300 px-3 py-2.5 text-center font-bold">
+                    {(() => {
+                      const m = measuredTotal(s, isAir);
+                      return m == null ? <span className="text-gray-400">—</span> : (isAir ? m.toFixed(1) : m.toFixed(2));
+                    })()}
+                  </td>
                 </tr>
               );
             })}
@@ -141,6 +167,9 @@ export default function PackingListPage({ params }: { params: Promise<{ id: stri
               <td className="border border-gray-700 px-3 py-2.5 text-center font-black">{totalQty}</td>
               <td className="border border-gray-700 px-3 py-2.5 text-center font-black">
                 {isAir ? `${totalWeight.toFixed(1)} KG` : `${totalCBM.toFixed(2)} CBM`}
+              </td>
+              <td className="border border-gray-700 px-3 py-2.5 text-center font-black">
+                {anyMeasured ? (isAir ? `${totalMeasured.toFixed(1)} KG` : `${totalMeasured.toFixed(2)} CBM`) : '—'}
               </td>
             </tr>
           </tbody>
