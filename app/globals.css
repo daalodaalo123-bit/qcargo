@@ -205,3 +205,16 @@ body {
 .min-h-screen.bg-slate-50 {
   background-color: var(--background) !important;
 }
+
+/* Printable documents (packing list, invoices, certificates, etc.) must stay a
+   real white sheet with dark text — the dark-theme utility overrides above must
+   NOT leak in, or rows become dark-on-dark and unreadable. These scoped rules
+   win on specificity and restore true paper colors inside .print-doc. */
+.print-doc { background-color: #ffffff !important; color: #000000 !important; }
+.print-doc .bg-white { background-color: #ffffff !important; }
+.print-doc .bg-slate-50 { background-color: #f8fafc !important; }
+.print-doc .text-slate-900,
+.print-doc .text-slate-800,
+.print-doc .text-slate-700,
+.print-doc .text-slate-600,
+.print-doc .text-slate-500 { color: #1f2937 !important; }

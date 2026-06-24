@@ -76,14 +76,16 @@ export default function CommercialInvoicePage({ params }: { params: Promise<{ id
       <div className="print-doc bg-white text-black min-h-screen p-10 font-sans max-w-4xl mx-auto">
 
         {/* Header */}
-        <div className="flex justify-between items-start pb-6 mb-8 border-b-[3px] border-black">
+        <div className="flex justify-between items-start pb-6 mb-8 border-b-[3px] border-[#F15D38]">
           <div>
-            <div className="text-2xl font-black tracking-tight text-black uppercase">Q Cargo Logistics</div>
+            <div className="text-2xl font-black tracking-tight uppercase">
+              <span className="text-[#0B0F19]">Q </span><span className="text-[#F15D38]">Cargo</span><span className="text-[#0d9488]"> Logistics</span>
+            </div>
             <div className="text-sm text-gray-500 mt-1">Hargeisa, Somaliland</div>
             <div className="text-sm text-gray-500">qcargologistic@gmail.com</div>
           </div>
           <div className="text-right">
-            <div className="text-3xl font-black uppercase tracking-widest text-black">Commercial Invoice</div>
+            <div className="text-3xl font-black uppercase tracking-widest text-[#0d9488]">Commercial Invoice</div>
             <div className="text-xs text-gray-500 mt-1 font-bold uppercase tracking-widest">Invoice No: {invoiceNumber}</div>
             <div className="text-xs text-gray-500 mt-0.5">Date: {today}</div>
           </div>
@@ -124,11 +126,11 @@ export default function CommercialInvoicePage({ params }: { params: Promise<{ id
         <table className="w-full border-collapse text-sm mb-8">
           <thead>
             <tr>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-black w-8">#</th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-black">Description of Goods</th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-black w-16">Qty</th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-right px-3 py-2.5 border border-black w-28">Unit Value (USD)</th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-right px-3 py-2.5 border border-black w-28">Total Value (USD)</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-[#0d9488] w-8">#</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-[#0d9488]">Description of Goods</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-[#0d9488] w-16">Qty</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-right px-3 py-2.5 border border-[#0d9488] w-28">Unit Value (USD)</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-right px-3 py-2.5 border border-[#0d9488] w-28">Total Value (USD)</th>
             </tr>
           </thead>
           <tbody>
@@ -139,34 +141,34 @@ export default function CommercialInvoicePage({ params }: { params: Promise<{ id
                 </td>
               </tr>
             ) : invoiceRows.map((row, idx) => (
-              <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+              <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#f0fdfa]'}>
                 <td className="border border-gray-300 px-3 py-2.5 text-center text-gray-500 font-bold">{idx + 1}</td>
-                <td className="border border-gray-300 px-3 py-2.5 font-bold">{row.description}</td>
-                <td className="border border-gray-300 px-3 py-2.5 text-center font-bold">{row.qty}</td>
-                <td className="border border-gray-300 px-3 py-2.5 text-right font-bold">
+                <td className="border border-gray-300 px-3 py-2.5 font-bold text-black">{row.description}</td>
+                <td className="border border-gray-300 px-3 py-2.5 text-center font-bold text-black">{row.qty}</td>
+                <td className="border border-gray-300 px-3 py-2.5 text-right font-bold text-black">
                   {row.unitValue > 0 ? `$${row.unitValue.toFixed(2)}` : '—'}
                 </td>
-                <td className="border border-gray-300 px-3 py-2.5 text-right font-bold">
+                <td className="border border-gray-300 px-3 py-2.5 text-right font-bold text-black">
                   {row.totalValue > 0 ? `$${row.totalValue.toFixed(2)}` : '—'}
                 </td>
               </tr>
             ))}
             {/* Totals */}
-            <tr className="bg-gray-100">
-              <td colSpan={2} className="border border-gray-300 px-3 py-2.5 text-right text-xs font-black uppercase tracking-widest text-gray-600">
+            <tr className="bg-[#ccfbf1]">
+              <td colSpan={2} className="border border-gray-300 px-3 py-2.5 text-right text-xs font-black uppercase tracking-widest text-[#0f766e]">
                 Subtotal
               </td>
-              <td className="border border-gray-300 px-3 py-2.5 text-center font-black">{totalQty}</td>
+              <td className="border border-gray-300 px-3 py-2.5 text-center font-black text-black">{totalQty}</td>
               <td className="border border-gray-300 px-3 py-2.5"></td>
-              <td className="border border-gray-300 px-3 py-2.5 text-right font-black">
+              <td className="border border-gray-300 px-3 py-2.5 text-right font-black text-black">
                 {grandTotal > 0 ? `$${grandTotal.toFixed(2)}` : '—'}
               </td>
             </tr>
-            <tr className="bg-black text-white">
-              <td colSpan={4} className="border border-gray-700 px-3 py-3 text-right text-xs font-black uppercase tracking-widest">
+            <tr className="bg-[#F15D38] text-white">
+              <td colSpan={4} className="border border-[#F15D38] px-3 py-3 text-right text-xs font-black uppercase tracking-widest">
                 Total Declared Value (USD)
               </td>
-              <td className="border border-gray-700 px-3 py-3 text-right font-black text-base">
+              <td className="border border-[#F15D38] px-3 py-3 text-right font-black text-base">
                 {grandTotal > 0 ? `$${grandTotal.toFixed(2)}` : 'See remarks'}
               </td>
             </tr>
