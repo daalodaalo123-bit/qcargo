@@ -2,8 +2,8 @@
 
 import { useState, useEffect, use } from 'react';
 import {
-  ArrowLeft, Save, Package, Hash, Truck, DollarSign,
-  Plus, Trash2, CheckCircle2, User, Scale, Box, Calendar, FileText,
+  ArrowLeft, Save, Package, Truck,
+  CheckCircle2, User, Scale, Box, Calendar, FileText,
   ChevronDown, ChevronRight, Check, Clock, StickyNote
 } from 'lucide-react';
 import Link from 'next/link';
@@ -24,15 +24,6 @@ export default function BatchDetail({ params }: { params: Promise<{ id: string }
   
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
-  const [trackingNumbers, setTrackingNumbers] = useState<string[]>(['TRK7788221', 'TRK9900331']);
-  const [newTracking, setNewTracking] = useState('');
-  const [expenses, setExpenses] = useState([
-    { id: 1, desc: 'Port Fees', amount: 300 },
-    { id: 2, desc: 'Local Delivery', amount: 150 },
-  ]);
-
-  const totalExpenses = expenses.reduce((acc, e) => acc + e.amount, 0);
-
   useEffect(() => {
     if (!id) return;
     const fetchBatchDetails = async () => {
@@ -52,17 +43,6 @@ export default function BatchDetail({ params }: { params: Promise<{ id: string }
     };
     fetchBatchDetails();
   }, [id]);
-
-  const handleAddTracking = () => {
-    if (newTracking.trim()) {
-      setTrackingNumbers([...trackingNumbers, newTracking.trim()]);
-      setNewTracking('');
-    }
-  };
-
-  const handleRemoveTracking = (index: number) => {
-    setTrackingNumbers(trackingNumbers.filter((_, i) => i !== index));
-  };
 
   const handleSave = async () => {
     try {
@@ -404,73 +384,6 @@ export default function BatchDetail({ params }: { params: Promise<{ id: string }
                 <span className="text-[9px] text-slate-500 font-bold uppercase">All</span>
               </Link>
             </div>
-          </div>
-
-          {/* Tracking Numbers */}
-          <div className="shipment-card">
-            <div className="flex items-center gap-2 mb-6 pb-4 border-b border-slate-800/40">
-              <Hash size={20} className="text-[#F15D38]" />
-              <h3 className="text-sm font-bold text-slate-200 uppercase tracking-widest">Tracking Numbers</h3>
-            </div>
-            <div className="space-y-3 mb-6">
-              {trackingNumbers.map((num, i) => (
-                <div key={i} className="flex gap-3">
-                  <input
-                    type="text"
-                    defaultValue={num}
-                    className="search-input font-mono flex-1"
-                  />
-                  <button
-                    onClick={() => handleRemoveTracking(i)}
-                    className="p-2.5 bg-rose-950/30 text-rose-400 hover:bg-rose-950/50 border border-rose-800/20 rounded-xl transition-colors"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-3">
-              <input
-                type="text"
-                value={newTracking}
-                onChange={(e) => setNewTracking(e.target.value)}
-                placeholder="Add tracking number..."
-                className="search-input font-mono flex-1 !py-2.5 !text-xs"
-                onKeyDown={(e) => e.key === 'Enter' && handleAddTracking()}
-              />
-              <button
-                onClick={handleAddTracking}
-                className="px-4 py-2 border-2 border-dashed border-slate-700 hover:border-[#F15D38] text-slate-400 hover:text-[#F15D38] rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
-              >
-                <Plus size={14} /> Add
-              </button>
-            </div>
-          </div>
-
-          {/* Expenses */}
-          <div className="shipment-card">
-            <div className="flex items-center gap-2 mb-6 pb-4 border-b border-slate-800/40">
-              <DollarSign size={20} className="text-[#F15D38]" />
-              <h3 className="text-sm font-bold text-slate-200 uppercase tracking-widest">Batch Expenses</h3>
-            </div>
-            <div className="space-y-3 mb-4">
-              {expenses.map((exp) => (
-                <div key={exp.id} className="flex justify-between items-center py-2 border-b border-slate-800/30">
-                  <span className="text-xs text-slate-300 font-medium">{exp.desc}</span>
-                  <span className="font-bold text-slate-100 text-sm">${exp.amount}</span>
-                </div>
-              ))}
-              <div className="flex justify-between items-center pt-2">
-                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Total</span>
-                <span className="text-lg font-black text-[#F15D38]">${totalExpenses}</span>
-              </div>
-            </div>
-            <button
-              onClick={() => alert('Add expense modal...')}
-              className="w-full mt-2 py-3 border-2 border-dashed border-slate-800 hover:border-[#F15D38] text-slate-500 hover:text-[#F15D38] rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
-            >
-              <Plus size={14} /> Add Expense
-            </button>
           </div>
 
           {/* Quick Actions */}
