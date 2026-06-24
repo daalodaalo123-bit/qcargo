@@ -6,6 +6,7 @@ import path from 'path';
 export interface QuotationPdfItem {
   description: string;
   notes?: string;
+  specification?: string;
   qty: number;
   price: number;
 }
@@ -62,6 +63,155 @@ function drawField(
     display = `${display.slice(0, -4)}...`;
   }
   page.drawText(display, { x, y: y - 13, size: 10, font: fontBold, color: INK });
+}
+
+// Map characters Helvetica/WinAnsi cannot encode to safe equivalents, strip the rest.
+const SPEC_CHAR_MAP: Record<string, string> = {
+  '✓': '-', '✔': '-', '☑': '-', '•': '-', '·': '-', '◦': '-', '▪': '-', '■': '-',
+  '–': '-', '—': '-', '×': 'x', '→': '->', '⇒': '=>', '…': '...',
+  '“': '"', '”': '"', '‘': "'", '’': "'", ' ': ' ', '°': ' deg',
+};
+function sanitizeSpec(s: string): string {
+  return s
+    .replace(/\t/g, '  ')
+    .replace(/[-￿]/g, (ch) => SPEC_CHAR_MAP[ch] ?? '')
+    .replace(/[\x00-\x1F]/g, ' ');
+}
+
+// Append "Product Specification Sheet" page(s) rendering each item's spec text
+// (markdown-ish: ## headings, * bullets, | tables |) with automatic pagination.
+function addSpecificationPages(
+  doc: PDFDocument,
+  font: Awaited<ReturnType<PDFDocument['embedFont']>>,
+  fontBold: Awaited<ReturnType<PDFDocument['embedFont']>>,
+  data: QuotationPdfData
+) {
+  const specItems = (data.items || []).filter((it) => (it.specification || '').trim());
+  if (specItems.length === 0) return;
+
+  const PW = 595;
+  const PH = 842;
+  const contentW = PW - MARGIN * 2;
+  const BOTTOM = 64;
+  const DARK = rgb(30 / 255, 36 / 255, 45 / 255);
+
+  let page = doc.addPage([PW, PH]);
+  let y = 0;
+
+  const drawChrome = () => {
+    page.drawRectangle({ x: 0, y: PH - 44, width: PW, height: 44, color: DARK });
+    page.drawRectangle({ x: 0, y: PH - 44, width: PW, height: 3, color: BRAND_COLOR });
+    page.drawText(BRAND_NAME, { x: MARGIN, y: PH - 30, size: 13, font: fontBold, color: WHITE });
+    const tag = 'PRODUCT SPECIFICATION';
+    page.drawText(tag, { x: PW - MARGIN - font.widthOfTextAtSize(tag, 8), y: PH - 28, size: 8, font, color: rgb(0.6, 0.6, 0.6) });
+    page.drawLine({ start: { x: MARGIN, y: 50 }, end: { x: PW - MARGIN, y: 50 }, thickness: 1, color: LINE });
+    page.drawText(`${data.quoteNumber}  ·  ${data.customerName}`, { x: MARGIN, y: 36, size: 8, font, color: MUTED });
+    y = PH - 70;
+  };
+
+  const newPage = () => { page = doc.addPage([PW, PH]); drawChrome(); };
+  const ensure = (needed: number) => { if (y - needed < BOTTOM) newPage(); };
+
+  const drawWrapped = (text: string, size: number, fnt: typeof font, color: ReturnType<typeof rgb>, indent = 0) => {
+    const maxW = contentW - indent;
+    const words = text.split(/\s+/).filter(Boolean);
+    let line = '';
+    const flush = () => {
+      ensure(size + 4);
+      page.drawText(line, { x: MARGIN + indent, y: y - size, size, font: fnt, color });
+      y -= size + 4;
+      line = '';
+    };
+    for (const w of words) {
+      const test = line ? `${line} ${w}` : w;
+      if (fnt.widthOfTextAtSize(test, size) > maxW && line) { flush(); line = w; }
+      else line = test;
+    }
+    if (line) flush();
+  };
+
+  const renderTable = (block: string[]) => {
+    const rows = block
+      .map((r) => r.replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => sanitizeSpec(c.trim())))
+      .filter((cells) => !cells.every((c) => c === '' || /^:?-{2,}:?$/.test(c)));
+    if (rows.length === 0) return;
+    const numCols = Math.max(...rows.map((r) => r.length));
+    const colW = contentW / numCols;
+    y -= 4;
+    rows.forEach((cells, ri) => {
+      const header = ri === 0;
+      ensure(20);
+      if (header) page.drawRectangle({ x: MARGIN, y: y - 14, width: contentW, height: 18, color: rgb(0.93, 0.94, 0.96) });
+      for (let ci = 0; ci < numCols; ci++) {
+        let txt = cells[ci] ?? '';
+        const f = header ? fontBold : font;
+        while (txt.length > 1 && f.widthOfTextAtSize(txt, 9) > colW - 10) txt = txt.slice(0, -2);
+        page.drawText(txt, { x: MARGIN + ci * colW + 6, y: y - 10, size: 9, font: f, color: INK });
+      }
+      y -= 18;
+      page.drawLine({ start: { x: MARGIN, y: y + 2 }, end: { x: MARGIN + contentW, y: y + 2 }, thickness: 0.5, color: LINE });
+    });
+    y -= 10;
+  };
+
+  const renderSpec = (raw: string) => {
+    const lines = raw.replace(/\r/g, '').split('\n');
+    let i = 0;
+    while (i < lines.length) {
+      const t = lines[i].trim();
+
+      // Table block
+      if (t.startsWith('|') && t.includes('|')) {
+        const block: string[] = [];
+        while (i < lines.length && lines[i].trim().startsWith('|')) { block.push(lines[i].trim()); i++; }
+        renderTable(block);
+        continue;
+      }
+      i++;
+
+      if (!t) { y -= 6; continue; }
+      if (/^(-{3,}|\*{3,}|_{3,})$/.test(t)) {
+        ensure(12);
+        page.drawLine({ start: { x: MARGIN, y: y - 4 }, end: { x: MARGIN + contentW, y: y - 4 }, thickness: 1, color: LINE });
+        y -= 12;
+        continue;
+      }
+      const h = t.match(/^(#{1,6})\s+(.*)$/);
+      if (h) {
+        const level = h[1].length;
+        const size = level <= 1 ? 15 : level === 2 ? 13 : 11;
+        y -= 8;
+        ensure(size + 6);
+        drawWrapped(sanitizeSpec(h[2]), size, fontBold, BRAND_DARK);
+        y -= 3;
+        continue;
+      }
+      const b = t.match(/^([*\-•✓])\s+(.*)$/);
+      if (b) {
+        ensure(16);
+        page.drawText('-', { x: MARGIN + 6, y: y - 10, size: 10, font: fontBold, color: BRAND_COLOR });
+        drawWrapped(sanitizeSpec(b[2]), 10, font, INK, 18);
+        continue;
+      }
+      drawWrapped(sanitizeSpec(t), 10, font, INK);
+    }
+  };
+
+  drawChrome();
+  // Section title
+  page.drawText('PRODUCT SPECIFICATION SHEET', { x: MARGIN, y, size: 16, font: fontBold, color: INK });
+  y -= 28;
+
+  for (const it of specItems) {
+    ensure(40);
+    page.drawRectangle({ x: MARGIN, y: y - 22, width: contentW, height: 26, color: BRAND_COLOR });
+    let title = sanitizeSpec(it.description || 'Product');
+    while (title.length > 1 && fontBold.widthOfTextAtSize(title, 12) > contentW - 20) title = title.slice(0, -2);
+    page.drawText(title, { x: MARGIN + 10, y: y - 15, size: 12, font: fontBold, color: WHITE });
+    y -= 38;
+    renderSpec(it.specification || '');
+    y -= 18;
+  }
 }
 
 export async function generateQuotationPdf(data: QuotationPdfData): Promise<Uint8Array> {
@@ -238,6 +388,9 @@ export async function generateQuotationPdf(data: QuotationPdfData): Promise<Uint
   page.drawLine({ start: { x: MARGIN, y: 72 }, end: { x: width - MARGIN, y: 72 }, thickness: 1, color: LINE });
   page.drawText(BRAND_FOOTER, { x: MARGIN, y: 52, size: 8, font, color: MUTED });
   page.drawText('To confirm this order, please contact us via WhatsApp or visit our office.', { x: MARGIN, y: 38, size: 8, font, color: MUTED });
+
+  // Append product specification sheet page(s) when any item has detailed specs
+  addSpecificationPages(doc, font, fontBold, data);
 
   return doc.save();
 }

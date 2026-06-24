@@ -20,6 +20,7 @@ import {
 interface QuotationItem {
   description: string;
   notes: string;
+  specification: string;
   qty: string;
   price: string;
   totalPrice: string;
@@ -43,7 +44,7 @@ export default function NewQuotation() {
   // State variables
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
-  const [items, setItems] = useState<QuotationItem[]>([{ description: '', notes: '', qty: '1', price: '', totalPrice: '' }]);
+  const [items, setItems] = useState<QuotationItem[]>([{ description: '', notes: '', specification: '', qty: '1', price: '', totalPrice: '' }]);
   const [estimatedPrice, setEstimatedPrice] = useState('');
   const [freightType, setFreightType] = useState('SEA');
   const [commissionRate, setCommissionRate] = useState('7');
@@ -91,6 +92,7 @@ export default function NewQuotation() {
       items: items.filter(it => it.description.trim()).map(it => ({
         description: it.description.trim(),
         notes: it.notes.trim(),
+        specification: it.specification.trim(),
         qty: parseFloat(it.qty) || 1,
         price: parseFloat(it.price) || 0,
       })),
@@ -142,7 +144,7 @@ export default function NewQuotation() {
     router.push('/admin/quotations');
   };
 
-  const addItem = () => setItems([...items, { description: '', notes: '', qty: '1', price: '', totalPrice: '' }]);
+  const addItem = () => setItems([...items, { description: '', notes: '', specification: '', qty: '1', price: '', totalPrice: '' }]);
 
   const updateItem = (index: number, field: keyof QuotationItem, value: string) => {
     const newItems = items.map((item, i) => {
@@ -182,11 +184,12 @@ export default function NewQuotation() {
     const newItems: QuotationItem[] = importPreview.items.map((it) => ({
       description: it.description,
       notes: it.notes || '',
+      specification: '',
       qty: String(it.qty),
       price: String(it.price),
       totalPrice: (it.qty * it.price).toFixed(2),
     }));
-    setItems(newItems.length > 0 ? newItems : [{ description: '', notes: '', qty: '1', price: '', totalPrice: '' }]);
+    setItems(newItems.length > 0 ? newItems : [{ description: '', notes: '', specification: '', qty: '1', price: '', totalPrice: '' }]);
     if (importPreview.customerName && !customerName.trim()) {
       setCustomerName(importPreview.customerName);
     }
@@ -317,11 +320,26 @@ export default function NewQuotation() {
                 </div>
                 <input
                   type="text"
-                  placeholder="Description / notes for this item (optional)"
+                  placeholder="Short description / notes for this item (optional)"
                   className="search-input !py-2 w-full text-sm text-slate-400 placeholder:text-slate-600"
                   value={item.notes}
                   onChange={e => updateItem(idx, 'notes', e.target.value)}
                 />
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 mt-1">
+                    Full Product Specification (optional)
+                  </label>
+                  <textarea
+                    rows={5}
+                    placeholder={'Paste full product specs here (engine, dimensions, warranty, spare parts, FOB price...).\nUse ## Heading, * bullet, and | a | b | tables — they print formatted on extra pages.'}
+                    className="search-input !py-2 w-full text-sm leading-relaxed font-mono placeholder:text-slate-600 resize-y"
+                    value={item.specification}
+                    onChange={e => updateItem(idx, 'specification', e.target.value)}
+                  />
+                  <p className="text-[10px] text-slate-600 mt-1">
+                    Leave empty for simple items. When filled, a professional spec sheet is added to the PDF after the price page.
+                  </p>
+                </div>
               </div>
             ))}
             <button 

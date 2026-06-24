@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface IQuotationItem {
   description: string;
   notes?: string;
+  specification?: string;
   qty: number;
   price: number;
 }
@@ -27,6 +28,7 @@ export interface IQuotation extends Document {
 const QuotationItemSchema = new Schema<IQuotationItem>({
   description: { type: String, required: true },
   notes: { type: String, default: '' },
+  specification: { type: String, default: '' },
   qty: { type: Number, default: 1 },
   price: { type: Number, default: 0 },
 });

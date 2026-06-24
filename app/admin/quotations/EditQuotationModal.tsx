@@ -5,6 +5,7 @@ import { X, User, Phone, Package, DollarSign, Loader2, Save } from 'lucide-react
 
 interface QuotationItem {
   description: string;
+  specification: string;
   qty: string;
   price: string;
   totalPrice: string;
@@ -33,7 +34,7 @@ function lineTotal(item: QuotationItem): number {
 export default function EditQuotationModal({ quotation, onClose, onSuccess }: EditQuotationModalProps) {
   const [customer, setCustomer] = useState('');
   const [phone, setPhone] = useState('');
-  const [items, setItems] = useState<QuotationItem[]>([{ description: '', qty: '1', price: '', totalPrice: '' }]);
+  const [items, setItems] = useState<QuotationItem[]>([{ description: '', specification: '', qty: '1', price: '', totalPrice: '' }]);
   const [estimatedPrice, setEstimatedPrice] = useState('');
   const [commissionRate, setCommissionRate] = useState('0');
   const [discountAmount, setDiscountAmount] = useState('0');
@@ -61,8 +62,9 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
         const commAmt = data.commissionAmount || 0;
         if (data.items && data.items.length > 0) {
           setItems(
-            data.items.map((it: { description: string; qty: number; price: number }) => ({
+            data.items.map((it: { description: string; specification?: string; qty: number; price: number }) => ({
               description: it.description,
+              specification: it.specification || '',
               qty: String(it.qty),
               price: String(it.price),
               totalPrice: (it.qty * it.price).toFixed(2),
@@ -76,12 +78,12 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
           setEstimatedPrice(total > 0 ? String(total) : String(Math.max(0, (data.price || quotation.price) - commAmt)));
         } else {
           const subtotalFallback = Math.max(0, (data.price || quotation.price) - commAmt);
-          setItems([{ description: data.goods || quotation.goods, qty: '1', price: String(subtotalFallback), totalPrice: String(subtotalFallback) }]);
+          setItems([{ description: data.goods || quotation.goods, specification: '', qty: '1', price: String(subtotalFallback), totalPrice: String(subtotalFallback) }]);
           setEstimatedPrice(String(subtotalFallback));
         }
       })
       .catch(() => {
-        setItems([{ description: quotation.goods, qty: '1', price: String(quotation.price), totalPrice: String(quotation.price) }]);
+        setItems([{ description: quotation.goods, specification: '', qty: '1', price: String(quotation.price), totalPrice: String(quotation.price) }]);
         setEstimatedPrice(String(quotation.price));
         setCommissionRate('0');
       })
@@ -114,7 +116,7 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
     }));
   };
 
-  const addItem = () => setItems([...items, { description: '', qty: '1', price: '', totalPrice: '' }]);
+  const addItem = () => setItems([...items, { description: '', specification: '', qty: '1', price: '', totalPrice: '' }]);
 
   const removeItem = (index: number) => {
     if (items.length > 1) setItems(items.filter((_, i) => i !== index));
@@ -147,6 +149,7 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
         .filter((it) => it.description.trim())
         .map((it) => ({
           description: it.description.trim(),
+          specification: it.specification.trim(),
           qty: parseFloat(it.qty) || 1,
           price: parseFloat(it.price) || 0,
         })),
@@ -241,7 +244,8 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
                   <span className="sm:col-span-1" />
                 </div>
                 {items.map((item, idx) => (
-                  <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-3 mb-3 p-3 bg-[#0B0F19] rounded-xl border border-slate-800 items-end">
+                  <div key={idx} className="mb-3 p-3 bg-[#0B0F19] rounded-xl border border-slate-800 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                     <div className="sm:col-span-5">
                       <input
                         type="text"
@@ -290,6 +294,19 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
                       >
                         <X size={15} />
                       </button>
+                    </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                        Full Product Specification (optional)
+                      </label>
+                      <textarea
+                        rows={5}
+                        placeholder={'Paste full product specs here. Use ## Heading, * bullet, and | a | b | tables — they print formatted on extra pages.'}
+                        className="search-input !py-2 w-full text-sm leading-relaxed font-mono placeholder:text-slate-600 resize-y"
+                        value={item.specification}
+                        onChange={(e) => updateItem(idx, 'specification', e.target.value)}
+                      />
                     </div>
                   </div>
                 ))}

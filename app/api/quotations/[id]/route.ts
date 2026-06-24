@@ -38,7 +38,7 @@ export async function PATCH(
       price?: number;
       type?: 'AIR' | 'SEA';
       status?: 'SENT' | 'DRAFT' | 'APPROVED' | 'REJECTED';
-      items?: { description: string; qty: number; price: number }[];
+      items?: { description: string; notes?: string; specification?: string; qty: number; price: number }[];
       commissionRate?: number;
       commissionAmount?: number;
     };
