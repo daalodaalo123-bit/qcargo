@@ -1,25 +1,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Truck, 
-  Plane, 
+import {
+  Plus,
+  Search,
+  Filter,
+  Plane,
   Ship,
-  CheckCircle2, 
-  Clock, 
   ArrowRight,
-  TrendingUp,
   Box,
-  Calendar,
   Pencil,
   Trash2,
   Download,
   AlertCircle,
   Users,
-  Warehouse
+  Warehouse,
+  ChevronDown
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -33,8 +29,14 @@ interface Batch {
   shipments: number;
   weight: string;
   arrival: string;
-  statusChanged?: boolean;
 }
+
+// Rounded status-pill styling for the dropdown, colored by current status
+const STATUS_PILL: Record<Batch['status'], string> = {
+  LOADING: 'bg-amber-950/40 text-amber-400 border-amber-700/40',
+  IN_TRANSIT: 'bg-[#F15D38]/15 text-[#F15D38] border-[#F15D38]/40',
+  ARRIVED: 'bg-emerald-950/40 text-emerald-400 border-emerald-700/40',
+};
 
 
 
@@ -72,12 +74,7 @@ const [searchTerm, setSearchTerm] = useState('');
 
   // Update status and trigger SMS
   const handleStatusChange = async (id: string, newStatus: Batch['status']) => {
-    setBatches(prev => prev.map(b => {
-      if (b.id === id) {
-        return { ...b, status: newStatus, statusChanged: true };
-      }
-      return b;
-    }));
+    setBatches(prev => prev.map(b => (b.id === id ? { ...b, status: newStatus } : b)));
     // Send SMS via API
     try {
       await fetch('/api/send-sms', {
@@ -396,28 +393,22 @@ const [searchTerm, setSearchTerm] = useState('');
                     </div>
                   </td>
                   <td className="px-8 py-6">
-                    {batch.statusChanged ? (
-                      <span className={`inline-flex items-center gap-1.5 text-[10px] font-black px-3 py-1 rounded-full ${
-                        batch.status === 'ARRIVED' ? 'bg-emerald-950/30 text-emerald-400 border border-emerald-800/20' :
-                        batch.status === 'IN_TRANSIT' ? 'bg-[#F15D38]/10 text-[#F15D38] border border-[#F15D38]/20' : 'bg-amber-950/30 text-amber-400 border border-amber-800/20'
-                      }`}>
-                        <div className={`w-1.5 h-1.5 rounded-full ${
-                          batch.status === 'ARRIVED' ? 'bg-emerald-500' :
-                          batch.status === 'IN_TRANSIT' ? 'bg-[#F15D38]' : 'bg-amber-500'
-                        }`} />
-                        {batch.status}
-                      </span>
-                    ) : (
+                    <div className="relative inline-flex items-center">
+                      <span className={`absolute left-3 w-1.5 h-1.5 rounded-full pointer-events-none ${
+                        batch.status === 'ARRIVED' ? 'bg-emerald-400' :
+                        batch.status === 'LOADING' ? 'bg-amber-400' : 'bg-[#F15D38]'
+                      }`} />
                       <select
                         value={batch.status}
                         onChange={(e) => handleStatusChange(batch.id, e.target.value as Batch['status'])}
-                        className="bg-[#131B2E] text-slate-100 border border-slate-600 rounded p-1"
+                        className={`appearance-none cursor-pointer text-[10px] font-black uppercase tracking-widest rounded-full border pl-7 pr-8 py-1.5 outline-none transition-colors focus:ring-2 focus:ring-[#F15D38]/30 ${STATUS_PILL[batch.status]}`}
                       >
-                        <option value="IN_TRANSIT">IN_TRANSIT</option>
-                        <option value="LOADING">LOADING</option>
-                        <option value="ARRIVED">ARRIVED</option>
+                        <option className="bg-[#131B2E] text-slate-100 font-bold" value="LOADING">LOADING</option>
+                        <option className="bg-[#131B2E] text-slate-100 font-bold" value="IN_TRANSIT">IN TRANSIT</option>
+                        <option className="bg-[#131B2E] text-slate-100 font-bold" value="ARRIVED">ARRIVED</option>
                       </select>
-                    )}
+                      <ChevronDown size={13} className="absolute right-2.5 pointer-events-none text-slate-400" />
+                    </div>
                   </td>
                   <td className="px-8 py-6 text-right">
                     <span className="font-black text-slate-100">{batch.weight}</span>
