@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Save, Loader2 } from 'lucide-react';
+import { X, Save, Loader2, Plus, Trash2 } from 'lucide-react';
+
+type RawLine = Record<string, unknown>;
 
 export interface ShipmentRow {
   id: string;
@@ -15,12 +17,69 @@ export interface ShipmentRow {
   batch: string;
   date: string;
   notes?: string;
+  items?: RawLine[];
+  courierPackages?: RawLine[];
+}
+
+interface CargoLine {
+  description: string;
+  trackingNumber: string;
+  qty: number;
+  weight: number;
+  cbm: number;
+  value: number;
 }
 
 interface EditShipmentModalProps {
   shipment: ShipmentRow | null;
   onClose: () => void;
   onSaved: () => void;
+}
+
+const emptyLine = (): CargoLine => ({ description: '', trackingNumber: '', qty: 1, weight: 0, cbm: 0, value: 0 });
+
+const str = (v: unknown) => (typeof v === 'string' ? v : v == null ? '' : String(v));
+const numOf = (v: unknown) => (typeof v === 'number' && !isNaN(v) ? v : Number(v) || 0);
+
+// Merge the shipment's items[] and courierPackages[] back into one editable
+// line per product. Tracking numbers live on courierPackages; weight/cbm/value
+// on items — we pair them by matching goods/description.
+function buildLines(shipment: ShipmentRow): CargoLine[] {
+  const items = shipment.items || [];
+  const couriers = [...(shipment.courierPackages || [])];
+  const lines: CargoLine[] = items.map((it) => {
+    const desc = str(it.description);
+    const idx = couriers.findIndex((c) => str(c.goods) === desc);
+    let cp: RawLine | undefined;
+    if (idx >= 0) { cp = couriers[idx]; couriers.splice(idx, 1); }
+    return {
+      description: desc,
+      trackingNumber: cp ? str(cp.trackingNumber) : '',
+      qty: numOf(it.qty) || 1,
+      weight: numOf(it.weight),
+      cbm: numOf(it.cbm),
+      value: numOf(it.value),
+    };
+  });
+  // Any courier packages with no matching item become their own line
+  couriers.forEach((cp) => {
+    lines.push({
+      description: str(cp.goods),
+      trackingNumber: str(cp.trackingNumber),
+      qty: numOf(cp.qty) || 1,
+      weight: 0,
+      cbm: 0,
+      value: 0,
+    });
+  });
+  return lines.length > 0 ? lines : [emptyLine()];
+}
+
+// Warehouse-set fields we must NOT wipe when the goods list is edited.
+const PRESERVE = ['measuredWeight', 'measuredCbm', 'warehouseNotes', 'received', 'receivedAt'] as const;
+function carryOver(target: RawLine, source: RawLine | undefined): RawLine {
+  if (source) for (const k of PRESERVE) if (source[k] !== undefined) target[k] = source[k];
+  return target;
 }
 
 export default function EditShipmentModal({ shipment, onClose, onSaved }: EditShipmentModalProps) {
@@ -33,6 +92,7 @@ export default function EditShipmentModal({ shipment, onClose, onSaved }: EditSh
   const [batch, setBatch] = useState('UNASSIGNED');
   const [date, setDate] = useState('');
   const [notes, setNotes] = useState('');
+  const [lines, setLines] = useState<CargoLine[]>([emptyLine()]);
   const [batches, setBatches] = useState<string[]>(['UNASSIGNED']);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -48,6 +108,7 @@ export default function EditShipmentModal({ shipment, onClose, onSaved }: EditSh
     setBatch(shipment.batch || 'UNASSIGNED');
     setDate(shipment.date);
     setNotes(shipment.notes || '');
+    setLines(buildLines(shipment));
     setError('');
 
     fetch('/api/batches')
@@ -61,16 +122,53 @@ export default function EditShipmentModal({ shipment, onClose, onSaved }: EditSh
 
   if (!shipment) return null;
 
+  const updateLine = (i: number, field: keyof CargoLine, value: string | number) => {
+    setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, [field]: value } : l)));
+  };
+  const addLine = () => setLines((prev) => [...prev, emptyLine()]);
+  const removeLine = (i: number) => setLines((prev) => (prev.length === 1 ? [emptyLine()] : prev.filter((_, idx) => idx !== i)));
+
+  const isAir = type === 'AIR';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customer.trim()) {
-      setError('Customer name is required');
-      return;
-    }
-    if (!phone.trim()) {
-      setError('Phone number is required');
-      return;
-    }
+    if (!customer.trim()) { setError('Customer name is required'); return; }
+    if (!phone.trim()) { setError('Phone number is required'); return; }
+
+    const origItems = shipment.items || [];
+    const origCouriers = shipment.courierPackages || [];
+
+    // items[] — every line with a description (preserve warehouse fields by description match)
+    const items = lines
+      .filter((l) => l.description.trim())
+      .map((l) => {
+        const base: RawLine = {
+          description: l.description.trim(),
+          qty: l.qty || 1,
+          weight: l.weight || 0,
+          cbm: l.cbm || 0,
+          value: l.value || 0,
+        };
+        return carryOver(base, origItems.find((it) => str(it.description) === l.description.trim()));
+      });
+
+    // courierPackages[] — every line that has a tracking number (preserve by tracking match)
+    const courierPackages = lines
+      .filter((l) => l.trackingNumber.trim())
+      .map((l) => {
+        const base: RawLine = {
+          trackingNumber: l.trackingNumber.trim(),
+          goods: l.description.trim(),
+          qty: l.qty || 1,
+          courier: '',
+        };
+        const src = origCouriers.find((c) => str(c.trackingNumber) === l.trackingNumber.trim())
+          || origItems.find((it) => str(it.description) === l.description.trim());
+        if (src && origCouriers.find((c) => str(c.trackingNumber) === l.trackingNumber.trim())) {
+          base.courier = str((origCouriers.find((c) => str(c.trackingNumber) === l.trackingNumber.trim()) as RawLine).courier);
+        }
+        return carryOver(base, src);
+      });
 
     setLoading(true);
     setError('');
@@ -88,6 +186,8 @@ export default function EditShipmentModal({ shipment, onClose, onSaved }: EditSh
           batch,
           date,
           notes: notes.trim() || undefined,
+          items,
+          courierPackages,
         }),
       });
       const data = await res.json();
@@ -104,7 +204,7 @@ export default function EditShipmentModal({ shipment, onClose, onSaved }: EditSh
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="w-full max-w-lg bg-[#131B2E] border border-slate-800 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-2xl bg-[#131B2E] border border-slate-800 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 sticky top-0 bg-[#131B2E] z-10">
@@ -187,6 +287,93 @@ export default function EditShipmentModal({ shipment, onClose, onSaved }: EditSh
               <input type="date" className="search-input w-full" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
           </div>
+
+          {/* Goods / Items */}
+          <div className="border border-slate-800 rounded-xl p-4 bg-[#0B0F19]/40">
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-[10px] font-black text-slate-300 uppercase tracking-wider">Goods / Items</label>
+              <button
+                type="button"
+                onClick={addLine}
+                className="flex items-center gap-1.5 px-3 py-1.5 border-2 border-dashed border-slate-700 hover:border-[#F15D38] text-slate-400 hover:text-[#F15D38] rounded-lg text-[11px] font-bold transition-all"
+              >
+                <Plus size={13} /> Add product
+              </button>
+            </div>
+
+            <div className="space-y-2.5">
+              {lines.map((line, i) => (
+                <div key={i} className="bg-[#131B2E] border border-slate-800 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={line.description}
+                      onChange={(e) => updateLine(i, 'description', e.target.value)}
+                      placeholder="Product description"
+                      className="search-input flex-1 !py-2 !text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeLine(i)}
+                      className="shrink-0 p-2 text-slate-500 hover:text-rose-400 transition-colors"
+                      title="Remove product"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={line.trackingNumber}
+                    onChange={(e) => updateLine(i, 'trackingNumber', e.target.value)}
+                    placeholder="Tracking number (optional)"
+                    className="search-input w-full font-mono !py-2 !text-xs"
+                  />
+                  <div className="grid grid-cols-4 gap-2">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider">Qty</span>
+                      <input
+                        type="number" min={1} step={1}
+                        value={line.qty}
+                        onChange={(e) => updateLine(i, 'qty', Number(e.target.value))}
+                        className="search-input w-full !py-1.5 !text-xs text-center"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider">KG</span>
+                      <input
+                        type="number" min={0} step="any"
+                        value={line.weight}
+                        onChange={(e) => updateLine(i, 'weight', Number(e.target.value))}
+                        className="search-input w-full !py-1.5 !text-xs text-center"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider">CBM</span>
+                      <input
+                        type="number" min={0} step="any"
+                        value={line.cbm}
+                        onChange={(e) => updateLine(i, 'cbm', Number(e.target.value))}
+                        className="search-input w-full !py-1.5 !text-xs text-center"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider">Value $</span>
+                      <input
+                        type="number" min={0} step="0.01"
+                        value={line.value}
+                        onChange={(e) => updateLine(i, 'value', Number(e.target.value))}
+                        className="search-input w-full !py-1.5 !text-xs text-center"
+                      />
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-500 mt-2.5">
+              {isAir ? 'Air shipment — enter KG.' : 'Sea shipment — enter CBM.'} Each product can have its own tracking number.
+            </p>
+          </div>
+
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Notes</label>
             <textarea

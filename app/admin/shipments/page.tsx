@@ -31,6 +31,8 @@ type Shipment = ShipmentRow & {
   goods?: string;
 };
 
+type RawLine = Record<string, unknown>;
+
 const DEFAULT_SHIPMENTS: Shipment[] = [
   { id: '1', shipmentNumber: 'AIR-2024-KM-901', customer: 'Khadar Mohamed', type: 'AIR', status: 'ARRIVED', payment: 'PAID', total: 245.50, batch: 'FLT-2024-001', date: '2026-05-18' },
   { id: '2', shipmentNumber: 'SEA-2024-AD-312', customer: 'Abdi Dahir', type: 'SEA', status: 'IN_TRANSIT', payment: 'UNPAID', total: 1200.00, batch: 'CTN-2024-042', date: '2026-05-15' },
@@ -83,6 +85,8 @@ export default function ShipmentsPage() {
             date: String(s.date || ''),
             notes: s.notes ? String(s.notes) : '',
             goods,
+            items: Array.isArray(s.items) ? (s.items as RawLine[]) : [],
+            courierPackages: Array.isArray(s.courierPackages) ? (s.courierPackages as RawLine[]) : [],
           };
         })
       );
