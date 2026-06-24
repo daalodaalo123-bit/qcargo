@@ -15,7 +15,8 @@ import {
   AlertCircle,
   Users,
   Warehouse,
-  ChevronDown
+  ChevronDown,
+  Share2
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -29,6 +30,8 @@ interface Batch {
   shipments: number;
   weight: string;
   arrival: string;
+  receivedCount?: number;
+  totalLines?: number;
 }
 
 // Rounded status-pill styling for the dropdown, colored by current status
@@ -153,6 +156,17 @@ const [searchTerm, setSearchTerm] = useState('');
     }
   };
 
+  // Copy the public live-arrival tracking link for a batch (share with agents/warehouse)
+  const handleCopyTrackLink = async (batch: Batch) => {
+    const url = `${window.location.origin}/track/${batch.batchId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      alert(`Live arrival link copied!\n\n${url}\n\nShare it with your agent or warehouse. When they mark goods "Received", you'll see it here.`);
+    } catch {
+      window.prompt('Copy this live arrival link to share:', url);
+    }
+  };
+
   // Download a single batch as a shareable sheet (opens in Google Sheets / Excel)
   // Grouped by customer: full name on its own row, products listed under it.
   const handleDownloadBatch = async (batch: Batch) => {
@@ -178,7 +192,7 @@ const [searchTerm, setSearchTerm] = useState('');
       // Build the product lines for one customer/shipment
       const buildLines = (s: any) => {
         const isAir = s.type === 'AIR';
-        let lines: { product: string; qty: any; tracking: string; kg: any; cbm: any }[] = [];
+        let lines: { product: string; qty: any; tracking: string; kg: any; cbm: any; received: boolean }[] = [];
 
         if (s.courierPackages && s.courierPackages.length > 0) {
           lines = s.courierPackages.map((p: any) => ({
@@ -187,6 +201,7 @@ const [searchTerm, setSearchTerm] = useState('');
             tracking: p.trackingNumber || '',
             kg: '',
             cbm: '',
+            received: !!p.received,
           }));
         } else if (s.items && s.items.length > 0) {
           lines = s.items.map((it: any) => ({
@@ -195,9 +210,10 @@ const [searchTerm, setSearchTerm] = useState('');
             tracking: '',
             kg: it.weight || '',
             cbm: it.cbm || '',
+            received: !!it.received,
           }));
         } else {
-          lines = [{ product: '-', qty: 1, tracking: '', kg: '', cbm: '' }];
+          lines = [{ product: '-', qty: 1, tracking: '', kg: '', cbm: '', received: false }];
         }
 
         // Put the shipment-level weight/CBM on the first line if no per-item value exists
@@ -228,7 +244,7 @@ const [searchTerm, setSearchTerm] = useState('');
           body += `<td>${esc(line.tracking)}</td>`;
           body += `<td>${esc(line.kg)}</td>`;
           body += `<td>${esc(line.cbm)}</td>`;
-          body += `<td>Not yet</td>`;
+          body += `<td>${line.received ? 'Received' : 'Not yet'}</td>`;
           body += `</tr>`;
         }
         // Blank spacer between customers
@@ -385,6 +401,20 @@ const [searchTerm, setSearchTerm] = useState('');
                       <span className="font-bold text-slate-100">{batch.shipments}</span>
                       <span className="text-[10px] font-bold text-slate-500 uppercase">Pkgs</span>
                     </div>
+                    {(batch.totalLines ?? 0) > 0 && (
+                      <div className="mt-2 w-24">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[9px] font-black text-emerald-400 uppercase tracking-wider">Arrived</span>
+                          <span className="text-[9px] font-bold text-slate-500">{batch.receivedCount ?? 0}/{batch.totalLines}</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-emerald-500 transition-all"
+                            style={{ width: `${Math.round(((batch.receivedCount ?? 0) / (batch.totalLines || 1)) * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-2">
@@ -415,6 +445,13 @@ const [searchTerm, setSearchTerm] = useState('');
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => handleCopyTrackLink(batch)}
+                        className="p-2 bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-400 rounded-lg transition-colors"
+                        title="Copy live arrival link (share with agent / warehouse)"
+                      >
+                        <Share2 size={16} />
+                      </button>
                       <button
                         onClick={() => handleDownloadBatch(batch)}
                         className="p-2 bg-[#F15D38]/10 hover:bg-[#F15D38]/20 text-[#F15D38] rounded-lg transition-colors"

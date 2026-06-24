@@ -8,6 +8,8 @@ export interface IShipmentItem {
   value?: number;
   warehouseStatus?: 'IN_WAREHOUSE' | 'TAKEN' | 'LOST';
   statusDate?: Date;
+  received?: boolean;
+  receivedAt?: Date;
 }
 
 export interface ICourierPackage {
@@ -15,6 +17,8 @@ export interface ICourierPackage {
   trackingNumber: string;
   goods: string;
   qty: number;
+  received?: boolean;
+  receivedAt?: Date;
 }
 
 export interface IShipment extends Document {
@@ -51,6 +55,8 @@ const ShipmentItemSchema = new Schema<IShipmentItem>({
   value: { type: Number },
   warehouseStatus: { type: String, enum: ['IN_WAREHOUSE', 'TAKEN', 'LOST'], default: 'IN_WAREHOUSE' },
   statusDate: { type: Date },
+  received: { type: Boolean, default: false },
+  receivedAt: { type: Date },
 });
 
 const CourierPackageSchema = new Schema<ICourierPackage>({
@@ -58,6 +64,8 @@ const CourierPackageSchema = new Schema<ICourierPackage>({
   trackingNumber: { type: String },
   goods: { type: String },
   qty: { type: Number, default: 1 },
+  received: { type: Boolean, default: false },
+  receivedAt: { type: Date },
 });
 
 const ShipmentSchema = new Schema<IShipment>({

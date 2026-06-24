@@ -73,6 +73,8 @@ export async function GET(request: Request) {
       let totalWeight = 0;
       let totalCBM = 0;
       let totalCartons = 0;
+      let totalLines = 0;
+      let receivedCount = 0;
 
       batchShipments.forEach((s: any) => {
         if (s.type === 'AIR') {
@@ -90,6 +92,17 @@ export async function GET(request: Request) {
           cartons = 1;
         }
         totalCartons += cartons;
+
+        // Arrival progress: count product lines and how many are received
+        const lineSource = (s.courierPackages && s.courierPackages.length > 0)
+          ? s.courierPackages
+          : (s.items && s.items.length > 0 ? s.items : []);
+        if (lineSource.length === 0) {
+          totalLines += 1;
+        } else {
+          totalLines += lineSource.length;
+          receivedCount += lineSource.filter((x: any) => x.received).length;
+        }
       });
 
       const batchObj = batch.toObject ? batch.toObject() : batch;
@@ -98,7 +111,9 @@ export async function GET(request: Request) {
         id: batchObj._id.toString(),
         shipments: batchShipments.length,
         weight: batch.type === 'AIR' ? `${totalWeight.toFixed(1)} KG` : `${totalCBM.toFixed(2)} CBM`,
-        totalCartons
+        totalCartons,
+        totalLines,
+        receivedCount
       };
     });
 
