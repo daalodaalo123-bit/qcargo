@@ -1,5 +1,10 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
+export interface IProductNote {
+  text: string;
+  at: Date;
+}
+
 export interface IShipmentItem {
   description: string;
   qty: number;
@@ -10,6 +15,10 @@ export interface IShipmentItem {
   statusDate?: Date;
   received?: boolean;
   receivedAt?: Date;
+  // Filled in by the warehouse keeper from the tracking link — actual measured values.
+  measuredWeight?: number;
+  measuredCbm?: number;
+  warehouseNotes?: IProductNote[];
 }
 
 export interface ICourierPackage {
@@ -19,6 +28,10 @@ export interface ICourierPackage {
   qty: number;
   received?: boolean;
   receivedAt?: Date;
+  // Filled in by the warehouse keeper from the tracking link — actual measured values.
+  measuredWeight?: number;
+  measuredCbm?: number;
+  warehouseNotes?: IProductNote[];
 }
 
 export interface IShipment extends Document {
@@ -47,6 +60,11 @@ export interface IShipment extends Document {
   takenAt?: Date;
 }
 
+const ProductNoteSchema = new Schema<IProductNote>({
+  text: { type: String, required: true },
+  at: { type: Date, default: Date.now },
+}, { _id: false });
+
 const ShipmentItemSchema = new Schema<IShipmentItem>({
   description: { type: String, required: true },
   qty: { type: Number, required: true, default: 1 },
@@ -57,6 +75,9 @@ const ShipmentItemSchema = new Schema<IShipmentItem>({
   statusDate: { type: Date },
   received: { type: Boolean, default: false },
   receivedAt: { type: Date },
+  measuredWeight: { type: Number },
+  measuredCbm: { type: Number },
+  warehouseNotes: { type: [ProductNoteSchema], default: [] },
 });
 
 const CourierPackageSchema = new Schema<ICourierPackage>({
@@ -66,6 +87,9 @@ const CourierPackageSchema = new Schema<ICourierPackage>({
   qty: { type: Number, default: 1 },
   received: { type: Boolean, default: false },
   receivedAt: { type: Date },
+  measuredWeight: { type: Number },
+  measuredCbm: { type: Number },
+  warehouseNotes: { type: [ProductNoteSchema], default: [] },
 });
 
 const ShipmentSchema = new Schema<IShipment>({

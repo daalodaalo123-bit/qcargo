@@ -8,6 +8,10 @@ export const dynamic = 'force-dynamic';
 // Build the visible product lines for one shipment (same rule as the batch sheet:
 // courier packages first, otherwise items). Returns a stable line identifier.
 function buildLines(s: any) {
+  const noteList = (n: any): { text: string; at: string }[] =>
+    Array.isArray(n) ? n.map((x: any) => ({ text: x.text || '', at: x.at ? new Date(x.at).toISOString() : '' })) : [];
+  const num = (v: any): number | null => (v === 0 || (typeof v === 'number' && !isNaN(v)) ? v : null);
+
   if (Array.isArray(s.courierPackages) && s.courierPackages.length > 0) {
     return s.courierPackages.map((p: any, index: number) => ({
       lineType: 'courier' as const,
@@ -16,6 +20,9 @@ function buildLines(s: any) {
       qty: p.qty || 1,
       tracking: p.trackingNumber || '',
       received: !!p.received,
+      measuredWeight: num(p.measuredWeight),
+      measuredCbm: num(p.measuredCbm),
+      notes: noteList(p.warehouseNotes),
     }));
   }
   if (Array.isArray(s.items) && s.items.length > 0) {
@@ -26,9 +33,12 @@ function buildLines(s: any) {
       qty: it.qty || 1,
       tracking: '',
       received: !!it.received,
+      measuredWeight: num(it.measuredWeight),
+      measuredCbm: num(it.measuredCbm),
+      notes: noteList(it.warehouseNotes),
     }));
   }
-  return [{ lineType: 'none' as const, index: 0, product: '-', qty: 1, tracking: '', received: false }];
+  return [{ lineType: 'none' as const, index: 0, product: '-', qty: 1, tracking: '', received: false, measuredWeight: null, measuredCbm: null, notes: [] }];
 }
 
 async function findBatch(batchId: string) {
@@ -71,7 +81,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ batchId
   }
 }
 
-// PATCH: public, toggle a single product line's received flag
+// Parse a measured number field: accepts a number, or null/'' to clear it.
+function parseMeasure(v: unknown): { ok: boolean; value: number | undefined } {
+  if (v === null || v === '' || v === undefined) return { ok: true, value: undefined };
+  const n = typeof v === 'number' ? v : Number(v);
+  if (isNaN(n) || n < 0) return { ok: false, value: undefined };
+  return { ok: true, value: n };
+}
+
+// PATCH: public — update a single product line. The warehouse keeper can toggle
+// "received", fill in the measured KG/CBM, and append a timestamped note.
 export async function PATCH(req: Request, { params }: { params: Promise<{ batchId: string }> }) {
   try {
     const { batchId } = await params;
@@ -80,8 +99,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ batchI
     if (!batch) return NextResponse.json({ error: 'Batch not found' }, { status: 404 });
 
     const body = await req.json();
-    const { shipmentId, lineType, index, received } = body as {
-      shipmentId?: string; lineType?: 'item' | 'courier'; index?: number; received?: boolean;
+    const { shipmentId, lineType, index, received, measuredWeight, measuredCbm, addNote } = body as {
+      shipmentId?: string; lineType?: 'item' | 'courier'; index?: number;
+      received?: boolean; measuredWeight?: number | null; measuredCbm?: number | null; addNote?: string;
     };
 
     if (!shipmentId || (lineType !== 'item' && lineType !== 'courier') || typeof index !== 'number') {
@@ -97,9 +117,32 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ batchI
     if (!arr || !arr[index]) {
       return NextResponse.json({ error: 'Line not found' }, { status: 404 });
     }
+    const line = arr[index];
 
-    arr[index].received = !!received;
-    arr[index].receivedAt = received ? new Date() : undefined;
+    if (typeof received === 'boolean') {
+      line.received = received;
+      line.receivedAt = received ? new Date() : undefined;
+    }
+
+    if ('measuredWeight' in body) {
+      const w = parseMeasure(measuredWeight);
+      if (!w.ok) return NextResponse.json({ error: 'Invalid weight' }, { status: 400 });
+      line.measuredWeight = w.value;
+    }
+
+    if ('measuredCbm' in body) {
+      const c = parseMeasure(measuredCbm);
+      if (!c.ok) return NextResponse.json({ error: 'Invalid CBM' }, { status: 400 });
+      line.measuredCbm = c.value;
+    }
+
+    if (typeof addNote === 'string') {
+      const text = addNote.trim();
+      if (!text) return NextResponse.json({ error: 'Note is empty' }, { status: 400 });
+      if (!Array.isArray(line.warehouseNotes)) line.warehouseNotes = [];
+      line.warehouseNotes.push({ text: text.slice(0, 1000), at: new Date() });
+    }
+
     shipment.markModified(lineType === 'courier' ? 'courierPackages' : 'items');
     await shipment.save();
 

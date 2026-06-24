@@ -1,8 +1,12 @@
 'use client';
 
 import { useState, useEffect, use, useCallback } from 'react';
-import { Package, Check, Clock, Plane, Ship, RefreshCw } from 'lucide-react';
+import { Package, Check, Clock, Plane, Ship, RefreshCw, StickyNote, X, Send } from 'lucide-react';
 
+interface ProductNote {
+  text: string;
+  at: string;
+}
 interface TrackLine {
   lineType: 'item' | 'courier' | 'none';
   index: number;
@@ -10,6 +14,9 @@ interface TrackLine {
   qty: number;
   tracking: string;
   received: boolean;
+  measuredWeight: number | null;
+  measuredCbm: number | null;
+  notes: ProductNote[];
 }
 interface TrackCustomer {
   shipmentId: string;
@@ -29,6 +36,15 @@ interface TrackData {
   customers: TrackCustomer[];
 }
 
+const lineKey = (shipmentId: string, line: TrackLine) => `${shipmentId}-${line.lineType}-${line.index}`;
+
+function formatNoteDate(iso: string) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
 export default function BatchTrackPage({ params }: { params: Promise<{ batchId: string }> | { batchId: string } }) {
   const resolved = params && 'then' in params ? use(params) : params;
   const batchId = resolved?.batchId;
@@ -37,6 +53,7 @@ export default function BatchTrackPage({ params }: { params: Promise<{ batchId: 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [notePanel, setNotePanel] = useState<{ shipmentId: string; line: TrackLine } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -53,37 +70,66 @@ export default function BatchTrackPage({ params }: { params: Promise<{ batchId: 
 
   useEffect(() => { if (batchId) load(); }, [batchId, load]);
 
-  const toggle = async (c: TrackCustomer, line: TrackLine) => {
-    if (line.lineType === 'none' || !data) return;
-    const key = `${c.shipmentId}-${line.lineType}-${line.index}`;
-    const next = !line.received;
-    setSavingKey(key);
-
-    // optimistic update
+  // Apply a partial update to one line in local state.
+  const patchLine = useCallback((shipmentId: string, line: TrackLine, changes: Partial<TrackLine>) => {
     setData((prev) => {
       if (!prev) return prev;
       const customers = prev.customers.map((cc) =>
-        cc.shipmentId !== c.shipmentId ? cc : {
+        cc.shipmentId !== shipmentId ? cc : {
           ...cc,
-          lines: cc.lines.map((l) => (l.lineType === line.lineType && l.index === line.index ? { ...l, received: next } : l)),
+          lines: cc.lines.map((l) => (l.lineType === line.lineType && l.index === line.index ? { ...l, ...changes } : l)),
         }
       );
       const receivedCount = customers.reduce((sum, cc) => sum + cc.lines.filter((l) => l.received).length, 0);
       return { ...prev, customers, receivedCount };
     });
+  }, []);
 
+  // Send a PATCH to the server for one line. Returns true on success.
+  const sendPatch = useCallback(async (shipmentId: string, line: TrackLine, payload: Record<string, unknown>) => {
+    const res = await fetch(`/api/track/${batchId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shipmentId, lineType: line.lineType, index: line.index, ...payload }),
+    });
+    if (!res.ok) throw new Error('save failed');
+    return true;
+  }, [batchId]);
+
+  const toggle = async (c: TrackCustomer, line: TrackLine) => {
+    if (line.lineType === 'none' || !data) return;
+    const key = lineKey(c.shipmentId, line);
+    const next = !line.received;
+    setSavingKey(key);
+    patchLine(c.shipmentId, line, { received: next }); // optimistic
     try {
-      const res = await fetch(`/api/track/${batchId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shipmentId: c.shipmentId, lineType: line.lineType, index: line.index, received: next }),
-      });
-      if (!res.ok) throw new Error('save failed');
+      await sendPatch(c.shipmentId, { ...line, received: next }, { received: next });
     } catch {
-      await load(); // revert to server truth on failure
+      await load();
       alert('Could not save — please try again.');
     } finally {
       setSavingKey(null);
+    }
+  };
+
+  // Save a measured KG/CBM value (fires on blur). Empty clears the value.
+  const saveMeasure = async (c: TrackCustomer, line: TrackLine, field: 'measuredWeight' | 'measuredCbm', raw: string) => {
+    if (line.lineType === 'none') return;
+    const trimmed = raw.trim();
+    const value = trimmed === '' ? null : Number(trimmed);
+    if (value !== null && (isNaN(value) || value < 0)) {
+      alert('Please enter a valid number.');
+      await load();
+      return;
+    }
+    const current = line[field];
+    if ((current ?? null) === value) return; // unchanged
+    patchLine(c.shipmentId, line, { [field]: value } as Partial<TrackLine>);
+    try {
+      await sendPatch(c.shipmentId, line, { [field]: value });
+    } catch {
+      await load();
+      alert('Could not save — please try again.');
     }
   };
 
@@ -155,28 +201,75 @@ export default function BatchTrackPage({ params }: { params: Promise<{ batchId: 
             </div>
             <div className="divide-y divide-slate-800/60">
               {c.lines.map((line) => {
-                const key = `${c.shipmentId}-${line.lineType}-${line.index}`;
+                const key = lineKey(c.shipmentId, line);
                 const saving = savingKey === key;
+                const disabled = line.lineType === 'none';
                 return (
-                  <div key={key} className="flex items-center justify-between gap-3 px-4 py-3">
-                    <div className="min-w-0">
-                      <p className="font-bold text-sm text-slate-200 truncate">{line.product}</p>
-                      <p className="text-[11px] text-slate-500 font-medium">
-                        Qty: {line.qty}{line.tracking ? ` · ${line.tracking}` : ''}
-                      </p>
+                  <div key={key} className="px-4 py-3.5">
+                    {/* Top row: product info + arrived button */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm text-slate-200 break-words">{line.product}</p>
+                        <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                          Qty: {line.qty}{line.tracking ? ` · ${line.tracking}` : ''}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => toggle(c, line)}
+                        disabled={saving || disabled}
+                        className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[11px] font-black uppercase tracking-wider border transition-colors disabled:opacity-60 ${
+                          line.received
+                            ? 'bg-emerald-500 text-white border-emerald-500'
+                            : 'bg-transparent text-slate-300 border-slate-600 hover:border-[#F15D38] hover:text-[#F15D38]'
+                        }`}
+                      >
+                        {line.received ? <Check size={13} /> : <Clock size={13} />}
+                        {line.received ? 'Received' : 'Not yet'}
+                      </button>
                     </div>
-                    <button
-                      onClick={() => toggle(c, line)}
-                      disabled={saving || line.lineType === 'none'}
-                      className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[11px] font-black uppercase tracking-wider border transition-colors disabled:opacity-60 ${
-                        line.received
-                          ? 'bg-emerald-500 text-white border-emerald-500'
-                          : 'bg-transparent text-slate-300 border-slate-600 hover:border-[#F15D38] hover:text-[#F15D38]'
-                      }`}
-                    >
-                      {line.received ? <Check size={13} /> : <Clock size={13} />}
-                      {line.received ? 'Received' : 'Not yet'}
-                    </button>
+
+                    {/* Measured KG / CBM + Note */}
+                    {!disabled && (
+                      <div className="flex items-end gap-3 mt-3 flex-wrap">
+                        <label className="flex flex-col gap-1">
+                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">KG (measured)</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            inputMode="decimal"
+                            defaultValue={line.measuredWeight ?? ''}
+                            placeholder="—"
+                            onBlur={(e) => saveMeasure(c, line, 'measuredWeight', e.target.value)}
+                            className="w-24 px-2.5 py-1.5 rounded-lg bg-[#0B0F19] border border-slate-700 text-sm font-bold text-slate-100 placeholder-slate-600 focus:border-[#F15D38] focus:outline-none"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1">
+                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">CBM (measured)</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            inputMode="decimal"
+                            defaultValue={line.measuredCbm ?? ''}
+                            placeholder="—"
+                            onBlur={(e) => saveMeasure(c, line, 'measuredCbm', e.target.value)}
+                            className="w-24 px-2.5 py-1.5 rounded-lg bg-[#0B0F19] border border-slate-700 text-sm font-bold text-slate-100 placeholder-slate-600 focus:border-[#F15D38] focus:outline-none"
+                          />
+                        </label>
+                        <button
+                          onClick={() => setNotePanel({ shipmentId: c.shipmentId, line })}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider border transition-colors ${
+                            line.notes.length > 0
+                              ? 'border-[#F15D38] text-[#F15D38] bg-[#F15D38]/10'
+                              : 'border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200'
+                          }`}
+                        >
+                          <StickyNote size={13} />
+                          Note{line.notes.length > 0 ? ` (${line.notes.length})` : ''}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -185,9 +278,89 @@ export default function BatchTrackPage({ params }: { params: Promise<{ batchId: 
         ))}
       </div>
 
-      <p className="text-center text-[10px] text-slate-600 font-bold mt-4">
-        Tap a button to mark goods as received. Changes save automatically.
+      <p className="text-center text-[10px] text-slate-600 font-bold mt-4 px-5">
+        Mark goods as received, type the weight (KG) and CBM you measure, and add notes per product. Everything saves automatically.
       </p>
+
+      {notePanel && (
+        <NoteModal
+          line={notePanel.line}
+          onClose={() => setNotePanel(null)}
+          onAdd={async (text) => {
+            const { shipmentId, line } = notePanel;
+            const optimistic: ProductNote = { text, at: new Date().toISOString() };
+            patchLine(shipmentId, line, { notes: [...line.notes, optimistic] });
+            setNotePanel({ shipmentId, line: { ...line, notes: [...line.notes, optimistic] } });
+            try {
+              await sendPatch(shipmentId, line, { addNote: text });
+            } catch {
+              await load();
+              setNotePanel(null);
+              alert('Could not save the note — please try again.');
+            }
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function NoteModal({ line, onClose, onAdd }: { line: TrackLine; onClose: () => void; onAdd: (text: string) => Promise<void> }) {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    const t = text.trim();
+    if (!t || busy) return;
+    setBusy(true);
+    await onAdd(t);
+    setText('');
+    setBusy(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center p-0 sm:p-6" onClick={onClose}>
+      <div
+        className="bg-[#131B2E] border border-slate-800 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[85vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+          <div className="min-w-0">
+            <h3 className="font-black text-slate-100 text-sm truncate">Notes</h3>
+            <p className="text-[11px] text-slate-500 font-medium truncate">{line.product}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-100"><X size={18} /></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5">
+          {line.notes.length === 0 && (
+            <p className="text-center text-slate-500 text-sm font-medium py-6">No notes yet. Add the first one below.</p>
+          )}
+          {line.notes.map((n, i) => (
+            <div key={i} className="bg-[#0B0F19] border border-slate-800 rounded-xl px-3 py-2.5">
+              <p className="text-sm text-slate-200 whitespace-pre-wrap break-words">{n.text}</p>
+              <p className="text-[10px] text-slate-500 font-bold mt-1.5">{formatNoteDate(n.at)}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="border-t border-slate-800 p-3 flex items-end gap-2">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="e.g. Box arrived broken; 1 piece missing after count"
+            rows={2}
+            className="flex-1 resize-none px-3 py-2 rounded-xl bg-[#0B0F19] border border-slate-700 text-sm text-slate-100 placeholder-slate-600 focus:border-[#F15D38] focus:outline-none"
+          />
+          <button
+            onClick={submit}
+            disabled={busy || !text.trim()}
+            className="shrink-0 flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#F15D38] text-white text-sm font-black disabled:opacity-50"
+          >
+            <Send size={15} />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
