@@ -2,12 +2,24 @@
 
 import { useState, useEffect, use } from 'react';
 import {
-  ArrowLeft, Save, Package, Truck,
+  ArrowLeft, Save, Package, Truck, DollarSign, Plus, Trash2,
   CheckCircle2, User, Scale, Box, Calendar, FileText,
   ChevronDown, ChevronRight, Check, Clock, StickyNote
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { EXPENSE_PAYMENT_METHODS } from '@/lib/payment-methods';
+
+// Quick-pick categories for batch expenses (arrival/handling costs first).
+const BATCH_EXPENSE_CATEGORIES = [
+  'Port-to-Office Transport',
+  'Loading / Offloading Labor',
+  'Customs',
+  'Trucking',
+  'Warehousing',
+  'Port Taxes',
+  'Other',
+];
 
 export default function BatchDetail({ params }: { params: Promise<{ id: string }> | { id: string } }) {
   const router = useRouter();
@@ -24,6 +36,25 @@ export default function BatchDetail({ params }: { params: Promise<{ id: string }
   
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
+  // Real batch expenses (saved in the shared Expenses section, linked to this batch)
+  const [batchExpenses, setBatchExpenses] = useState<any[]>([]);
+  const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [savingExpense, setSavingExpense] = useState(false);
+  const emptyExpense = {
+    vendor: '', category: 'Port-to-Office Transport', amount: '', amountPaid: '',
+    paymentMethod: 'CASH', date: new Date().toISOString().split('T')[0], description: '',
+  };
+  const [expForm, setExpForm] = useState(emptyExpense);
+
+  const loadBatchExpenses = async (batchId: string) => {
+    try {
+      const res = await fetch('/api/bills');
+      if (!res.ok) return;
+      const all = await res.json();
+      setBatchExpenses((all as any[]).filter((b) => b.batchId === batchId));
+    } catch { /* ignore */ }
+  };
+
   useEffect(() => {
     if (!id) return;
     const fetchBatchDetails = async () => {
@@ -35,6 +66,7 @@ export default function BatchDetail({ params }: { params: Promise<{ id: string }
         setStatus(data.status || 'IN_TRANSIT');
         setArrivalDate(data.arrival || '');
         setShipments(data.shipmentsList || []);
+        if (data.batchId) loadBatchExpenses(data.batchId);
       } catch (err) {
         console.error('Error fetching batch detail:', err);
       } finally {
@@ -43,6 +75,59 @@ export default function BatchDetail({ params }: { params: Promise<{ id: string }
     };
     fetchBatchDetails();
   }, [id]);
+
+  const batchExpenseTotal = batchExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+  const handleAddExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amount = parseFloat(expForm.amount) || 0;
+    const paid = parseFloat(expForm.amountPaid) || 0;
+    if (!expForm.vendor.trim()) { alert('Enter who you paid (vendor / service provider)'); return; }
+    if (amount <= 0) { alert('Enter a valid amount'); return; }
+    if (!expForm.category.trim()) { alert('Choose or type a category'); return; }
+    const expStatus = paid <= 0 ? 'PENDING' : paid >= amount - 0.01 ? 'PAID' : 'PARTIAL';
+    setSavingExpense(true);
+    try {
+      const res = await fetch('/api/bills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vendor: expForm.vendor.trim(),
+          date: expForm.date,
+          due: expForm.date,
+          amount,
+          amountPaid: paid,
+          status: expStatus,
+          category: expForm.category.trim(),
+          paymentMethod: expForm.paymentMethod,
+          batchId: batch.batchId,
+          description: expForm.description.trim(),
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.details || d.error || 'Failed to save expense');
+      }
+      setExpForm(emptyExpense);
+      setShowExpenseForm(false);
+      await loadBatchExpenses(batch.batchId);
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setSavingExpense(false);
+    }
+  };
+
+  const handleDeleteExpense = async (expenseId: string) => {
+    if (!confirm('Delete this expense? It will be removed from the Expenses section too.')) return;
+    try {
+      const res = await fetch(`/api/bills?id=${expenseId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete expense');
+      await loadBatchExpenses(batch.batchId);
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -384,6 +469,128 @@ export default function BatchDetail({ params }: { params: Promise<{ id: string }
                 <span className="text-[9px] text-slate-500 font-bold uppercase">All</span>
               </Link>
             </div>
+          </div>
+
+          {/* Batch Expenses — real, saved into the Expenses section */}
+          <div className="shipment-card">
+            <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-800/40">
+              <div className="flex items-center gap-2">
+                <DollarSign size={20} className="text-[#F15D38]" />
+                <h3 className="text-sm font-bold text-slate-200 uppercase tracking-widest">Batch Expenses</h3>
+              </div>
+              <button
+                onClick={() => setShowExpenseForm((v) => !v)}
+                className="flex items-center gap-1.5 px-3 py-1.5 border-2 border-dashed border-slate-700 hover:border-[#F15D38] text-slate-400 hover:text-[#F15D38] rounded-xl text-[11px] font-bold transition-all"
+              >
+                <Plus size={13} /> {showExpenseForm ? 'Close' : 'Add'}
+              </button>
+            </div>
+
+            {batchExpenses.length === 0 ? (
+              <p className="text-[11px] text-slate-500 font-bold py-1">No expenses linked to this batch yet.</p>
+            ) : (
+              <div className="space-y-1 mb-2">
+                {batchExpenses.map((exp) => (
+                  <div key={exp._id} className="flex justify-between items-start gap-2 py-2 border-b border-slate-800/30 group/exp">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-200 truncate">{exp.vendor}</p>
+                      <p className="text-[10px] text-slate-500 font-bold">
+                        {exp.category}
+                        <span className={`ml-1.5 ${exp.status === 'PAID' ? 'text-emerald-400' : exp.status === 'PARTIAL' ? 'text-blue-400' : 'text-amber-400'}`}>
+                          · {exp.status}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="font-bold text-slate-100 text-sm">${(Number(exp.amount) || 0).toFixed(2)}</span>
+                      <button
+                        onClick={() => handleDeleteExpense(exp._id)}
+                        className="p-1 text-slate-600 hover:text-rose-400 opacity-0 group-hover/exp:opacity-100 transition-all"
+                        title="Delete expense"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                <div className="flex justify-between items-center pt-2">
+                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Total</span>
+                  <span className="text-lg font-black text-[#F15D38]">${batchExpenseTotal.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+
+            {showExpenseForm && (
+              <form onSubmit={handleAddExpense} className="space-y-2.5 mt-3 pt-3 border-t border-slate-800/40">
+                <input
+                  type="text"
+                  value={expForm.vendor}
+                  onChange={(e) => setExpForm({ ...expForm, vendor: e.target.value })}
+                  placeholder="Who you paid (e.g. truck driver, loaders)"
+                  className="search-input w-full !py-2 !text-xs"
+                />
+                <input
+                  type="text"
+                  list="batch-exp-cats"
+                  value={expForm.category}
+                  onChange={(e) => setExpForm({ ...expForm, category: e.target.value })}
+                  placeholder="Category (pick or type)"
+                  className="search-input w-full !py-2 !text-xs"
+                />
+                <datalist id="batch-exp-cats">
+                  {BATCH_EXPENSE_CATEGORIES.map((c) => <option key={c} value={c} />)}
+                </datalist>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <input
+                    type="number" min="0" step="0.01"
+                    value={expForm.amount}
+                    onChange={(e) => setExpForm({ ...expForm, amount: e.target.value })}
+                    placeholder="Amount $"
+                    className="search-input w-full !py-2 !text-xs"
+                  />
+                  <input
+                    type="number" min="0" step="0.01"
+                    value={expForm.amountPaid}
+                    onChange={(e) => setExpForm({ ...expForm, amountPaid: e.target.value })}
+                    placeholder="Paid $ (0 if none)"
+                    className="search-input w-full !py-2 !text-xs"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <select
+                    value={expForm.paymentMethod}
+                    onChange={(e) => setExpForm({ ...expForm, paymentMethod: e.target.value })}
+                    className="search-input w-full !py-2 !text-xs"
+                  >
+                    {EXPENSE_PAYMENT_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                  </select>
+                  <input
+                    type="date"
+                    value={expForm.date}
+                    onChange={(e) => setExpForm({ ...expForm, date: e.target.value })}
+                    className="search-input w-full !py-2 !text-xs"
+                  />
+                </div>
+                <input
+                  type="text"
+                  value={expForm.description}
+                  onChange={(e) => setExpForm({ ...expForm, description: e.target.value })}
+                  placeholder="Note (optional)"
+                  className="search-input w-full !py-2 !text-xs"
+                />
+                <button
+                  type="submit"
+                  disabled={savingExpense}
+                  className="w-full py-2.5 bg-[#F15D38] hover:bg-[#d64420] rounded-xl font-black text-white text-xs uppercase tracking-wider transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  <Save size={14} /> {savingExpense ? 'Saving…' : 'Save Expense'}
+                </button>
+              </form>
+            )}
+
+            <p className="text-[10px] text-slate-500 mt-3 leading-relaxed">
+              Saved straight into your <span className="text-slate-300 font-bold">Expenses</span> section — view, edit or delete them there like any expense.
+            </p>
           </div>
 
           {/* Quick Actions */}
