@@ -3,7 +3,8 @@
 import { useState, useEffect, use } from 'react';
 import {
   ArrowLeft, Save, Package, Hash, Truck, DollarSign,
-  Plus, Trash2, CheckCircle2, User, Scale, Box, Calendar, FileText
+  Plus, Trash2, CheckCircle2, User, Scale, Box, Calendar, FileText,
+  ChevronDown, ChevronRight, Check, Clock, StickyNote
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -21,6 +22,8 @@ export default function BatchDetail({ params }: { params: Promise<{ id: string }
   const [status, setStatus] = useState('IN_TRANSIT');
   const [arrivalDate, setArrivalDate] = useState('');
   
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
   const [trackingNumbers, setTrackingNumbers] = useState<string[]>(['TRK7788221', 'TRK9900331']);
   const [newTracking, setNewTracking] = useState('');
   const [expenses, setExpenses] = useState([
@@ -234,35 +237,97 @@ export default function BatchDetail({ params }: { params: Promise<{ id: string }
                     cartons = 1;
                   }
                   
+                  const lines = buildProductLines(s);
+                  const isOpen = !!expanded[s.id];
+                  const receivedLines = lines.filter((l) => l.received).length;
+                  const noteCount = lines.reduce((sum, l) => sum + l.notes.length, 0);
+
                   return (
-                    <div key={s.id} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 bg-[#0B0F19] rounded-2xl border border-slate-800 hover:border-slate-700/60 transition-all gap-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${s.type === 'AIR' ? 'bg-[#F15D38]/10 text-[#F15D38]' : 'bg-emerald-950/30 text-emerald-400'}`}>
-                          {s.type === 'AIR' ? <PlaneIcon size={16} /> : <ShipIcon size={16} />}
-                        </div>
-                        <div>
-                          <div className="font-mono text-sm font-black text-slate-100">{s.shipmentNumber}</div>
-                          <div className="text-[10px] text-slate-400 font-bold flex items-center gap-1.5 mt-0.5">
-                            <User size={10} /> {s.customer} 
-                            <span className="text-slate-600">•</span>
-                            <span>{cartons} {cartons === 1 ? 'Carton' : 'Cartons'}</span>
+                    <div key={s.id} className="bg-[#0B0F19] rounded-2xl border border-slate-800 hover:border-slate-700/60 transition-all overflow-hidden">
+                      <button
+                        onClick={() => setExpanded((prev) => ({ ...prev, [s.id]: !prev[s.id] }))}
+                        className="w-full flex flex-col md:flex-row justify-between items-start md:items-center p-4 gap-4 text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-slate-500">{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</span>
+                          <div className={`p-2 rounded-lg ${s.type === 'AIR' ? 'bg-[#F15D38]/10 text-[#F15D38]' : 'bg-emerald-950/30 text-emerald-400'}`}>
+                            {s.type === 'AIR' ? <PlaneIcon size={16} /> : <ShipIcon size={16} />}
+                          </div>
+                          <div>
+                            <div className="font-mono text-sm font-black text-slate-100">{s.shipmentNumber}</div>
+                            <div className="text-[10px] text-slate-400 font-bold flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              <User size={10} /> {s.customer}
+                              <span className="text-slate-600">•</span>
+                              <span>{cartons} {cartons === 1 ? 'Carton' : 'Cartons'}</span>
+                              {lines.length > 0 && (
+                                <>
+                                  <span className="text-slate-600">•</span>
+                                  <span className={receivedLines === lines.length ? 'text-emerald-400' : 'text-slate-400'}>{receivedLines}/{lines.length} arrived</span>
+                                </>
+                              )}
+                              {noteCount > 0 && (
+                                <span className="text-[#F15D38] flex items-center gap-0.5"><StickyNote size={10} /> {noteCount}</span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t border-slate-800/40 md:border-0 pt-3 md:pt-0">
-                        <div className="text-right">
-                          <div className="text-xs font-black text-slate-300">
-                            {s.type === 'AIR' ? `${s.weight || 0} KG` : `${s.cbm || 0} CBM`}
+                        <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t border-slate-800/40 md:border-0 pt-3 md:pt-0">
+                          <div className="text-right">
+                            <div className="text-xs font-black text-slate-300">
+                              {s.type === 'AIR' ? `${s.weight || 0} KG` : `${s.cbm || 0} CBM`}
+                            </div>
+                            <div className="text-[9px] font-black uppercase text-slate-500 mt-0.5">Loads</div>
                           </div>
-                          <div className="text-[9px] font-black uppercase text-slate-500 mt-0.5">Loads</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-xs font-black text-[#F15D38]">${s.total?.toFixed(2)}</div>
-                          <div className={`text-[8px] font-black px-1.5 py-0.5 rounded-md mt-0.5 inline-block ${s.payment === 'PAID' ? 'text-emerald-400 bg-emerald-950/20 border border-emerald-800/20' : 'text-rose-400 bg-rose-950/20 border border-rose-800/20'}`}>
-                            {s.payment}
+                          <div className="text-right">
+                            <div className="text-xs font-black text-[#F15D38]">${s.total?.toFixed(2)}</div>
+                            <div className={`text-[8px] font-black px-1.5 py-0.5 rounded-md mt-0.5 inline-block ${s.payment === 'PAID' ? 'text-emerald-400 bg-emerald-950/20 border border-emerald-800/20' : 'text-rose-400 bg-rose-950/20 border border-rose-800/20'}`}>
+                              {s.payment}
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      </button>
+
+                      {isOpen && (
+                        <div className="border-t border-slate-800/60 px-4 py-3 space-y-2.5">
+                          {lines.length === 0 ? (
+                            <p className="text-[11px] text-slate-500 font-bold py-2">No product lines on this shipment.</p>
+                          ) : (
+                            lines.map((l, li) => (
+                              <div key={li} className="bg-[#131B2E] border border-slate-800 rounded-xl p-3">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-bold text-slate-200 break-words">{l.product}</p>
+                                    <p className="text-[10px] text-slate-500 font-bold mt-0.5">
+                                      Qty: {l.qty}{l.tracking ? ` · ${l.tracking}` : ''}
+                                    </p>
+                                  </div>
+                                  <span className={`shrink-0 flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full ${l.received ? 'text-emerald-400 bg-emerald-950/30' : 'text-slate-400 bg-slate-800/60'}`}>
+                                    {l.received ? <Check size={11} /> : <Clock size={11} />}
+                                    {l.received ? 'Arrived' : 'Not yet'}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-4 mt-2 text-[11px] font-bold">
+                                  <span className="text-slate-400">Measured KG: <span className={l.measuredWeight != null ? 'text-slate-100' : 'text-slate-600'}>{l.measuredWeight != null ? l.measuredWeight : '—'}</span></span>
+                                  <span className="text-slate-400">Measured CBM: <span className={l.measuredCbm != null ? 'text-slate-100' : 'text-slate-600'}>{l.measuredCbm != null ? l.measuredCbm : '—'}</span></span>
+                                </div>
+                                {l.notes.length > 0 && (
+                                  <div className="mt-2.5 space-y-1.5 border-t border-slate-800/60 pt-2.5">
+                                    {l.notes.map((n, ni) => (
+                                      <div key={ni} className="flex items-start gap-1.5">
+                                        <StickyNote size={11} className="text-[#F15D38] mt-0.5 shrink-0" />
+                                        <div className="min-w-0">
+                                          <p className="text-[12px] text-slate-200 whitespace-pre-wrap break-words">{n.text}</p>
+                                          <p className="text-[9px] text-slate-500 font-bold mt-0.5">{formatNoteDate(n.at)}</p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -425,6 +490,43 @@ export default function BatchDetail({ params }: { params: Promise<{ id: string }
       </div>
     </div>
   );
+}
+
+interface AdminProductLine {
+  product: string;
+  qty: number;
+  tracking: string;
+  received: boolean;
+  measuredWeight: number | null;
+  measuredCbm: number | null;
+  notes: { text: string; at: string }[];
+}
+
+// Build the per-product lines for a shipment (courier packages first, else items) —
+// same rule the warehouse tracking link uses, so admin sees exactly what the keeper edits.
+function buildProductLines(s: any): AdminProductLine[] {
+  const num = (v: any): number | null => (typeof v === 'number' && !isNaN(v) ? v : null);
+  const notes = (n: any) => (Array.isArray(n) ? n.map((x: any) => ({ text: x.text || '', at: x.at || '' })) : []);
+  if (Array.isArray(s.courierPackages) && s.courierPackages.length > 0) {
+    return s.courierPackages.map((p: any) => ({
+      product: p.goods || p.courier || '-', qty: p.qty || 1, tracking: p.trackingNumber || '',
+      received: !!p.received, measuredWeight: num(p.measuredWeight), measuredCbm: num(p.measuredCbm), notes: notes(p.warehouseNotes),
+    }));
+  }
+  if (Array.isArray(s.items) && s.items.length > 0) {
+    return s.items.map((it: any) => ({
+      product: it.description || '-', qty: it.qty || 1, tracking: '',
+      received: !!it.received, measuredWeight: num(it.measuredWeight), measuredCbm: num(it.measuredCbm), notes: notes(it.warehouseNotes),
+    }));
+  }
+  return [];
+}
+
+function formatNoteDate(iso: string) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
 // Custom icons to avoid importing Plane / Ship from Lucide which may collide or differ
