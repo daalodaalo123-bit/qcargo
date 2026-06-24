@@ -76,14 +76,14 @@ export default function PackingListPage({ params }: { params: Promise<{ id: stri
       <div className="print-doc bg-white text-black min-h-screen p-10 font-sans max-w-4xl mx-auto">
 
         {/* Header */}
-        <div className="flex justify-between items-start pb-6 mb-8 border-b-[3px] border-black">
+        <div className="flex justify-between items-start pb-6 mb-8 border-b-[3px] border-[#F15D38]">
           <div>
-            <div className="text-2xl font-black tracking-tight text-black uppercase">Q Cargo Logistics</div>
+            <div className="text-2xl font-black tracking-tight uppercase"><span className="text-[#0B0F19]">Q </span><span className="text-[#F15D38]">Cargo</span><span className="text-[#0d9488]"> Logistics</span></div>
             <div className="text-sm text-gray-500 mt-1">Hargeisa, Somaliland</div>
             <div className="text-sm text-gray-500">qcargologistic@gmail.com</div>
           </div>
           <div className="text-right">
-            <div className="text-3xl font-black uppercase tracking-widest text-black">Packing List</div>
+            <div className="text-3xl font-black uppercase tracking-widest text-[#0d9488]">Packing List</div>
             <div className="text-xs text-gray-500 mt-1 font-bold uppercase tracking-widest">Doc No: {docNumber}</div>
             <div className="text-xs text-gray-500 mt-0.5">Date: {today}</div>
           </div>
@@ -110,15 +110,15 @@ export default function PackingListPage({ params }: { params: Promise<{ id: stri
         <table className="w-full border-collapse text-sm mb-8">
           <thead>
             <tr>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-black w-8">#</th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-black">Shipment No.</th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-black">Customer</th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-black">Description of Goods</th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-black w-20">Cartons</th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-black w-24">
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-[#0d9488] w-8">#</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-[#0d9488]">Shipment No.</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-[#0d9488]">Customer</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-[#0d9488]">Description of Goods</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-[#0d9488] w-20">Cartons</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-[#0d9488] w-24">
                 {isAir ? 'Booked KG' : 'Booked CBM'}
               </th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-black w-28">
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-[#0d9488] w-28">
                 {isAir ? 'Measured KG' : 'Measured CBM'}
               </th>
             </tr>
@@ -141,7 +141,7 @@ export default function PackingListPage({ params }: { params: Promise<{ id: stri
                 qty = s.items.reduce((sum: number, it: any) => sum + (it.qty || 1), 0);
               }
               return (
-                <tr key={s.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                <tr key={s.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#f0fdfa]'}>
                   <td className="border border-gray-300 px-3 py-2.5 text-center font-bold text-gray-500">{idx + 1}</td>
                   <td className="border border-gray-300 px-3 py-2.5 font-mono font-black text-sm">{s.shipmentNumber}</td>
                   <td className="border border-gray-300 px-3 py-2.5 font-bold">{s.customer}</td>
@@ -160,7 +160,7 @@ export default function PackingListPage({ params }: { params: Promise<{ id: stri
               );
             })}
             {/* Totals */}
-            <tr className="bg-black text-white">
+            <tr className="bg-[#F15D38] text-white">
               <td colSpan={4} className="border border-gray-700 px-3 py-2.5 text-right text-[10px] font-black uppercase tracking-widest">
                 Total — {shipments.length} shipment{shipments.length !== 1 ? 's' : ''}
               </td>

@@ -61,9 +61,9 @@ export default function CertificateOfOriginPage({ params }: { params: Promise<{ 
       <div className="print-doc bg-white text-black min-h-screen p-10 font-sans max-w-4xl mx-auto">
 
         {/* Header */}
-        <div className="text-center pb-6 mb-6 border-b-[3px] border-black">
+        <div className="text-center pb-6 mb-6 border-b-[3px] border-[#F15D38]">
           <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">People's Republic of China</div>
-          <div className="text-3xl font-black tracking-tight text-black uppercase mb-1">Certificate of Origin</div>
+          <div className="text-3xl font-black tracking-tight text-[#0d9488] uppercase mb-1">Certificate of Origin</div>
           <div className="text-xs text-gray-500 font-bold uppercase tracking-widest">Non-Preferential · For Customs Purposes Only</div>
         </div>
 
@@ -118,12 +118,12 @@ export default function CertificateOfOriginPage({ params }: { params: Promise<{ 
         <table className="w-full border-collapse text-sm mb-6">
           <thead>
             <tr>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-black w-8">6. #</th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-black">7. Description of Goods</th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-black w-28">8. Shipment No.</th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-black w-20">9. Qty / Pkgs</th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-black w-24">10. Gross Wt (KG)</th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-black w-24">11. FOB Value (USD)</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-[#0d9488] w-8">6. #</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-[#0d9488]">7. Description of Goods</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-[#0d9488] w-28">8. Shipment No.</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-[#0d9488] w-20">9. Qty / Pkgs</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-[#0d9488] w-24">10. Gross Wt (KG)</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-[#0d9488] w-24">11. FOB Value (USD)</th>
             </tr>
           </thead>
           <tbody>
@@ -144,7 +144,7 @@ export default function CertificateOfOriginPage({ params }: { params: Promise<{ 
                 qty = s.items.reduce((sum: number, it: any) => sum + (it.qty || 1), 0);
               }
               return (
-                <tr key={s.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                <tr key={s.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#f0fdfa]'}>
                   <td className="border border-gray-300 px-3 py-2.5 text-center font-bold text-gray-500">{idx + 1}</td>
                   <td className="border border-gray-300 px-3 py-2.5 text-gray-700 text-xs">{goodsDesc}</td>
                   <td className="border border-gray-300 px-3 py-2.5 font-mono font-black text-xs">{s.shipmentNumber}</td>
@@ -154,7 +154,7 @@ export default function CertificateOfOriginPage({ params }: { params: Promise<{ 
                 </tr>
               );
             })}
-            <tr className="bg-black text-white">
+            <tr className="bg-[#F15D38] text-white">
               <td colSpan={3} className="border border-gray-700 px-3 py-2.5 text-right text-[10px] font-black uppercase tracking-widest">
                 Totals — {shipments.length} shipment{shipments.length !== 1 ? 's' : ''}
               </td>

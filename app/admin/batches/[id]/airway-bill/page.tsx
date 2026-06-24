@@ -69,14 +69,14 @@ export default function AirwayBillPage({ params }: { params: Promise<{ id: strin
       <div className="print-doc bg-white text-black min-h-screen p-10 font-sans max-w-4xl mx-auto">
 
         {/* Header */}
-        <div className="flex justify-between items-start pb-6 mb-6 border-b-[3px] border-black">
+        <div className="flex justify-between items-start pb-6 mb-6 border-b-[3px] border-[#F15D38]">
           <div>
-            <div className="text-2xl font-black tracking-tight text-black uppercase">Q Cargo Logistics</div>
+            <div className="text-2xl font-black tracking-tight uppercase"><span className="text-[#0B0F19]">Q </span><span className="text-[#F15D38]">Cargo</span><span className="text-[#0d9488]"> Logistics</span></div>
             <div className="text-sm text-gray-500 mt-1">Hargeisa, Somaliland</div>
             <div className="text-sm text-gray-500">qcargologistic@gmail.com</div>
           </div>
           <div className="text-right">
-            <div className="text-3xl font-black uppercase tracking-widest text-black">Air Waybill</div>
+            <div className="text-3xl font-black uppercase tracking-widest text-[#0d9488]">Air Waybill</div>
             <div className="text-xs text-gray-500 mt-1 font-bold uppercase tracking-widest">AWB No: {awbNumber}</div>
             <div className="text-xs text-gray-500 mt-0.5">Date: {today}</div>
             <div className="text-xs text-gray-500 mt-0.5">Batch Ref: {batch.batchId}</div>
@@ -135,13 +135,13 @@ export default function AirwayBillPage({ params }: { params: Promise<{ id: strin
         <table className="w-full border-collapse text-sm mb-6">
           <thead>
             <tr>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-black w-8">#</th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-black">AWB / Shipment No.</th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-black">Consignee</th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-black">Nature & Quantity of Goods</th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-black w-20">Pieces</th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-black w-24">Gross Wt (KG)</th>
-              <th className="bg-black text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-black w-24">Value (USD)</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-[#0d9488] w-8">#</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-[#0d9488]">AWB / Shipment No.</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-[#0d9488]">Consignee</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-left px-3 py-2.5 border border-[#0d9488]">Nature & Quantity of Goods</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-[#0d9488] w-20">Pieces</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-[#0d9488] w-24">Gross Wt (KG)</th>
+              <th className="bg-[#0d9488] text-white text-[10px] font-black uppercase tracking-widest text-center px-3 py-2.5 border border-[#0d9488] w-24">Value (USD)</th>
             </tr>
           </thead>
           <tbody>
@@ -162,7 +162,7 @@ export default function AirwayBillPage({ params }: { params: Promise<{ id: strin
                 qty = s.items.reduce((sum: number, it: any) => sum + (it.qty || 1), 0);
               }
               return (
-                <tr key={s.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                <tr key={s.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#f0fdfa]'}>
                   <td className="border border-gray-300 px-3 py-2.5 text-center font-bold text-gray-500">{idx + 1}</td>
                   <td className="border border-gray-300 px-3 py-2.5 font-mono font-black text-sm">{s.shipmentNumber}</td>
                   <td className="border border-gray-300 px-3 py-2.5 font-bold">{s.customer}</td>
@@ -174,7 +174,7 @@ export default function AirwayBillPage({ params }: { params: Promise<{ id: strin
               );
             })}
             {/* Totals row */}
-            <tr className="bg-black text-white">
+            <tr className="bg-[#F15D38] text-white">
               <td colSpan={4} className="border border-gray-700 px-3 py-2.5 text-right text-[10px] font-black uppercase tracking-widest">
                 Total — {shipments.length} consignment{shipments.length !== 1 ? 's' : ''}
               </td>
