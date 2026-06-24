@@ -213,7 +213,7 @@ export default function BatchDetail({ params }: { params: Promise<{ id: string }
         <div className="lg:col-span-2 space-y-8">
           
           {/* Dynamic Manifest Status Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-6">
             <div className="shipment-card">
               <div className="flex items-center justify-between mb-2">
                 <Box size={20} className="text-[#F15D38]" />
@@ -237,6 +237,14 @@ export default function BatchDetail({ params }: { params: Promise<{ id: string }
               </div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Linked Shipments</p>
               <h3 className="text-2xl font-black text-slate-100">{shipments.length} {shipments.length === 1 ? 'Shipment' : 'Shipments'}</h3>
+            </div>
+            <div className="shipment-card">
+              <div className="flex items-center justify-between mb-2">
+                <DollarSign size={20} className="text-rose-400" />
+                <span className="text-[10px] font-black text-rose-400 bg-rose-950/30 px-2 py-0.5 rounded uppercase tracking-wider">{batchExpenses.length} {batchExpenses.length === 1 ? 'Item' : 'Items'}</span>
+              </div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Expenses</p>
+              <h3 className="text-2xl font-black text-rose-500">${batchExpenseTotal.toFixed(2)}</h3>
             </div>
           </div>
 
