@@ -44,6 +44,8 @@ export default function NewQuotation() {
   // State variables
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
+  const [customerOptions, setCustomerOptions] = useState<{ name: string; phone: string }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [items, setItems] = useState<QuotationItem[]>([{ description: '', notes: '', specification: '', qty: '1', price: '', totalPrice: '' }]);
   const [estimatedPrice, setEstimatedPrice] = useState('');
   const [freightType, setFreightType] = useState('SEA');
@@ -62,6 +64,52 @@ export default function NewQuotation() {
     : 0;
   const discountAmt = Math.max(0, parseFloat(discountAmount) || 0);
   const grandTotal = Math.max(0, subtotal + commissionAmount - discountAmt);
+
+  // Type-ahead matches for the customer name field
+  const nameQuery = customerName.trim().toLowerCase();
+  const customerSuggestions = nameQuery.length >= 1
+    ? customerOptions
+        .filter((o) => o.name.toLowerCase().includes(nameQuery) && o.name.toLowerCase() !== nameQuery)
+        .sort((a, b) => {
+          const aStarts = a.name.toLowerCase().startsWith(nameQuery) ? 0 : 1;
+          const bStarts = b.name.toLowerCase().startsWith(nameQuery) ? 0 : 1;
+          return aStarts - bStarts || a.name.localeCompare(b.name);
+        })
+        .slice(0, 8)
+    : [];
+
+  // Load existing customers (from CRM + past quotations) for the name dropdown
+  useEffect(() => {
+    const loadCustomers = async () => {
+      const map = new Map<string, { name: string; phone: string }>();
+      const add = (name?: string, phone?: string) => {
+        const clean = (name || '').trim();
+        if (!clean) return;
+        const key = clean.toLowerCase();
+        const existing = map.get(key);
+        if (!existing) map.set(key, { name: clean, phone: (phone || '').trim() });
+        else if (!existing.phone && phone) existing.phone = phone.trim();
+      };
+      try {
+        const [cRes, qRes] = await Promise.all([
+          fetch('/api/customers'),
+          fetch('/api/quotations'),
+        ]);
+        if (cRes.ok) {
+          const customers = await cRes.json();
+          (Array.isArray(customers) ? customers : []).forEach((c: { name?: string; phone?: string }) => add(c.name, c.phone));
+        }
+        if (qRes.ok) {
+          const quotes = await qRes.json();
+          (Array.isArray(quotes) ? quotes : []).forEach((q: { customer?: string; phone?: string }) => add(q.customer, q.phone));
+        }
+        setCustomerOptions(Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name)));
+      } catch (e) {
+        console.error('Failed to load customers for dropdown', e);
+      }
+    };
+    loadCustomers();
+  }, []);
 
   // Sum item prices to estimate total price
   useEffect(() => {
@@ -218,18 +266,44 @@ export default function NewQuotation() {
               <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">Customer Details</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
+              <div className="relative">
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Customer Name</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                  <input 
-                    type="text" 
-                    className="search-input !pl-10" 
-                    placeholder="e.g. Hassan Ahmed" 
+                  <input
+                    type="text"
+                    className="search-input !pl-10"
+                    placeholder="Type or pick a customer..."
                     value={customerName}
-                    onChange={e => setCustomerName(e.target.value)}
+                    autoComplete="off"
+                    onChange={e => { setCustomerName(e.target.value); setShowSuggestions(true); }}
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                   />
                 </div>
+                {showSuggestions && customerSuggestions.length > 0 && (
+                  <div className="absolute z-30 left-0 right-0 mt-1 bg-[#131B2E] border border-slate-700 rounded-xl shadow-2xl shadow-black/40 max-h-60 overflow-y-auto custom-scrollbar">
+                    {customerSuggestions.map((o, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setCustomerName(o.name);
+                          if (o.phone) setPhone(o.phone);
+                          setShowSuggestions(false);
+                        }}
+                        className="w-full text-left px-4 py-2.5 hover:bg-[#F15D38]/10 flex items-center justify-between gap-3 border-b border-slate-800/50 last:border-0 transition-colors"
+                      >
+                        <span className="text-sm font-bold text-slate-200 flex items-center gap-2">
+                          <User size={13} className="text-slate-500" />
+                          {o.name}
+                        </span>
+                        {o.phone && <span className="text-[11px] text-slate-500 font-mono shrink-0">{o.phone}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-2">WhatsApp / Phone</label>
