@@ -156,7 +156,105 @@ const [searchTerm, setSearchTerm] = useState('');
     }
   };
 
-  const filteredBatches = batches.filter(batch => 
+  // Download a single batch as a shareable sheet (opens in Google Sheets / Excel)
+  // Grouped by customer: full name on its own row, products listed under it.
+  const handleDownloadBatch = async (batch: Batch) => {
+    try {
+      const res = await fetch(`/api/batches?id=${batch.id}`);
+      if (!res.ok) throw new Error('Failed to load batch');
+      const detail = await res.json();
+      const shipments: any[] = detail.shipmentsList || [];
+
+      if (shipments.length === 0) {
+        alert('This batch has no customers/shipments to download yet.');
+        return;
+      }
+
+      const esc = (v: any) =>
+        String(v ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+
+      const today = new Date().toISOString().slice(0, 10);
+
+      // Build the product lines for one customer/shipment
+      const buildLines = (s: any) => {
+        const isAir = s.type === 'AIR';
+        let lines: { product: string; qty: any; tracking: string; kg: any; cbm: any }[] = [];
+
+        if (s.courierPackages && s.courierPackages.length > 0) {
+          lines = s.courierPackages.map((p: any) => ({
+            product: p.goods || p.courier || '-',
+            qty: p.qty || 1,
+            tracking: p.trackingNumber || '',
+            kg: '',
+            cbm: '',
+          }));
+        } else if (s.items && s.items.length > 0) {
+          lines = s.items.map((it: any) => ({
+            product: it.description || '-',
+            qty: it.qty || 1,
+            tracking: '',
+            kg: it.weight || '',
+            cbm: it.cbm || '',
+          }));
+        } else {
+          lines = [{ product: '-', qty: 1, tracking: '', kg: '', cbm: '' }];
+        }
+
+        // Put the shipment-level weight/CBM on the first line if no per-item value exists
+        if (lines.length > 0) {
+          if (isAir && !lines[0].kg && s.weight) lines[0].kg = s.weight;
+          if (!isAir && !lines[0].cbm && s.cbm) lines[0].cbm = s.cbm;
+        }
+        return lines;
+      };
+
+      let body = '';
+      // Title block
+      body += `<tr><td colspan="6" style="font-size:18px;font-weight:bold;padding:6px;">Q CARGO &mdash; Batch ${esc(batch.batchId)} (${esc(batch.type)})</td></tr>`;
+      body += `<tr><td colspan="6" style="padding:6px;">${esc(batch.origin)} &rarr; ${esc(batch.destination)} &bull; ${shipments.length} customers &bull; Downloaded ${esc(today)}</td></tr>`;
+      body += `<tr><td colspan="6"></td></tr>`;
+
+      for (const s of shipments) {
+        // Customer full name on its own row
+        body += `<tr><td colspan="6" style="background:#F15D38;color:#ffffff;font-weight:bold;font-size:14px;padding:8px;">${esc(s.customer)}</td></tr>`;
+        // Column headers under the customer
+        body += `<tr style="background:#f0f0f0;font-weight:bold;">`;
+        body += `<td>Product</td><td>Quantity</td><td>Tracking</td><td>KG</td><td>CBM</td><td>Received?</td></tr>`;
+        // Product rows
+        for (const line of buildLines(s)) {
+          body += `<tr>`;
+          body += `<td>${esc(line.product)}</td>`;
+          body += `<td>${esc(line.qty)}</td>`;
+          body += `<td>${esc(line.tracking)}</td>`;
+          body += `<td>${esc(line.kg)}</td>`;
+          body += `<td>${esc(line.cbm)}</td>`;
+          body += `<td>Not yet</td>`;
+          body += `</tr>`;
+        }
+        // Blank spacer between customers
+        body += `<tr><td colspan="6"></td></tr>`;
+      }
+
+      const html =
+        `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body>` +
+        `<table border="1" cellspacing="0" cellpadding="4">${body}</table></body></html>`;
+
+      const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `qcargo-batch-${batch.batchId}-${today}.xls`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(`Download failed: ${err.message}`);
+    }
+  };
+
+  const filteredBatches = batches.filter(batch =>
     batch.batchId.toLowerCase().includes(searchTerm.toLowerCase()) ||
     batch.origin.toLowerCase().includes(searchTerm.toLowerCase()) ||
     batch.destination.toLowerCase().includes(searchTerm.toLowerCase())
@@ -325,17 +423,26 @@ const [searchTerm, setSearchTerm] = useState('');
                     <span className="font-black text-slate-100">{batch.weight}</span>
                   </td>
                   <td className="px-8 py-6">
-                    <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Link href={`/admin/batches/${batch.id}`} className="p-2 hover:bg-slate-800 text-slate-400 hover:text-slate-100 rounded-lg transition-colors" title="Edit Batch">
-                        <Pencil size={16} />
-                      </Link>
-                      <button 
-                        onClick={() => handleDelete(batch.id)}
-                        className="p-2 hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-lg transition-colors" 
-                        title="Delete Batch"
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => handleDownloadBatch(batch)}
+                        className="p-2 bg-[#F15D38]/10 hover:bg-[#F15D38]/20 text-[#F15D38] rounded-lg transition-colors"
+                        title="Download Batch Sheet (Google Sheet / Excel)"
                       >
-                        <Trash2 size={16} />
+                        <Download size={16} />
                       </button>
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Link href={`/admin/batches/${batch.id}`} className="p-2 hover:bg-slate-800 text-slate-400 hover:text-slate-100 rounded-lg transition-colors" title="Edit Batch">
+                          <Pencil size={16} />
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(batch.id)}
+                          className="p-2 hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-lg transition-colors"
+                          title="Delete Batch"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
                   </td>
                 </tr>
