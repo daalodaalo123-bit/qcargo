@@ -379,15 +379,15 @@ const [searchTerm, setSearchTerm] = useState('');
               {filteredBatches.map((batch) => (
                 <tr key={batch.id} className="hover:bg-slate-800/30 transition-all group">
                   <td className="px-8 py-6">
-                    <div className="flex items-center gap-3">
+                    <Link href={`/admin/batches/${batch.id}`} className="flex items-center gap-3 group/open" title="Open batch">
                       <div className={`p-2 rounded-lg ${batch.type === 'AIR' ? 'bg-[#F15D38]/10 text-[#F15D38] border border-[#F15D38]/20' : 'bg-emerald-950/30 text-emerald-400 border border-emerald-800/20'}`}>
                         {batch.type === 'AIR' ? <Plane size={18} /> : <Ship size={18} />}
                       </div>
                       <div className="flex flex-col">
-                        <span className="font-mono text-sm font-black text-slate-100">{batch.batchId}</span>
+                        <span className="font-mono text-sm font-black text-slate-100 group-hover/open:text-[#F15D38] group-hover/open:underline transition-colors">{batch.batchId}</span>
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{batch.type} FREIGHT</span>
                       </div>
-                    </div>
+                    </Link>
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-2">
