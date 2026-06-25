@@ -12,6 +12,13 @@ async function requireAdmin() {
   return session;
 }
 
+// The primary owner account = the first-created admin. It can never be deleted
+// or deactivated, so the company can never lock itself out of the system.
+async function getOwnerId() {
+  const owner = await AdminUser.findOne({ role: 'admin' }).sort({ createdAt: 1 });
+  return owner ? String(owner._id) : null;
+}
+
 export async function GET() {
   const session = await requireAdmin();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -61,6 +68,17 @@ export async function PATCH(request: Request) {
   await connectDB();
   const body = await request.json();
 
+  // The primary owner must always stay an active admin (no lock-out, no demote).
+  const ownerId = await getOwnerId();
+  if (ownerId && ownerId === id) {
+    if (body.active === false) {
+      return NextResponse.json({ error: 'The primary owner account cannot be deactivated.' }, { status: 403 });
+    }
+    if (body.role && body.role !== 'admin') {
+      return NextResponse.json({ error: 'The primary owner account must remain an admin.' }, { status: 403 });
+    }
+  }
+
   // If updating password, hash it
   if (body.password) {
     body.passwordHash = await bcrypt.hash(body.password, 10);
@@ -82,6 +100,13 @@ export async function DELETE(request: Request) {
   if (!id) return NextResponse.json({ error: 'User ID required' }, { status: 400 });
 
   await connectDB();
+
+  // The primary owner account is protected and can never be deleted.
+  const ownerId = await getOwnerId();
+  if (ownerId && ownerId === id) {
+    return NextResponse.json({ error: 'The primary owner account is protected and cannot be deleted.' }, { status: 403 });
+  }
+
   const count = await AdminUser.countDocuments({ active: true });
   if (count <= 1) {
     return NextResponse.json({ error: 'Cannot delete the last active admin user' }, { status: 400 });

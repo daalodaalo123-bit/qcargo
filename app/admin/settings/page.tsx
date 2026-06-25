@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Pencil, Shield, User, Check, X } from 'lucide-react';
+import { Plus, Trash2, Pencil, Shield, User, Check, X, Lock } from 'lucide-react';
 
 interface AdminUser {
   _id: string;
@@ -91,6 +91,10 @@ export default function SettingsPage() {
     if (res.ok) await fetchUsers();
   };
 
+  // Owner = first-created admin (API returns users sorted by createdAt asc).
+  // This account is locked: it can't be deleted or deactivated.
+  const ownerId = users.find(u => u.role === 'admin')?._id;
+
   return (
     <div className="admin-container max-w-3xl">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
@@ -163,8 +167,11 @@ export default function SettingsPage() {
         <p className="text-slate-400 text-sm">Loading users...</p>
       ) : (
         <div className="space-y-3">
-          {users.map(u => (
-            <div key={u._id} className={`bg-slate-800 rounded-2xl p-5 border flex items-center justify-between gap-4 ${u.active ? 'border-slate-700' : 'border-slate-800 opacity-50'}`}>
+          {users.map(u => {
+            // The first-created admin is the protected owner account.
+            const isOwner = u._id === ownerId;
+            return (
+            <div key={u._id} className={`bg-slate-800 rounded-2xl p-5 border flex items-center justify-between gap-4 ${isOwner ? 'border-[#F15D38]/40' : u.active ? 'border-slate-700' : 'border-slate-800 opacity-50'}`}>
               <div className="flex items-center gap-4">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs ${u.role === 'admin' ? 'bg-[#F15D38] text-white' : 'bg-slate-700 text-slate-300'}`}>
                   {u.role === 'admin' ? <Shield size={18} /> : <User size={18} />}
@@ -175,22 +182,38 @@ export default function SettingsPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                {isOwner && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-[#F15D38]/20 text-[#F15D38]">
+                    <Lock size={10} /> Owner
+                  </span>
+                )}
                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${u.role === 'admin' ? 'bg-[#F15D38]/20 text-[#F15D38]' : 'bg-slate-700 text-slate-400'}`}>
                   {u.role}
                 </span>
-                <button onClick={() => handleToggleActive(u)} title={u.active ? 'Deactivate' : 'Activate'}
-                  className={`p-2 rounded-lg text-xs font-bold transition-colors ${u.active ? 'bg-emerald-900/30 text-emerald-400 hover:bg-emerald-900/50' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}>
-                  {u.active ? 'Active' : 'Inactive'}
-                </button>
+                {isOwner ? (
+                  <span className="p-2 rounded-lg text-xs font-bold bg-emerald-900/30 text-emerald-400">Active</span>
+                ) : (
+                  <button onClick={() => handleToggleActive(u)} title={u.active ? 'Deactivate' : 'Activate'}
+                    className={`p-2 rounded-lg text-xs font-bold transition-colors ${u.active ? 'bg-emerald-900/30 text-emerald-400 hover:bg-emerald-900/50' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}>
+                    {u.active ? 'Active' : 'Inactive'}
+                  </button>
+                )}
                 <button onClick={() => startEdit(u)} className="p-2 rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors">
                   <Pencil size={14} />
                 </button>
-                <button onClick={() => handleDelete(u)} className="p-2 rounded-lg bg-rose-900/30 text-rose-400 hover:bg-rose-900/50 transition-colors">
-                  <Trash2 size={14} />
-                </button>
+                {isOwner ? (
+                  <span title="Protected owner account — cannot be deleted" className="p-2 rounded-lg bg-slate-700/50 text-slate-500 cursor-not-allowed">
+                    <Lock size={14} />
+                  </span>
+                ) : (
+                  <button onClick={() => handleDelete(u)} className="p-2 rounded-lg bg-rose-900/30 text-rose-400 hover:bg-rose-900/50 transition-colors">
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
