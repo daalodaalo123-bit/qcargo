@@ -1,15 +1,18 @@
 // One-time sync: set every shipment's status to match its batch's status.
 // Fixes batches whose status was changed before the cascade existed.
 // Idempotent and sends NO WhatsApp messages. Run: node scripts/sync-shipment-status.mjs
-import 'dotenv/config';
 import fs from 'fs';
 import mongoose from 'mongoose';
 
-// load MONGODB_URI from .env.local (dotenv only reads .env by default)
+// Load MONGODB_URI from .env.local, tolerating a UTF-8 BOM and CRLF endings.
 if (!process.env.MONGODB_URI && fs.existsSync('.env.local')) {
-  for (const line of fs.readFileSync('.env.local', 'utf8').split('\n')) {
-    const m = line.match(/^﻿?MONGODB_URI=(.*)$/);
-    if (m) process.env.MONGODB_URI = m[1].trim();
+  const raw = fs.readFileSync('.env.local', 'utf8').replace(/^﻿/, '');
+  for (const line of raw.split(/\r?\n/)) {
+    const clean = line.replace(/^﻿/, '').trim();
+    if (clean.startsWith('MONGODB_URI=')) {
+      process.env.MONGODB_URI = clean.slice('MONGODB_URI='.length).replace(/^["']|["']$/g, '');
+      break;
+    }
   }
 }
 
