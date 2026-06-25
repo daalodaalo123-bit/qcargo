@@ -73,20 +73,30 @@ export default function WarehousePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // All items across all shipments for counting
-  const allItems = useMemo(() =>
-    shipments.flatMap(s => s.items.filter(it => it.description)),
-  [shipments]);
-
-  const counts: Record<Filter, number> = useMemo(() => ({
-    ALL:          shipments.length,
-    ARRIVED:      shipments.filter(s => s.status === 'ARRIVED').length,
-    IN_TRANSIT:   shipments.filter(s => s.status === 'IN_TRANSIT').length,
-    PENDING:      shipments.filter(s => s.status === 'PENDING').length,
-    IN_WAREHOUSE: allItems.filter(it => !it.warehouseStatus || it.warehouseStatus === 'IN_WAREHOUSE').length,
-    TAKEN:        allItems.filter(it => it.warehouseStatus === 'TAKEN').length,
-    LOST:         allItems.filter(it => it.warehouseStatus === 'LOST').length,
-  }), [shipments, allItems]);
+  // An item only counts as "Still Here" once its shipment has ARRIVED and the
+  // item hasn't been taken or lost — otherwise the goods aren't physically here.
+  const counts: Record<Filter, number> = useMemo(() => {
+    let here = 0, taken = 0, lost = 0;
+    for (const s of shipments) {
+      const arrived = s.status === 'ARRIVED';
+      for (const it of s.items) {
+        if (!it.description) continue;
+        const st = it.warehouseStatus || 'IN_WAREHOUSE';
+        if (st === 'TAKEN') taken++;
+        else if (st === 'LOST') lost++;
+        else if (arrived) here++;
+      }
+    }
+    return {
+      ALL:          shipments.length,
+      ARRIVED:      shipments.filter(s => s.status === 'ARRIVED').length,
+      IN_TRANSIT:   shipments.filter(s => s.status === 'IN_TRANSIT').length,
+      PENDING:      shipments.filter(s => s.status === 'PENDING').length,
+      IN_WAREHOUSE: here,
+      TAKEN:        taken,
+      LOST:         lost,
+    };
+  }, [shipments]);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -96,7 +106,7 @@ export default function WarehousePage() {
       if (filter === 'IN_TRANSIT' && s.status !== 'IN_TRANSIT') return false;
       if (filter === 'PENDING' && s.status !== 'PENDING') return false;
       // Item-based filters: show shipment only if it has at least one matching item
-      if (filter === 'IN_WAREHOUSE' && !s.items.some(it => !it.warehouseStatus || it.warehouseStatus === 'IN_WAREHOUSE')) return false;
+      if (filter === 'IN_WAREHOUSE' && !(s.status === 'ARRIVED' && s.items.some(it => !it.warehouseStatus || it.warehouseStatus === 'IN_WAREHOUSE'))) return false;
       if (filter === 'TAKEN' && !s.items.some(it => it.warehouseStatus === 'TAKEN')) return false;
       if (filter === 'LOST' && !s.items.some(it => it.warehouseStatus === 'LOST')) return false;
       // Search
@@ -133,13 +143,14 @@ export default function WarehousePage() {
       if (s.status) b.statuses.add(s.status);
       const t = s.date ? new Date(s.date).getTime() : 0;
       if (t > b.latest) b.latest = t;
+      const arrived = s.status === 'ARRIVED';
       for (const it of s.items) {
         if (!it.description) continue;
         b.items++;
         const st = it.warehouseStatus || 'IN_WAREHOUSE';
         if (st === 'TAKEN') b.taken++;
         else if (st === 'LOST') b.lost++;
-        else b.here++;
+        else if (arrived) b.here++;
       }
     }
     return Array.from(map.values()).sort((a, b) => b.latest - a.latest);
