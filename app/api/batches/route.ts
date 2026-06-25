@@ -93,15 +93,36 @@ export async function GET(request: Request) {
         }
         totalCartons += cartons;
 
-        // Arrival progress: count product lines and how many are received
-        const lineSource = (s.courierPackages && s.courierPackages.length > 0)
-          ? s.courierPackages
-          : (s.items && s.items.length > 0 ? s.items : []);
-        if (lineSource.length === 0) {
+        // Arrival progress: ONE line per product, matching the public track sheet
+        // so the counts always agree. Walk items[] (the master list) and pair each
+        // with the courier package carrying its tracking number; any leftover
+        // courier package counts as its own line.
+        const itemsArr: any[] = Array.isArray(s.items) ? s.items : [];
+        const couriersArr: any[] = Array.isArray(s.courierPackages) ? s.courierPackages : [];
+        const usedCp = new Set<number>();
+        let shipLines = 0;
+        let shipReceived = 0;
+        itemsArr.forEach((it: any) => {
+          let cpIdx = -1;
+          for (let i = 0; i < couriersArr.length; i++) {
+            if (usedCp.has(i)) continue;
+            if ((couriersArr[i].goods || '') === (it.description || '')) { cpIdx = i; break; }
+          }
+          const cp = cpIdx >= 0 ? couriersArr[cpIdx] : null;
+          if (cpIdx >= 0) usedCp.add(cpIdx);
+          shipLines += 1;
+          if (it.received || (cp && cp.received)) shipReceived += 1;
+        });
+        couriersArr.forEach((p: any, i: number) => {
+          if (usedCp.has(i)) return;
+          shipLines += 1;
+          if (p.received) shipReceived += 1;
+        });
+        if (shipLines === 0) {
           totalLines += 1;
         } else {
-          totalLines += lineSource.length;
-          receivedCount += lineSource.filter((x: any) => x.received).length;
+          totalLines += shipLines;
+          receivedCount += shipReceived;
         }
       });
 

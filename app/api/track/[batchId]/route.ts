@@ -5,15 +5,60 @@ import Shipment from '@/lib/models/Shipment';
 
 export const dynamic = 'force-dynamic';
 
-// Build the visible product lines for one shipment (same rule as the batch sheet:
-// courier packages first, otherwise items). Returns a stable line identifier.
+// Build the visible product lines for one shipment — ONE line per product.
+//
+// A product line is stored in items[] (the master list: qty/KG/CBM/value). If it
+// also has a tracking number, a parallel entry lives in courierPackages[] with
+// goods === description. So we walk items[], pair the matching courier package to
+// pull its tracking number onto the same line, and merge in any warehouse data
+// (measured KG/CBM, notes, received) that may have been entered on either copy.
+// Courier packages with no matching item become their own line (legacy data).
+// PATCH targets the item for paired lines, so future edits consolidate there.
 function buildLines(s: any) {
   const noteList = (n: any): { text: string; at: string }[] =>
     Array.isArray(n) ? n.map((x: any) => ({ text: x.text || '', at: x.at ? new Date(x.at).toISOString() : '' })) : [];
   const num = (v: any): number | null => (v === 0 || (typeof v === 'number' && !isNaN(v)) ? v : null);
+  // Merge two note lists, dropping exact (text+timestamp) duplicates, oldest first.
+  const mergeNotes = (a: any, b: any) => {
+    const seen = new Set<string>();
+    return [...noteList(a), ...noteList(b)]
+      .filter((n) => { const k = `${n.text}|${n.at}`; if (seen.has(k)) return false; seen.add(k); return true; })
+      .sort((x, y) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0));
+  };
 
-  if (Array.isArray(s.courierPackages) && s.courierPackages.length > 0) {
-    return s.courierPackages.map((p: any, index: number) => ({
+  const items: any[] = Array.isArray(s.items) ? s.items : [];
+  const couriers: any[] = Array.isArray(s.courierPackages) ? s.courierPackages : [];
+  const usedCourier = new Set<number>();
+
+  const itemLines = items.map((it: any, index: number) => {
+    const desc = it.description || '';
+    // Pair the first not-yet-used courier package whose goods matches this item.
+    let cpIdx = -1;
+    for (let i = 0; i < couriers.length; i++) {
+      if (usedCourier.has(i)) continue;
+      if ((couriers[i].goods || '') === desc) { cpIdx = i; break; }
+    }
+    const cp = cpIdx >= 0 ? couriers[cpIdx] : null;
+    if (cpIdx >= 0) usedCourier.add(cpIdx);
+
+    return {
+      lineType: 'item' as const,
+      index,
+      product: desc || '-',
+      qty: it.qty || 1,
+      tracking: cp ? cp.trackingNumber || '' : '',
+      received: !!it.received || !!(cp && cp.received),
+      measuredWeight: num(it.measuredWeight) ?? (cp ? num(cp.measuredWeight) : null),
+      measuredCbm: num(it.measuredCbm) ?? (cp ? num(cp.measuredCbm) : null),
+      notes: cp ? mergeNotes(it.warehouseNotes, cp.warehouseNotes) : noteList(it.warehouseNotes),
+    };
+  });
+
+  // Any courier package not paired to an item shows on its own (legacy/edge data).
+  const courierLines = couriers
+    .map((p: any, index: number) => ({ p, index }))
+    .filter(({ index }) => !usedCourier.has(index))
+    .map(({ p, index }) => ({
       lineType: 'courier' as const,
       index,
       product: p.goods || p.courier || '-',
@@ -24,21 +69,12 @@ function buildLines(s: any) {
       measuredCbm: num(p.measuredCbm),
       notes: noteList(p.warehouseNotes),
     }));
+
+  const lines = [...itemLines, ...courierLines];
+  if (lines.length === 0) {
+    return [{ lineType: 'none' as const, index: 0, product: '-', qty: 1, tracking: '', received: false, measuredWeight: null, measuredCbm: null, notes: [] }];
   }
-  if (Array.isArray(s.items) && s.items.length > 0) {
-    return s.items.map((it: any, index: number) => ({
-      lineType: 'item' as const,
-      index,
-      product: it.description || '-',
-      qty: it.qty || 1,
-      tracking: '',
-      received: !!it.received,
-      measuredWeight: num(it.measuredWeight),
-      measuredCbm: num(it.measuredCbm),
-      notes: noteList(it.warehouseNotes),
-    }));
-  }
-  return [{ lineType: 'none' as const, index: 0, product: '-', qty: 1, tracking: '', received: false, measuredWeight: null, measuredCbm: null, notes: [] }];
+  return lines;
 }
 
 async function findBatch(batchId: string) {

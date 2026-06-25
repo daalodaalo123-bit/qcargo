@@ -630,24 +630,52 @@ interface AdminProductLine {
   notes: { text: string; at: string }[];
 }
 
-// Build the per-product lines for a shipment (courier packages first, else items) —
-// same rule the warehouse tracking link uses, so admin sees exactly what the keeper edits.
+// Build the per-product lines for a shipment — ONE line per product, the same rule
+// the warehouse tracking link uses, so admin sees exactly what the keeper edits.
+// items[] is the master list; if a product also has a tracking number it has a
+// parallel courierPackages[] entry (goods === description) — pair them onto one line.
 function buildProductLines(s: any): AdminProductLine[] {
   const num = (v: any): number | null => (typeof v === 'number' && !isNaN(v) ? v : null);
   const notes = (n: any) => (Array.isArray(n) ? n.map((x: any) => ({ text: x.text || '', at: x.at || '' })) : []);
-  if (Array.isArray(s.courierPackages) && s.courierPackages.length > 0) {
-    return s.courierPackages.map((p: any) => ({
+  const mergeNotes = (a: any, b: any) => {
+    const seen = new Set<string>();
+    return [...notes(a), ...notes(b)]
+      .filter((n) => { const k = `${n.text}|${n.at}`; if (seen.has(k)) return false; seen.add(k); return true; })
+      .sort((x, y) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0));
+  };
+
+  const itemsArr: any[] = Array.isArray(s.items) ? s.items : [];
+  const couriersArr: any[] = Array.isArray(s.courierPackages) ? s.courierPackages : [];
+  const usedCp = new Set<number>();
+
+  const itemLines: AdminProductLine[] = itemsArr.map((it: any) => {
+    let cpIdx = -1;
+    for (let i = 0; i < couriersArr.length; i++) {
+      if (usedCp.has(i)) continue;
+      if ((couriersArr[i].goods || '') === (it.description || '')) { cpIdx = i; break; }
+    }
+    const cp = cpIdx >= 0 ? couriersArr[cpIdx] : null;
+    if (cpIdx >= 0) usedCp.add(cpIdx);
+    return {
+      product: it.description || '-',
+      qty: it.qty || 1,
+      tracking: cp ? cp.trackingNumber || '' : '',
+      received: !!it.received || !!(cp && cp.received),
+      measuredWeight: num(it.measuredWeight) ?? (cp ? num(cp.measuredWeight) : null),
+      measuredCbm: num(it.measuredCbm) ?? (cp ? num(cp.measuredCbm) : null),
+      notes: cp ? mergeNotes(it.warehouseNotes, cp.warehouseNotes) : notes(it.warehouseNotes),
+    };
+  });
+
+  const courierLines: AdminProductLine[] = couriersArr
+    .map((p: any, index: number) => ({ p, index }))
+    .filter(({ index }) => !usedCp.has(index))
+    .map(({ p }) => ({
       product: p.goods || p.courier || '-', qty: p.qty || 1, tracking: p.trackingNumber || '',
       received: !!p.received, measuredWeight: num(p.measuredWeight), measuredCbm: num(p.measuredCbm), notes: notes(p.warehouseNotes),
     }));
-  }
-  if (Array.isArray(s.items) && s.items.length > 0) {
-    return s.items.map((it: any) => ({
-      product: it.description || '-', qty: it.qty || 1, tracking: '',
-      received: !!it.received, measuredWeight: num(it.measuredWeight), measuredCbm: num(it.measuredCbm), notes: notes(it.warehouseNotes),
-    }));
-  }
-  return [];
+
+  return [...itemLines, ...courierLines];
 }
 
 function formatNoteDate(iso: string) {

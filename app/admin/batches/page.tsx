@@ -194,25 +194,42 @@ const [searchTerm, setSearchTerm] = useState('');
         const isAir = s.type === 'AIR';
         let lines: { product: string; qty: any; tracking: string; kg: any; cbm: any; received: boolean }[] = [];
 
-        if (s.courierPackages && s.courierPackages.length > 0) {
-          lines = s.courierPackages.map((p: any) => ({
+        // ONE line per product, matching the public track sheet. Walk items[]
+        // (the master list) and pair each with the courier package that carries
+        // its tracking number; any leftover courier package shows on its own.
+        const itemsArr: any[] = Array.isArray(s.items) ? s.items : [];
+        const couriersArr: any[] = Array.isArray(s.courierPackages) ? s.courierPackages : [];
+        const usedCp = new Set<number>();
+        const itemLines = itemsArr.map((it: any) => {
+          let cpIdx = -1;
+          for (let i = 0; i < couriersArr.length; i++) {
+            if (usedCp.has(i)) continue;
+            if ((couriersArr[i].goods || '') === (it.description || '')) { cpIdx = i; break; }
+          }
+          const cp = cpIdx >= 0 ? couriersArr[cpIdx] : null;
+          if (cpIdx >= 0) usedCp.add(cpIdx);
+          return {
+            product: it.description || '-',
+            qty: it.qty || 1,
+            tracking: cp ? cp.trackingNumber || '' : '',
+            kg: it.measuredWeight ?? (cp ? cp.measuredWeight : undefined) ?? it.weight ?? '',
+            cbm: it.measuredCbm ?? (cp ? cp.measuredCbm : undefined) ?? it.cbm ?? '',
+            received: !!it.received || !!(cp && cp.received),
+          };
+        });
+        const courierLines = couriersArr
+          .map((p: any, index: number) => ({ p, index }))
+          .filter(({ index }) => !usedCp.has(index))
+          .map(({ p }) => ({
             product: p.goods || p.courier || '-',
             qty: p.qty || 1,
             tracking: p.trackingNumber || '',
-            kg: '',
-            cbm: '',
+            kg: p.measuredWeight ?? '',
+            cbm: p.measuredCbm ?? '',
             received: !!p.received,
           }));
-        } else if (s.items && s.items.length > 0) {
-          lines = s.items.map((it: any) => ({
-            product: it.description || '-',
-            qty: it.qty || 1,
-            tracking: '',
-            kg: it.weight || '',
-            cbm: it.cbm || '',
-            received: !!it.received,
-          }));
-        } else {
+        lines = [...itemLines, ...courierLines];
+        if (lines.length === 0) {
           lines = [{ product: '-', qty: 1, tracking: '', kg: '', cbm: '', received: false }];
         }
 
