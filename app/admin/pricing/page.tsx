@@ -345,7 +345,7 @@ export default function AdminPricingPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-black text-slate-100 tracking-tight">Sourcing & Pricing</h1>
+          <h1 className="text-3xl font-bold text-slate-100 tracking-tight">Sourcing & Pricing</h1>
           <p className="text-slate-400 font-medium">Send pricing requests to your global agents and compare responses</p>
         </div>
         <button onClick={() => setShowNewReq(true)} className="btn btn-primary flex items-center gap-2 shadow-lg shadow-[#F15D38]/20">
@@ -356,17 +356,18 @@ export default function AdminPricingPage() {
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[
-          { label: 'Open', value: open, icon: Target, color: 'text-amber-400', bg: 'bg-amber-950/20 border-amber-800/20' },
-          { label: 'In Progress', value: inProg, icon: Clock, color: 'text-blue-400', bg: 'bg-blue-950/20 border-blue-800/20' },
-          { label: 'Completed', value: done, icon: CheckCircle2, color: 'text-emerald-400', bg: 'bg-emerald-950/20 border-emerald-800/20' },
-          { label: 'Active Agents', value: agents.length || '—', icon: Users, color: 'text-[#F15D38]', bg: 'bg-[#F15D38]/10 border-[#F15D38]/20' },
+          { label: 'Open', value: open, icon: Target, color: 'text-amber-400', top: '#f59e0b' },
+          { label: 'In Progress', value: inProg, icon: Clock, color: 'text-blue-400', top: '#3b82f6' },
+          { label: 'Completed', value: done, icon: CheckCircle2, color: 'text-emerald-400', top: '#0d9488' },
+          { label: 'Active Agents', value: agents.length || '—', icon: Users, color: 'text-[#F15D38]', top: '#F15D38' },
         ].map(s => (
-          <div key={s.label} className={`shipment-card border ${s.bg} py-5`}>
+          <div key={s.label} className="bg-[#131B2E] border border-slate-800 rounded-2xl p-4"
+            style={{ borderTopWidth: '2px', borderTopColor: s.top }}>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{s.label}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{s.label}</p>
               <s.icon size={16} className={s.color} />
             </div>
-            <p className={`text-3xl font-black ${s.color}`}>{s.value}</p>
+            <p className={`text-3xl font-bold leading-none ${s.color}`}>{s.value}</p>
           </div>
         ))}
       </div>
@@ -398,14 +399,14 @@ export default function AdminPricingPage() {
               <p className="text-xs mt-1">Click "New Request" to send your first request to agents.</p>
             </div>
           ) : requests.map(r => (
-            <div key={r._id} className="shipment-card border border-slate-800 flex items-center gap-4">
+            <div key={r._id} className={`shipment-card border flex items-center gap-4 ${r.lastResponseAt ? 'border-slate-700 border-l-[3px] border-l-[#0d9488]' : 'border-slate-800'}`}>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="text-[10px] font-black text-slate-500 font-mono">{r.requestNumber}</span>
                   <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${STATUS_COLOR[r.status]}`}>{r.status.replace('_', ' ')}</span>
                   {r.lastResponseAt && <span className="text-[9px] font-black text-blue-400 bg-blue-950/20 border border-blue-800/20 px-2 py-0.5 rounded-full">New Response</span>}
                 </div>
-                <p className="font-black text-slate-100">{r.productName}</p>
+                <p className="font-bold text-slate-100">{r.productName}</p>
                 <p className="text-xs text-slate-400 mt-0.5">For: {r.customerName} · {r.quantity} {r.unit} · {r.assignedAgents?.length || 0} agent{r.assignedAgents?.length !== 1 ? 's' : ''}</p>
                 {r.deadline && <p className="text-[10px] text-slate-500 mt-1">Deadline: {r.deadline}</p>}
               </div>
@@ -447,7 +448,7 @@ export default function AdminPricingPage() {
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-black text-slate-100">{a.name}</p>
+                            <p className="font-bold text-slate-100">{a.name}</p>
                             {a.profileComplete
                               ? <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-emerald-950/30 text-emerald-400 border border-emerald-800/30 uppercase tracking-widest">Profile ✓</span>
                               : <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-amber-950/30 text-amber-400 border border-amber-800/30 uppercase tracking-widest">Pending profile</span>}

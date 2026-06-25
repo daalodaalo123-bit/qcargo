@@ -171,7 +171,7 @@ export default function AdminPricingDetailPage({ params }: { params: Promise<{ i
         <Link href="/admin/pricing" className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-slate-100 transition-colors"><ArrowLeft size={20} /></Link>
         <div>
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">{request.requestNumber}</p>
-          <h1 className="text-2xl font-black text-slate-100">{request.productName}</h1>
+          <h1 className="text-2xl font-bold text-slate-100">{request.productName}</h1>
           <p className="text-slate-400 text-sm">For: {request.customerName} · {request.quantity} {request.unit}</p>
         </div>
         <span className={`ml-auto text-[10px] font-black px-3 py-1.5 rounded-full border ${request.status === 'COMPLETED' ? 'bg-emerald-950/30 text-emerald-400 border-emerald-800/30' : request.status === 'IN_PROGRESS' ? 'bg-blue-950/30 text-blue-400 border-blue-800/30' : 'bg-amber-950/30 text-amber-400 border-amber-800/30'}`}>
@@ -188,8 +188,8 @@ export default function AdminPricingDetailPage({ params }: { params: Promise<{ i
           { label: 'Budget', value: request.targetPrice ? `$${request.targetPrice}` : 'Not set' },
         ].map(({ label, value }) => (
           <div key={label}>
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">{label}</p>
-            <p className="text-sm font-black text-slate-100">{value}</p>
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">{label}</p>
+            <p className="text-sm font-bold text-slate-100">{value}</p>
           </div>
         ))}
         {request.description && (
