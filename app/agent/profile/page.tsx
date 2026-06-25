@@ -23,6 +23,7 @@ const T: Record<Lang, Record<string, string>> = {
     companyPh: 'e.g. Yiwu Market Sourcing', bioPh: 'A line about what you source...',
     missing: 'Please fill in your name, email and phone.', verified: 'Profile complete',
     uploadPhoto: 'Upload Photo', removePhoto: 'Remove', photoHint: 'JPG or PNG · max 5 MB',
+    photoTooLarge: 'File is too large. Max 5 MB.', photoNotImage: 'Please select an image file.', photoFailed: 'Could not process image. Try another file.',
   },
   ar: {
     title: 'ملفي الشخصي', sub: 'حافظ على تحديث بياناتك لدى Q كارغو',
@@ -37,6 +38,7 @@ const T: Record<Lang, Record<string, string>> = {
     companyPh: 'مثال: سوق ييوو', bioPh: 'سطر عن المنتجات التي تصدّرها...',
     missing: 'يرجى إدخال الاسم والبريد والهاتف.', verified: 'الملف مكتمل',
     uploadPhoto: 'رفع صورة', removePhoto: 'حذف', photoHint: 'JPG أو PNG · 5 ميغا بايت كحد أقصى',
+    photoTooLarge: 'الملف كبير جداً. الحد الأقصى 5 ميغا بايت.', photoNotImage: 'يرجى اختيار ملف صورة.', photoFailed: 'تعذّر معالجة الصورة. جرّب ملفاً آخر.',
   },
   zh: {
     title: '我的资料', sub: '请保持您的信息为最新',
@@ -51,6 +53,7 @@ const T: Record<Lang, Record<string, string>> = {
     companyPh: '例如：义乌市场采购', bioPh: '一句话介绍您采购的产品...',
     missing: '请填写姓名、邮箱和电话。', verified: '资料已完善',
     uploadPhoto: '上传照片', removePhoto: '删除', photoHint: 'JPG 或 PNG · 最大 5MB',
+    photoTooLarge: '文件过大。最大 5MB。', photoNotImage: '请选择图片文件。', photoFailed: '无法处理图片。请尝试其他文件。',
   },
 };
 
@@ -134,13 +137,13 @@ export default function AgentProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
     setPhotoError('');
-    if (file.size > 5 * 1024 * 1024) { setPhotoError('File is too large. Max 5 MB.'); return; }
-    if (!file.type.startsWith('image/')) { setPhotoError('Please select an image file.'); return; }
+    if (file.size > 5 * 1024 * 1024) { setPhotoError(t.photoTooLarge); return; }
+    if (!file.type.startsWith('image/')) { setPhotoError(t.photoNotImage); return; }
     try {
       const compressed = await compressImage(file);
       set('photo', compressed);
     } catch {
-      setPhotoError('Could not process image. Try another file.');
+      setPhotoError(t.photoFailed);
     }
     e.target.value = '';
   };

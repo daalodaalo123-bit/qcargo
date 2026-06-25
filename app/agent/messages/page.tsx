@@ -6,9 +6,9 @@ import { ArrowLeft, Send, Loader2, CheckCircle2 } from 'lucide-react';
 
 type Lang = 'en' | 'ar' | 'zh';
 const T: Record<Lang, Record<string, string>> = {
-  en: { title: 'Messages', subtitle: 'Q Cargo Office', noMsgs: 'No messages yet. Send the first one!', placeholder: 'Type a message...', chat: 'Chat', tasks: 'My Tasks', pending: 'pending', done: 'done', customer: 'Customer', product: 'Product', deadline: 'Deadline', notes: 'Notes', noTasks: 'No tasks assigned yet.' },
-  ar: { title: 'الرسائل', subtitle: 'مكتب Q كارغو', noMsgs: 'لا رسائل بعد. أرسل أول رسالة!', placeholder: 'اكتب رسالة...', chat: 'محادثة', tasks: 'مهامي', pending: 'معلق', done: 'منجز', customer: 'العميل', product: 'المنتج', deadline: 'الموعد', notes: 'ملاحظات', noTasks: 'لا مهام مسندة بعد.' },
-  zh: { title: '消息', subtitle: 'Q Cargo 办公室', noMsgs: '暂无消息。发送第一条！', placeholder: '输入消息...', chat: '聊天', tasks: '我的任务', pending: '待处理', done: '已完成', customer: '客户', product: '产品', deadline: '截止日期', notes: '备注', noTasks: '暂无分配任务。' },
+  en: { title: 'Messages', subtitle: 'Q Cargo Office', online: 'Online', offline: 'Offline', noMsgs: 'No messages yet. Send the first one!', placeholder: 'Type a message...', chat: 'Chat', tasks: 'My Tasks', pending: 'pending', done: 'done', customer: 'Customer', product: 'Product', deadline: 'Deadline', notes: 'Notes', noTasks: 'No tasks assigned yet.' },
+  ar: { title: 'الرسائل', subtitle: 'مكتب Q كارغو', online: 'متصل', offline: 'غير متصل', noMsgs: 'لا رسائل بعد. أرسل أول رسالة!', placeholder: 'اكتب رسالة...', chat: 'محادثة', tasks: 'مهامي', pending: 'معلق', done: 'منجز', customer: 'العميل', product: 'المنتج', deadline: 'الموعد', notes: 'ملاحظات', noTasks: 'لا مهام مسندة بعد.' },
+  zh: { title: '消息', subtitle: 'Q Cargo 办公室', online: '在线', offline: '离线', noMsgs: '暂无消息。发送第一条！', placeholder: '输入消息...', chat: '聊天', tasks: '我的任务', pending: '待处理', done: '已完成', customer: '客户', product: '产品', deadline: '截止日期', notes: '备注', noTasks: '暂无分配任务。' },
 };
 
 export default function AgentMessagesPage() {
@@ -97,7 +97,7 @@ export default function AgentMessagesPage() {
             <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${adminOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`} />
             <div className="min-w-0">
               <p className="font-black text-slate-100 text-sm truncate">{t.subtitle}</p>
-              <p className={`text-[10px] font-bold ${adminOnline ? 'text-emerald-400' : 'text-slate-500'}`}>{adminOnline ? 'Online' : 'Offline'}</p>
+              <p className={`text-[10px] font-bold ${adminOnline ? 'text-emerald-400' : 'text-slate-500'}`}>{adminOnline ? t.online : t.offline}</p>
             </div>
           </div>
           {/* Tabs */}
