@@ -44,7 +44,7 @@ const QuotationSchema = new Schema<IQuotation>({
   amountPaid: { type: Number, default: 0 },
   type: { type: String, enum: ['AIR', 'SEA'], default: 'SEA' },
   items: [QuotationItemSchema],
-  commissionRate: { type: Number, default: 7 },
+  commissionRate: { type: Number, default: 10 },
   commissionAmount: { type: Number, default: 0 },
   discountRate: { type: Number, default: 0 },
   discountAmount: { type: Number, default: 0 },

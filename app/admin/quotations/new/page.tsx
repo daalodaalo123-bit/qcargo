@@ -49,7 +49,7 @@ export default function NewQuotation() {
   const [items, setItems] = useState<QuotationItem[]>([{ description: '', notes: '', specification: '', qty: '1', price: '', totalPrice: '' }]);
   const [estimatedPrice, setEstimatedPrice] = useState('');
   const [freightType, setFreightType] = useState('SEA');
-  const [commissionRate, setCommissionRate] = useState('7');
+  const [commissionRate, setCommissionRate] = useState('10');
   const [discountAmount, setDiscountAmount] = useState('0');
 
   // Import state

@@ -41,7 +41,7 @@ export async function POST(
       status: quotation.status || 'SENT',
       paymentStatus: quotation.paymentStatus || 'UNPAID',
       total: quotation.price || 0,
-      commissionRate: quotation.commissionRate ?? 7,
+      commissionRate: quotation.commissionRate ?? 10,
       commissionAmount: quotation.commissionAmount ?? 0,
       items: (quotation.items || []).map((it: { description: string; notes?: string; qty: number; price: number }) => ({
         description: it.description,
