@@ -157,7 +157,7 @@ export default function AdminLayout({
     { name: 'Dashboard', icon: LayoutDashboard, href: '/admin' },
     { name: 'Shipments', icon: Ship, href: '/admin/shipments' },
     { name: 'Batches', icon: Package, href: '/admin/batches' },
-    { name: 'Warehouse', icon: Warehouse, href: '/admin/warehouse' },
+    { name: 'Inventory', icon: Warehouse, href: '/admin/warehouse' },
     { name: 'Purchases', icon: ShoppingCart, href: '/admin/purchases' },
     { name: 'Customers', icon: Users, href: '/admin/customers' },
     { name: 'Sourcing', icon: Globe, href: '/admin/pricing' },

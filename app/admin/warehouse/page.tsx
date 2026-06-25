@@ -152,7 +152,7 @@ export default function WarehousePage() {
               <Warehouse size={22} className="text-[#F15D38]" />
             </div>
             <div>
-              <h1 className="text-2xl font-black text-slate-100 tracking-tight">Warehouse Lookup</h1>
+              <h1 className="text-2xl font-black text-slate-100 tracking-tight">Inventory Lookup</h1>
               <p className="text-xs text-slate-500 font-medium">Search tracking number, customer, goods, or batch</p>
             </div>
           </div>
@@ -301,7 +301,7 @@ export default function WarehousePage() {
                                   <button
                                     onClick={() => updateItemStatus(s, itemIndex, 'IN_WAREHOUSE')}
                                     className="p-1.5 rounded-lg border bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all"
-                                    title="Mark as back in warehouse"
+                                    title="Mark as back in inventory"
                                   >
                                     <RotateCcw size={13} />
                                   </button>
