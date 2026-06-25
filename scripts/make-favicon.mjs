@@ -31,16 +31,23 @@ async function getBox() {
 const BOX = await getBox();
 console.log('logo box:', JSON.stringify(BOX));
 
-// Crop to the logo, pad to a centered transparent square, then resize.
+// Crop to the logo circle, then mask everything OUTSIDE the circle to
+// transparent (the source has white corners around the round mark). Result:
+// a clean circular icon with no white/square background.
 async function squarePng(size) {
-  const cropped = await sharp(SRC).extract(BOX).toBuffer();
-  const side = Math.max(BOX.width, BOX.height);
-  return await sharp(cropped)
-    .resize(side, side, {
-      fit: 'contain',
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    })
+  const cropped = await sharp(SRC)
+    .extract(BOX)
     .resize(size, size)
+    .toBuffer();
+
+  // Circular alpha mask, slightly inset so the white anti-aliased rim is cut off.
+  const r = size / 2 - Math.max(1, Math.round(size * 0.01));
+  const mask = Buffer.from(
+    `<svg width="${size}" height="${size}"><circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="#fff"/></svg>`
+  );
+
+  return await sharp(cropped)
+    .composite([{ input: mask, blend: 'dest-in' }])
     .png()
     .toBuffer();
 }
