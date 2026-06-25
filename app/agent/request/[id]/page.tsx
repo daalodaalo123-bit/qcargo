@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Send, ImagePlus, X, Loader2, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Send, ImagePlus, X, Loader2, CheckCircle2, User, Package, Calendar, DollarSign } from 'lucide-react';
 
 // ── Translations (mirrors the agent dashboard's EN/AR/ZH dictionary) ────────────
 type Lang = 'en' | 'ar' | 'zh';
@@ -253,13 +253,16 @@ export default function AgentRequestPage({ params }: { params: Promise<{ id: str
           <div className="space-y-5 py-4">
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: t.f_customer, value: request.customerName },
-                { label: t.f_quantity, value: `${request.quantity} ${request.unit}` },
-                { label: t.f_deadline, value: request.deadline || t.f_noDeadline },
-                { label: t.f_budget, value: request.targetPrice ? `$${request.targetPrice}` : t.f_notSpecified },
-              ].map(({ label, value }) => (
-                <div key={label} className="bg-[#131B2E] border border-slate-800 rounded-xl p-3">
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">{label}</p>
+                { label: t.f_customer, value: request.customerName, icon: User, color: '#0d9488' },
+                { label: t.f_quantity, value: `${request.quantity} ${request.unit}`, icon: Package, color: '#3b82f6' },
+                { label: t.f_deadline, value: request.deadline || t.f_noDeadline, icon: Calendar, color: '#f59e0b' },
+                { label: t.f_budget, value: request.targetPrice ? `$${request.targetPrice}` : t.f_notSpecified, icon: DollarSign, color: '#F15D38' },
+              ].map(({ label, value, icon: Icon, color }) => (
+                <div key={label} className="bg-[#131B2E] border border-slate-800 rounded-2xl p-3.5">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{label}</p>
+                    <Icon size={14} style={{ color }} />
+                  </div>
                   <p className="text-sm font-bold text-slate-100">{value}</p>
                 </div>
               ))}

@@ -267,7 +267,7 @@ export default function AgentProfilePage() {
 
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
 
-              <p className="font-black text-slate-100 mt-5 text-lg leading-tight">{form.name || '—'}</p>
+              <p className="font-bold text-slate-100 mt-5 text-lg leading-tight">{form.name || '—'}</p>
               <p className="text-xs text-slate-500 font-bold mt-0.5">
                 {[form.city, form.country].filter(Boolean).join(', ') || '—'}
               </p>
