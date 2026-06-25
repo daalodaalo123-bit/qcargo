@@ -291,13 +291,12 @@ export default function AgentDashboard() {
   );
 
   const SocialBlock = (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="flex gap-2.5">
       {SOCIAL.map(s => (
-        <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer"
-          className="group flex flex-col items-center justify-center gap-2 py-4 rounded-2xl transition-all hover:scale-[1.03] hover:shadow-lg"
+        <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer" title={s.name} aria-label={s.name}
+          className="group flex-1 flex items-center justify-center py-2.5 rounded-xl transition-all hover:scale-[1.04]"
           style={{ background: s.bg, border: '1px solid rgba(255,255,255,0.10)' }}>
-          <span className="text-white"><s.Icon size={24} /></span>
-          <span className="text-[9px] font-black text-white uppercase tracking-widest">{s.name}</span>
+          <span className="text-white"><s.Icon size={17} /></span>
         </a>
       ))}
     </div>
@@ -360,7 +359,7 @@ export default function AgentDashboard() {
                   : initials(agent?.name)}
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl font-black text-slate-100 leading-tight">
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-100 leading-tight">
                   {getGreeting(lang, t)}, <span className="text-[#F15D38]">{agent?.name?.split(' ')[0] || ''}</span>
                 </h1>
                 <p className="text-[11px] text-slate-500 font-bold mt-0.5">{formatDate(lang)}</p>
@@ -399,15 +398,18 @@ export default function AgentDashboard() {
         {/* ── KPI CARDS ───────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4 mt-5">
           {[
-            { label: t.open,      value: openCount,        icon: AlertCircle,  color: 'text-amber-400',    bg: 'bg-amber-950/20 border-amber-800/20' },
-            { label: t.submitted, value: submitted.length, icon: Clock,        color: 'text-blue-400',     bg: 'bg-blue-950/20 border-blue-800/20' },
-            { label: t.completed, value: completedCount,   icon: CheckCircle2, color: 'text-emerald-400',  bg: 'bg-emerald-950/20 border-emerald-800/20' },
-            { label: t.messages,  value: unread,           icon: MessageSquare,color: 'text-[#F15D38]',    bg: 'bg-[#F15D38]/10 border-[#F15D38]/20' },
+            { label: t.open,      value: openCount,        icon: AlertCircle,  color: 'text-amber-400',   top: '#f59e0b' },
+            { label: t.submitted, value: submitted.length, icon: Clock,        color: 'text-blue-400',    top: '#3b82f6' },
+            { label: t.completed, value: completedCount,   icon: CheckCircle2, color: 'text-emerald-400', top: '#0d9488' },
+            { label: t.messages,  value: unread,           icon: MessageSquare,color: 'text-[#F15D38]',   top: '#F15D38' },
           ].map(s => (
-            <div key={s.label} className={`border rounded-2xl p-3 sm:p-4 text-center ${s.bg}`}>
-              <s.icon size={16} className={`${s.color} mx-auto mb-1.5`} />
-              <p className={`text-xl sm:text-2xl font-black ${s.color}`}>{s.value}</p>
-              <p className="text-[8px] sm:text-[9px] font-black text-slate-500 uppercase tracking-widest leading-tight mt-0.5">{s.label}</p>
+            <div key={s.label} className="bg-[#131B2E] border border-slate-800 rounded-2xl p-3.5 sm:p-4"
+              style={{ borderTopWidth: '2px', borderTopColor: s.top }}>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">{s.label}</p>
+                <s.icon size={15} className={s.color} />
+              </div>
+              <p className={`text-2xl sm:text-[28px] font-bold leading-none ${s.color}`}>{s.value}</p>
             </div>
           ))}
         </div>
@@ -430,12 +432,13 @@ export default function AgentDashboard() {
                 {requests.map(r => {
                   const resp = responseMap[r._id];
                   const tag  = deadlineTag(r.deadline);
+                  const needsAction = !resp && (r.status === 'OPEN' || r.status === 'IN_PROGRESS');
                   const statusColor = r.status === 'COMPLETED' ? 'bg-emerald-950/30 text-emerald-400 border-emerald-800/30' :
                                       r.status === 'IN_PROGRESS' ? 'bg-blue-950/30 text-blue-400 border-blue-800/30' :
                                       'bg-amber-950/30 text-amber-400 border-amber-800/30';
                   return (
                     <button key={r._id} onClick={() => router.push(`/agent/request/${r._id}`)}
-                      className="w-full text-left bg-[#131B2E] border border-slate-800 hover:border-[#F15D38]/40 hover:shadow-lg rounded-2xl p-4 sm:p-5 transition-all group">
+                      className={`w-full text-left bg-[#131B2E] border rounded-2xl p-4 sm:p-5 transition-all group hover:border-[#F15D38]/40 hover:shadow-lg ${needsAction ? 'border-slate-700 border-l-[3px] border-l-[#F15D38]' : 'border-slate-800'}`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
@@ -444,7 +447,7 @@ export default function AgentDashboard() {
                             {resp && <span className="text-[9px] font-black px-2 py-0.5 rounded-full border bg-emerald-950/30 text-emerald-400 border-emerald-800/30">{t.priced}</span>}
                             {tag && <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${dlTagColors[tag]}`}>{dlTagLabels[tag]}</span>}
                           </div>
-                          <p className="font-black text-slate-100 text-sm sm:text-base truncate">{r.productName}</p>
+                          <p className="font-bold text-slate-100 text-sm sm:text-base truncate">{r.productName}</p>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <span className="text-[10px] text-slate-500 font-bold">{t.for}: {r.customerName}</span>
                             <span className="text-slate-700 text-[10px]">·</span>
