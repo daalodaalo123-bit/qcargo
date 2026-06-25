@@ -30,6 +30,22 @@ export async function POST(request: Request) {
       await batchDoc.save();
     }
 
+    // Cascade the batch status down to every shipment in the batch, so the
+    // Inventory page, public track sheet and customer dashboard all reflect it
+    // (this is the "update all individual shipments at once" the UI promises).
+    // Shipment statuses are PENDING | IN_TRANSIT | ARRIVED; map the batch's
+    // LOADING onto IN_TRANSIT.
+    const SHIPMENT_STATUS: Record<string, 'PENDING' | 'IN_TRANSIT' | 'ARRIVED'> = {
+      PENDING: 'PENDING',
+      IN_TRANSIT: 'IN_TRANSIT',
+      LOADING: 'IN_TRANSIT',
+      ARRIVED: 'ARRIVED',
+    };
+    const mappedStatus = SHIPMENT_STATUS[status];
+    if (mappedStatus) {
+      await Shipment.updateMany({ batch: resolvedBatchId }, { $set: { status: mappedStatus } });
+    }
+
     // Query for shipments belonging to this batch
     const shipments = await Shipment.find({ batch: resolvedBatchId });
 
