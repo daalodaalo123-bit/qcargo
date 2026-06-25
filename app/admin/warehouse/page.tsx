@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Search, Package, User, Hash, Scale, DollarSign, X, Loader2,
-  Box, CheckCircle2, Clock, Truck, LogOut, Warehouse, AlertTriangle, RotateCcw
+  Box, CheckCircle2, Clock, Truck, LogOut, Warehouse, AlertTriangle, RotateCcw,
+  Layers, ChevronRight, ArrowLeft
 } from 'lucide-react';
 
 interface ShipmentItem {
@@ -62,6 +63,7 @@ export default function WarehousePage() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('ALL');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/shipments')
@@ -113,6 +115,44 @@ export default function WarehousePage() {
     if (!q) return null;
     return s.courierPackages?.find(p => p.trackingNumber?.toLowerCase().includes(q));
   };
+
+  // Group the (filtered) shipments by batch for the batch-list view.
+  const batches = useMemo(() => {
+    const map = new Map<string, {
+      name: string; shipments: WarehouseShipment[];
+      items: number; here: number; taken: number; lost: number;
+      latest: number; statuses: Set<string>;
+    }>();
+    for (const s of results) {
+      const key = s.batch?.trim() || 'No Batch';
+      if (!map.has(key)) {
+        map.set(key, { name: key, shipments: [], items: 0, here: 0, taken: 0, lost: 0, latest: 0, statuses: new Set() });
+      }
+      const b = map.get(key)!;
+      b.shipments.push(s);
+      if (s.status) b.statuses.add(s.status);
+      const t = s.date ? new Date(s.date).getTime() : 0;
+      if (t > b.latest) b.latest = t;
+      for (const it of s.items) {
+        if (!it.description) continue;
+        b.items++;
+        const st = it.warehouseStatus || 'IN_WAREHOUSE';
+        if (st === 'TAKEN') b.taken++;
+        else if (st === 'LOST') b.lost++;
+        else b.here++;
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.latest - a.latest);
+  }, [results]);
+
+  // What to show: search overrides into a flat list; otherwise browse by batch.
+  const isSearching = query.trim().length > 0;
+  const showBatchList = !isSearching && !selectedBatch;
+  const shown = isSearching
+    ? results
+    : selectedBatch
+      ? results.filter(s => (s.batch?.trim() || 'No Batch') === selectedBatch)
+      : [];
 
   const updateItemStatus = async (
     shipment: WarehouseShipment,
@@ -193,7 +233,10 @@ export default function WarehousePage() {
           </div>
 
           <p className="text-[11px] text-slate-600 mt-3 font-medium text-center">
-            {loading ? 'Loading…' : `${results.length} of ${shipments.length} shipments shown`}
+            {loading ? 'Loading…'
+              : isSearching ? `${results.length} of ${shipments.length} shipments match`
+              : selectedBatch ? `${shown.length} customer${shown.length === 1 ? '' : 's'} in ${selectedBatch}`
+              : `${batches.length} batch${batches.length === 1 ? '' : 'es'} · tap one to open`}
           </p>
         </div>
       </div>
@@ -206,16 +249,88 @@ export default function WarehousePage() {
           </div>
         )}
 
-        {!loading && results.length === 0 && (
+        {/* Back bar when inside a batch */}
+        {!loading && selectedBatch && !isSearching && (
+          <button
+            onClick={() => setSelectedBatch(null)}
+            className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-[#F15D38] transition-colors mb-2"
+          >
+            <ArrowLeft size={16} /> All batches
+            <span className="ml-1 font-mono text-[#F15D38] bg-[#F15D38]/10 border border-[#F15D38]/20 px-2 py-0.5 rounded-lg text-xs">{selectedBatch}</span>
+          </button>
+        )}
+
+        {/* BATCH LIST VIEW */}
+        {!loading && showBatchList && batches.length === 0 && (
+          <div className="text-center py-20">
+            <Layers size={48} className="mx-auto text-slate-700 mb-4" />
+            <p className="text-slate-500 font-bold text-sm uppercase tracking-wider">No batches match this filter</p>
+          </div>
+        )}
+
+        {!loading && showBatchList && batches.map(b => {
+          const allArrived = b.statuses.size === 1 && b.statuses.has('ARRIVED');
+          const inTransit = b.statuses.has('IN_TRANSIT');
+          return (
+            <button
+              key={b.name}
+              onClick={() => setSelectedBatch(b.name)}
+              className="w-full text-left bg-[#131B2E] border border-slate-800 rounded-2xl px-5 sm:px-6 py-5 hover:border-[#F15D38]/40 hover:bg-[#161f33] transition-all group"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="p-3 bg-[#F15D38]/10 rounded-xl shrink-0">
+                    <Layers size={22} className="text-[#F15D38]" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-base font-black text-slate-100 truncate">{b.name}</span>
+                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-md border uppercase tracking-wider ${
+                        allArrived ? 'text-emerald-400 bg-emerald-950/30 border-emerald-800/30' :
+                        inTransit ? 'text-[#F15D38] bg-[#F15D38]/10 border-[#F15D38]/20' :
+                        'text-amber-400 bg-amber-950/30 border-amber-800/30'}`}>
+                        {allArrived ? 'Arrived' : inTransit ? 'In Transit' : 'Pending'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 font-medium mt-1">
+                      {b.shipments.length} customer{b.shipments.length === 1 ? '' : 's'} · {b.items} item{b.items === 1 ? '' : 's'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {b.here > 0 && (
+                    <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-lg border text-blue-400 bg-blue-950/20 border-blue-800/30">
+                      <Box size={11} /> {b.here} here
+                    </span>
+                  )}
+                  {b.taken > 0 && (
+                    <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-lg border text-purple-400 bg-purple-950/20 border-purple-800/30">
+                      <LogOut size={11} /> {b.taken} taken
+                    </span>
+                  )}
+                  {b.lost > 0 && (
+                    <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-lg border text-rose-400 bg-rose-950/20 border-rose-800/30">
+                      <AlertTriangle size={11} /> {b.lost} lost
+                    </span>
+                  )}
+                  <ChevronRight size={20} className="text-slate-600 group-hover:text-[#F15D38] transition-colors" />
+                </div>
+              </div>
+            </button>
+          );
+        })}
+
+        {/* SHIPMENT CARDS (search results or inside a batch) */}
+        {!loading && !showBatchList && shown.length === 0 && (
           <div className="text-center py-20">
             <Package size={48} className="mx-auto text-slate-700 mb-4" />
             <p className="text-slate-500 font-bold text-sm uppercase tracking-wider">
-              {query ? `No results for "${query}"` : 'No shipments match this filter'}
+              {query ? `No results for "${query}"` : 'No shipments in this batch match the filter'}
             </p>
           </div>
         )}
 
-        {!loading && results.map(s => {
+        {!loading && !showBatchList && shown.map(s => {
           const matched = matchedTracking(s);
           return (
             <div key={s._id} className={`bg-[#131B2E] border rounded-2xl overflow-hidden transition-all ${matched ? 'border-[#F15D38]/50 shadow-lg shadow-[#F15D38]/5' : 'border-slate-800'}`}>
