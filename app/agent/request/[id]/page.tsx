@@ -21,6 +21,8 @@ const T: Record<Lang, Record<string, string>> = {
     notes: 'Notes', notesPh: 'Quality notes, product specs, anything important...',
     supplierPhotos: 'Supplier Photos', addPhoto: 'Add Photo',
     updatePrice: 'Update Price', submitPrice: 'Submit Price',
+    sumOrderTotal: 'Order total', sumFor: 'for', sumBudget: 'Customer budget', sumPerUnit: 'Per unit', sumTotal: 'Total',
+    sumWithin: 'within budget', sumOver: 'over by', sumUsdOnly: 'Switch the price to USD to compare with the budget.',
     noMessages: 'No messages yet. Start a conversation with Q Cargo.', qcargo: 'Q Cargo', typeMessage: 'Type a message...',
   },
   ar: {
@@ -37,6 +39,8 @@ const T: Record<Lang, Record<string, string>> = {
     notes: 'ملاحظات', notesPh: 'ملاحظات الجودة، مواصفات المنتج، أي شيء مهم...',
     supplierPhotos: 'صور المورّد', addPhoto: 'إضافة صورة',
     updatePrice: 'تحديث السعر', submitPrice: 'إرسال السعر',
+    sumOrderTotal: 'إجمالي الطلب', sumFor: 'لـ', sumBudget: 'ميزانية العميل', sumPerUnit: 'للوحدة', sumTotal: 'الإجمالي',
+    sumWithin: 'ضمن الميزانية', sumOver: 'يتجاوز بـ', sumUsdOnly: 'حوّل السعر إلى الدولار للمقارنة مع الميزانية.',
     noMessages: 'لا رسائل بعد. ابدأ محادثة مع Q كارغو.', qcargo: 'Q كارغو', typeMessage: 'اكتب رسالة...',
   },
   zh: {
@@ -53,6 +57,8 @@ const T: Record<Lang, Record<string, string>> = {
     notes: '备注', notesPh: '质量备注、产品规格、任何重要信息...',
     supplierPhotos: '供应商照片', addPhoto: '添加照片',
     updatePrice: '更新报价', submitPrice: '提交报价',
+    sumOrderTotal: '订单总价', sumFor: '共', sumBudget: '客户预算', sumPerUnit: '每单位', sumTotal: '总计',
+    sumWithin: '在预算内', sumOver: '超出', sumUsdOnly: '将价格切换为美元以便与预算比较。',
     noMessages: '暂无消息。开始与 Q Cargo 对话。', qcargo: 'Q Cargo', typeMessage: '输入消息...',
   },
 };
@@ -197,6 +203,17 @@ export default function AgentRequestPage({ params }: { params: Promise<{ id: str
   const t = T[lang];
   const isRtl = lang === 'ar';
 
+  // ── Live pricing helpers for the submit form ──────────────────────────────────
+  const qty = Number(request?.quantity) || 0;
+  const priceNum = parseFloat(unitPrice);
+  const hasPrice = !isNaN(priceNum) && priceNum > 0;
+  const lineTotal = hasPrice ? priceNum * qty : 0;
+  const budget = typeof request?.targetPrice === 'number' ? request.targetPrice : null;
+  // Budget is stored in USD — only compare when the agent is pricing in USD too.
+  const canCompare = hasPrice && budget != null && budget > 0 && currency === 'USD';
+  const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  const pct = (over: number, base: number) => Math.round((over / base) * 100);
+
   return (
     <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col" style={{ direction: isRtl ? 'rtl' : 'ltr' }}>
       {/* Header */}
@@ -304,6 +321,48 @@ export default function AgentRequestPage({ params }: { params: Promise<{ id: str
                 </select>
               </div>
             </div>
+
+            {/* ── Live pricing summary ── */}
+            {hasPrice && (
+              <div className="bg-[#0B0F19] border border-slate-800 rounded-xl p-4 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t.sumOrderTotal}</span>
+                  <span className="text-sm font-black text-slate-100">
+                    {fmt(lineTotal)} {currency}
+                    <span className="text-slate-500 font-bold"> · {t.sumFor} {qty} {request?.unit}</span>
+                  </span>
+                </div>
+                {budget != null && budget > 0 && (canCompare ? (
+                  <div className="pt-2 border-t border-slate-800/60 space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-bold text-slate-400">{t.sumBudget}</span>
+                      <span className="font-black text-slate-300">${fmt(budget)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 text-[11px]">
+                      <span className="font-bold text-slate-500">{t.sumPerUnit}: ${fmt(priceNum)}</span>
+                      {priceNum <= budget
+                        ? <span className="font-black text-emerald-400">✓ {t.sumWithin}</span>
+                        : <span className="font-black text-amber-400">▲ {t.sumOver} ${fmt(priceNum - budget)} ({pct(priceNum - budget, budget)}%)</span>}
+                    </div>
+                    <div className="flex items-center justify-between gap-2 text-[11px]">
+                      <span className="font-bold text-slate-500">{t.sumTotal}: ${fmt(lineTotal)}</span>
+                      {lineTotal <= budget
+                        ? <span className="font-black text-emerald-400">✓ {t.sumWithin}</span>
+                        : <span className="font-black text-amber-400">▲ {t.sumOver} ${fmt(lineTotal - budget)} ({pct(lineTotal - budget, budget)}%)</span>}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="pt-2 border-t border-slate-800/60 space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-bold text-slate-400">{t.sumBudget}</span>
+                      <span className="font-black text-slate-300">${fmt(budget)}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-600 font-bold">{t.sumUsdOnly}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t.moq}</label>
