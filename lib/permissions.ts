@@ -140,8 +140,11 @@ export function canAccess(role: StaffRole | string | undefined | null, href: str
   if (!role || role === 'admin' || role === 'staff') return true;
   const allowed = ROLE_PAGES[role as StaffRole];
   if (!allowed) return false;
-  if (href === '/admin') return allowed.includes('/admin');
-  return allowed.some(p => href === p || href.startsWith(p + '/'));
+  return allowed.some(p => {
+    if (href === p) return true;                  // exact match
+    if (p === '/admin') return false;             // '/admin' must be exact — never prefix-match sub-routes
+    return href.startsWith(p + '/');              // e.g. /admin/customers/123
+  });
 }
 
 export function getAllowedPages(role: StaffRole | string | undefined): string[] {
