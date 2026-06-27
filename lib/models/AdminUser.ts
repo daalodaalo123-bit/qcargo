@@ -11,12 +11,17 @@ export type AdminRole =
   | 'sourcing_agent';
 
 export interface IAdminUser extends Document {
-  username: string;
-  email: string;
+  username:  string;
+  email:     string;
   passwordHash: string;
-  name: string;
-  role: AdminRole;
-  active: boolean;
+  name:      string;
+  role:      AdminRole;
+  active:    boolean;
+  lastSeen:  Date | null;
+  photo:     string;
+  phone:     string;
+  location:  string;
+  bio:       string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,6 +39,11 @@ const AdminUserSchema = new Schema<IAdminUser>(
     name:         { type: String, required: true },
     role:         { type: String, enum: ROLES, default: 'sales_rep' },
     active:       { type: Boolean, default: true },
+    lastSeen:     { type: Date, default: null },
+    photo:        { type: String, default: '' },
+    phone:        { type: String, default: '' },
+    location:     { type: String, default: '' },
+    bio:          { type: String, default: '' },
   },
   { timestamps: true }
 );

@@ -244,9 +244,9 @@ export default function AdminLayout({
               <button className="p-2 rounded-lg bg-slate-900 text-slate-300 hover:text-slate-100 border border-slate-800 transition-colors flex items-center justify-center">
                 <Bell size={16} />
               </button>
-              <button className="p-2 rounded-lg bg-slate-900 text-slate-300 hover:text-slate-100 border border-slate-800 transition-colors flex items-center justify-center">
-                <Settings size={16} />
-              </button>
+              <Link href="/admin/profile" onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-lg bg-slate-900 text-slate-300 hover:text-slate-100 border border-slate-800 transition-colors flex items-center justify-center" title="My Profile">
+                <User size={16} />
+              </Link>
               <button onClick={() => signOut({ callbackUrl: '/admin/login' })} className="p-2 rounded-lg bg-rose-950 text-rose-300 hover:bg-rose-900 hover:text-white border border-rose-800 transition-all flex items-center justify-center" title="Sign out">
                 <LogOut size={16} />
               </button>
