@@ -136,11 +136,10 @@ const ROLE_PAGES: Record<StaffRole, string[]> = {
   ],
 };
 
-export function canAccess(role: StaffRole | string | undefined, href: string): boolean {
-  // Super Admin, unknown roles, and legacy 'staff' role all get full access
+export function canAccess(role: StaffRole | string | undefined | null, href: string): boolean {
   if (!role || role === 'admin' || role === 'staff') return true;
   const allowed = ROLE_PAGES[role as StaffRole];
-  if (!allowed) return true; // unknown role → show everything (safe fallback)
+  if (!allowed) return false;
   if (href === '/admin') return allowed.includes('/admin');
   return allowed.some(p => href === p || href.startsWith(p + '/'));
 }

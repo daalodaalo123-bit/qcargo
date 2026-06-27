@@ -49,6 +49,7 @@ export default function AdminLayout({
     customers: { _id: string; name: string; phone: string }[];
     shipments: { _id: string; shipmentNumber: string; customer: string; type: string }[];
   }>({ customers: [], shipments: [] });
+  const [dbRole, setDbRole] = useState<StaffRole | null>(null);
 
   const INACTIVITY_MS = 30 * 60 * 1000;  // 30 minutes
   const WARNING_MS   = 25 * 60 * 1000;  // warn at 25 minutes
@@ -91,6 +92,15 @@ export default function AdminLayout({
       clearTimeout(warnTimer);
       events.forEach(e => window.removeEventListener(e, reset));
     };
+  }, [isLoginPage, status]);
+
+  // Fetch real role from DB so sidebar filters correctly
+  useEffect(() => {
+    if (isLoginPage || status !== 'authenticated') return;
+    fetch('/api/admin/profile')
+      .then(r => r.ok ? r.json() : null)
+      .then(p => { if (p?.role) setDbRole(p.role as StaffRole); })
+      .catch(() => {});
   }, [isLoginPage, status]);
 
   // Ping admin heartbeat every 30s so agents see admin as online
@@ -155,7 +165,8 @@ export default function AdminLayout({
     return null;
   }
 
-  const userRole = (session?.user as { role?: string })?.role as StaffRole | undefined;
+  // dbRole = authoritative role from DB. Falls back to session role, then null.
+  const userRole = dbRole ?? ((session?.user as { role?: string })?.role as StaffRole | undefined) ?? null;
   const roleMeta = userRole ? ROLE_META[userRole] : null;
 
   const allNavItems = [
@@ -175,7 +186,11 @@ export default function AdminLayout({
     { name: 'Settings',   icon: Settings,         href: '/admin/settings' },
   ];
 
-  const navItems = allNavItems.filter(item => canAccess(userRole, item.href));
+  // While dbRole is still loading show all items (avoids flash of empty sidebar).
+  // Once dbRole is confirmed, filter strictly.
+  const navItems = dbRole
+    ? allNavItems.filter(item => canAccess(dbRole, item.href))
+    : allNavItems;
 
   return (
     <div className="flex min-h-screen bg-[#0B0F19] text-slate-100 font-sans">
