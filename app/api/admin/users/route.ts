@@ -12,8 +12,7 @@ async function requireAdmin() {
   return session;
 }
 
-// The primary owner account = the first-created admin. It can never be deleted
-// or deactivated, so the company can never lock itself out of the system.
+// The primary owner = first-created super admin. Protected from demotion/deletion.
 async function getOwnerId() {
   const owner = await AdminUser.findOne({ role: 'admin' }).sort({ createdAt: 1 });
   return owner ? String(owner._id) : null;
@@ -50,7 +49,7 @@ export async function POST(request: Request) {
     username: username.toLowerCase(),
     email: email.toLowerCase(),
     passwordHash,
-    role: role || 'staff',
+    role: role || 'sales_rep',
     active: true,
   });
 

@@ -29,6 +29,7 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
+import { canAccess, ROLE_META, type StaffRole } from '@/lib/permissions';
 
 export default function AdminLayout({
   children,
@@ -154,22 +155,27 @@ export default function AdminLayout({
     return null;
   }
 
-  const navItems = [
-    { name: 'Dashboard', icon: LayoutDashboard, href: '/admin' },
-    { name: 'Shipments', icon: Ship, href: '/admin/shipments' },
-    { name: 'Batches', icon: Package, href: '/admin/batches' },
-    { name: 'Inventory', icon: Warehouse, href: '/admin/warehouse' },
-    { name: 'Purchases', icon: ShoppingCart, href: '/admin/purchases' },
-    { name: 'Customers', icon: Users, href: '/admin/customers' },
-    { name: 'Sourcing', icon: Globe, href: '/admin/pricing' },
-    { name: 'Quotations', icon: FileText, href: '/admin/quotations' },
-    { name: 'Marketing', icon: Megaphone, href: '/admin/marketing' },
-    { name: 'Expenses', icon: CreditCard, href: '/admin/expenses' },
-    { name: 'Accounting', icon: BarChart3, href: '/admin/accounting' },
-    { name: 'Reports', icon: Presentation, href: '/admin/reports' },
-    { name: 'To-Do List', icon: CheckSquare, href: '/admin/todo' },
-    { name: 'Settings', icon: Settings, href: '/admin/settings' },
+  const userRole = (session?.user as { role?: string })?.role as StaffRole | undefined;
+  const roleMeta = userRole ? ROLE_META[userRole] : null;
+
+  const allNavItems = [
+    { name: 'Dashboard',  icon: LayoutDashboard, href: '/admin' },
+    { name: 'Shipments',  icon: Ship,            href: '/admin/shipments' },
+    { name: 'Batches',    icon: Package,          href: '/admin/batches' },
+    { name: 'Inventory',  icon: Warehouse,        href: '/admin/warehouse' },
+    { name: 'Purchases',  icon: ShoppingCart,     href: '/admin/purchases' },
+    { name: 'Customers',  icon: Users,            href: '/admin/customers' },
+    { name: 'Sourcing',   icon: Globe,            href: '/admin/pricing' },
+    { name: 'Quotations', icon: FileText,         href: '/admin/quotations' },
+    { name: 'Marketing',  icon: Megaphone,        href: '/admin/marketing' },
+    { name: 'Expenses',   icon: CreditCard,       href: '/admin/expenses' },
+    { name: 'Accounting', icon: BarChart3,        href: '/admin/accounting' },
+    { name: 'Reports',    icon: Presentation,     href: '/admin/reports' },
+    { name: 'To-Do List', icon: CheckSquare,      href: '/admin/todo' },
+    { name: 'Settings',   icon: Settings,         href: '/admin/settings' },
   ];
+
+  const navItems = allNavItems.filter(item => canAccess(userRole, item.href));
 
   return (
     <div className="flex min-h-screen bg-[#0B0F19] text-slate-100 font-sans">
@@ -228,8 +234,10 @@ export default function AdminLayout({
                 AD
               </div>
               <div className="hidden sm:block">
-                <p className="text-xs font-black text-slate-100">Admin User</p>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lead Logistics</p>
+                <p className="text-xs font-black text-slate-100">{session?.user?.name || 'Admin'}</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  {roleMeta?.label || 'Super Admin'}
+                </p>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2">
