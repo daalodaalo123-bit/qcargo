@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/authOptions';
 import { connectDB } from '@/lib/mongoose';
 import AdminHeartbeat from '@/lib/models/AdminHeartbeat';
 import AdminUser from '@/lib/models/AdminUser';
@@ -20,7 +21,7 @@ export async function POST() {
 
   // Update per-user lastSeen
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     const userId = (session?.user as { id?: string })?.id;
     if (userId) {
       await AdminUser.findByIdAndUpdate(userId, { lastSeen: new Date() });

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/authOptions';
 import bcrypt from 'bcryptjs';
 import { connectDB } from '@/lib/mongoose';
 import AdminUser from '@/lib/models/AdminUser';
@@ -7,7 +8,7 @@ import AdminUser from '@/lib/models/AdminUser';
 export const dynamic = 'force-dynamic';
 
 async function requireAdmin() {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
   if (!session) return null;
   return session;
 }
