@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Pencil, Check, X, Lock, Copy, ExternalLink, MapPin, Phone } from 'lucide-react';
+import { Plus, Trash2, Pencil, Check, X, Lock, Copy, ExternalLink, MapPin, Phone, Eye, EyeOff } from 'lucide-react';
 import { ROLE_META, type StaffRole } from '@/lib/permissions';
 
 interface AdminUser {
@@ -61,11 +61,15 @@ export default function SettingsPage() {
 
   const [name,     setName]     = useState('');
   const [username, setUsername] = useState('');
-  const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [role,     setRole]     = useState<StaffRole>('sales_rep');
   const [saving,   setSaving]   = useState(false);
   const [error,    setError]    = useState('');
+  const [showPass, setShowPass] = useState(false);
+
+  // Auto-generate username from full name
+  const autoUsername = (n: string) =>
+    n.trim().toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '');
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -84,15 +88,15 @@ export default function SettingsPage() {
   }, [fetchUsers]);
 
   const resetForm = () => {
-    setName(''); setUsername(''); setEmail(''); setPassword(''); setRole('sales_rep');
-    setError(''); setEditingUser(null); setShowForm(false);
+    setName(''); setUsername(''); setPassword(''); setRole('sales_rep');
+    setError(''); setEditingUser(null); setShowForm(false); setShowPass(false);
   };
 
   const startEdit = (u: AdminUser) => {
     setEditingUser(u);
-    setName(u.name); setUsername(u.username); setEmail(u.email);
+    setName(u.name); setUsername(u.username);
     setPassword(''); setRole(u.role);
-    setError(''); setShowForm(true);
+    setError(''); setShowForm(true); setShowPass(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -111,13 +115,14 @@ export default function SettingsPage() {
         resetForm();
       } else {
         if (!password) { setError('Password is required'); return; }
+        const finalUsername = username || autoUsername(name);
+        if (!finalUsername) { setError('Name is required to generate username'); return; }
         const res = await fetch('/api/admin/users', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, username, email, password, role }),
+          body: JSON.stringify({ name, username: finalUsername, password, role }),
         });
         if (!res.ok) { const d = await res.json(); setError(d.error || 'Failed'); return; }
-        // Show credentials modal
-        setNewCreds({ name, username, password, role });
+        setNewCreds({ name, username: finalUsername, password, role });
         await fetchUsers();
         resetForm();
       }
@@ -228,32 +233,63 @@ export default function SettingsPage() {
           <h2 className="text-lg font-black text-slate-100 mb-6">
             {editingUser ? `Edit — ${editingUser.name}` : 'New Staff User'}
           </h2>
-          <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Hidden dummy fields to block browser autofill */}
+          <input type="text" name="fake_user" style={{ display: 'none' }} autoComplete="username" readOnly />
+          <input type="password" name="fake_pass" style={{ display: 'none' }} autoComplete="new-password" readOnly />
+
+          <form onSubmit={handleSubmit} autoComplete="off" className="space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+              {/* Full Name */}
+              <div className="md:col-span-2">
                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Full Name</label>
-                <input value={name} onChange={e => setName(e.target.value)} required
-                  className="w-full bg-slate-900 border border-slate-700 text-slate-100 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[#0d9488] transition-colors" />
+                <input
+                  value={name}
+                  onChange={e => { setName(e.target.value); if (!editingUser) setUsername(autoUsername(e.target.value)); }}
+                  required autoComplete="off" name="new_name"
+                  placeholder="e.g. Ahmed Hassan"
+                  className="w-full bg-slate-900 border border-slate-700 text-slate-100 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[#0d9488] transition-colors placeholder-slate-600"
+                />
               </div>
+
+              {/* Username — auto-generated, editable */}
               <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Username</label>
-                <input value={username} onChange={e => setUsername(e.target.value)} required={!editingUser}
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+                  Username <span className="normal-case font-normal text-slate-600">(auto-generated, editable)</span>
+                </label>
+                <input
+                  value={username}
+                  onChange={e => setUsername(e.target.value.toLowerCase().replace(/\s/g, '.'))}
                   disabled={!!editingUser}
-                  className="w-full bg-slate-900 border border-slate-700 text-slate-100 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[#0d9488] transition-colors disabled:opacity-40" />
+                  autoComplete="off" name="new_username"
+                  placeholder="ahmed.hassan"
+                  className="w-full bg-slate-900 border border-slate-700 text-slate-100 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[#0d9488] transition-colors disabled:opacity-40 placeholder-slate-600"
+                />
+                {!editingUser && username && (
+                  <p className="text-[10px] text-[#0d9488] font-bold mt-1">Login: {username}</p>
+                )}
               </div>
-              {!editingUser && (
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Email</label>
-                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
-                    className="w-full bg-slate-900 border border-slate-700 text-slate-100 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[#0d9488] transition-colors" />
-                </div>
-              )}
+
+              {/* Password */}
               <div>
                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
                   Password {editingUser && <span className="text-slate-500 normal-case font-normal">(leave blank to keep)</span>}
                 </label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} required={!editingUser}
-                  className="w-full bg-slate-900 border border-slate-700 text-slate-100 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[#0d9488] transition-colors" />
+                <div className="relative">
+                  <input
+                    type={showPass ? 'text' : 'password'}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    required={!editingUser}
+                    autoComplete="new-password"
+                    name="new_password"
+                    placeholder="Type password manually"
+                    className="w-full bg-slate-900 border border-slate-700 text-slate-100 rounded-xl px-4 py-3 pr-12 text-sm font-bold focus:outline-none focus:border-[#0d9488] transition-colors placeholder-slate-600"
+                  />
+                  <button type="button" onClick={() => setShowPass(p => !p)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+                    {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
             </div>
 

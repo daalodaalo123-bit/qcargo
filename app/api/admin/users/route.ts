@@ -34,22 +34,28 @@ export async function POST(request: Request) {
   await connectDB();
   const { name, username, email, password, role } = await request.json();
 
-  if (!name || !username || !email || !password) {
-    return NextResponse.json({ error: 'name, username, email, and password are required' }, { status: 400 });
+  if (!name || !username || !password) {
+    return NextResponse.json({ error: 'Name, username, and password are required' }, { status: 400 });
   }
 
-  const existing = await AdminUser.findOne({ $or: [{ username: username.toLowerCase() }, { email: email.toLowerCase() }] });
+  const cleanUsername = username.toLowerCase().trim();
+  // Use provided email or generate a placeholder (staff can update in their profile)
+  const cleanEmail = email?.trim()
+    ? email.toLowerCase().trim()
+    : `${cleanUsername}@qcargo.staff`;
+
+  const existing = await AdminUser.findOne({ $or: [{ username: cleanUsername }, { email: cleanEmail }] });
   if (existing) {
-    return NextResponse.json({ error: 'Username or email already in use' }, { status: 409 });
+    return NextResponse.json({ error: 'Username already in use' }, { status: 409 });
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await AdminUser.create({
     name,
-    username: username.toLowerCase(),
-    email: email.toLowerCase(),
+    username: cleanUsername,
+    email:    cleanEmail,
     passwordHash,
-    role: role || 'sales_rep',
+    role:   role || 'sales_rep',
     active: true,
   });
 
