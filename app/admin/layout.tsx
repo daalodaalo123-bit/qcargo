@@ -24,6 +24,7 @@ import {
   Search,
   Globe,
   MessageSquare,
+  Presentation,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -165,6 +166,7 @@ export default function AdminLayout({
     { name: 'Marketing', icon: Megaphone, href: '/admin/marketing' },
     { name: 'Expenses', icon: CreditCard, href: '/admin/expenses' },
     { name: 'Accounting', icon: BarChart3, href: '/admin/accounting' },
+    { name: 'Reports', icon: Presentation, href: '/admin/reports' },
     { name: 'To-Do List', icon: CheckSquare, href: '/admin/todo' },
     { name: 'Settings', icon: Settings, href: '/admin/settings' },
   ];
