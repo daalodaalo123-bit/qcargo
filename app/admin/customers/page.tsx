@@ -4,16 +4,28 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   UserPlus, Search, Phone, MapPin, Filter, TrendingUp, AlertCircle,
   Pencil, Trash2, Download, Star, Users, Bell, MessageSquare,
-  Plus, Loader2, CheckCircle2, Clock, Target, ChevronRight, X,
+  Plus, Loader2, CheckCircle2, Clock, Target, ChevronRight, X, LifeBuoy,
 } from 'lucide-react';
 import CustomerHistoryModal from './CustomerHistoryModal';
+import TicketsTab from './TicketsTab';
+import TargetsTab from './TargetsTab';
 
 // ── Types ────────────────────────────────────────────────────────────────────
-interface Customer { id: string; name: string; phone: string; city: string; totalShipments: number; totalSpent: number; balance: number; status: 'VIP' | 'ACTIVE'; }
+interface Customer { id: string; name: string; phone: string; city: string; totalShipments: number; totalSpent: number; balance: number; status: 'VIP' | 'ACTIVE'; agreedAirRate?: number; agreedSeaRate?: number; rateNotes?: string; }
+
+// Auto loyalty segment from lifetime spend (Gap #6 segmentation).
+type Segment = 'GOLD' | 'SILVER' | 'BRONZE';
+const segmentOf = (spent: number): Segment => spent >= 2000 ? 'GOLD' : spent >= 500 ? 'SILVER' : 'BRONZE';
+const SEGMENT_META: Record<Segment, { label: string; cls: string }> = {
+  GOLD:   { label: 'Gold',   cls: 'bg-amber-950/30 text-amber-300 border border-amber-700/30' },
+  SILVER: { label: 'Silver', cls: 'bg-slate-700/40 text-slate-200 border border-slate-500/40' },
+  BRONZE: { label: 'Bronze', cls: 'bg-orange-950/30 text-orange-300 border border-orange-800/30' },
+};
 interface Lead     { _id: string; name: string; phone: string; source: string; stage: 'NEW'|'CONTACTED'|'QUOTED'|'WON'|'LOST'; estimatedValue: number; notes: string; assignee: string; createdAt: string; }
 interface FollowUp { _id: string; customerId: string; customerName: string; dueDate: string; note: string; status: 'PENDING'|'DONE'; }
 
-type CRMTab = 'customers' | 'leads' | 'followups' | 'activity';
+type CRMTab = 'customers' | 'leads' | 'followups' | 'activity' | 'tickets' | 'targets';
+type TierFilter = 'ALL' | 'VIP' | 'ACTIVE' | 'GOLD' | 'SILVER' | 'BRONZE';
 type LeadStage = 'NEW'|'CONTACTED'|'QUOTED'|'WON'|'LOST';
 
 const STAGE_META: Record<LeadStage, { label: string; color: string; bg: string; border: string }> = {
@@ -36,7 +48,7 @@ export default function CustomersPage() {
   // ── Customers ──
   const [customers, setCustomers]   = useState<Customer[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [tierFilter, setTierFilter] = useState<'ALL' | 'VIP' | 'ACTIVE'>('ALL');
+  const [tierFilter, setTierFilter] = useState<TierFilter>('ALL');
   const [showModal, setShowModal]   = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingId, setEditingId]   = useState<string | null>(null);
@@ -44,6 +56,7 @@ export default function CustomersPage() {
   const [cName, setCName] = useState(''); const [cPhone, setCPhone] = useState('');
   const [cCity, setCCity] = useState('Hargeisa'); const [cStatus, setCStatus] = useState<'ACTIVE'|'VIP'>('ACTIVE');
   const [cShipments, setCShipments] = useState('0'); const [cSpent, setCSpent] = useState('0'); const [cBalance, setCBalance] = useState('0');
+  const [cAirRate, setCAirRate] = useState('0'); const [cSeaRate, setCSeaRate] = useState('0'); const [cRateNotes, setCRateNotes] = useState('');
 
   // ── Leads ──
   const [leads, setLeads]               = useState<Lead[]>([]);
@@ -74,7 +87,7 @@ export default function CustomersPage() {
       const res = await fetch('/api/customers');
       if (!res.ok) throw new Error();
       const data = await res.json();
-      setCustomers(data.map((c: any) => ({ id: c._id || c.id, name: c.name, phone: c.phone, city: c.city || 'Hargeisa', totalShipments: c.totalShipments || 0, totalSpent: c.totalSpent || 0, balance: c.balance || 0, status: c.status || 'ACTIVE' })));
+      setCustomers(data.map((c: any) => ({ id: c._id || c.id, name: c.name, phone: c.phone, city: c.city || 'Hargeisa', totalShipments: c.totalShipments || 0, totalSpent: c.totalSpent || 0, balance: c.balance || 0, status: c.status || 'ACTIVE', agreedAirRate: c.agreedAirRate || 0, agreedSeaRate: c.agreedSeaRate || 0, rateNotes: c.rateNotes || '' })));
     } catch { setCustomers([]); }
   };
 
@@ -102,13 +115,13 @@ export default function CustomersPage() {
   useEffect(() => { if (activeTab === 'activity')  loadActivity(); },  [activeTab]);
 
   // ── Customer CRUD ─────────────────────────────────────────────────────────
-  const openAddModal = () => { setIsEditMode(false); setEditingId(null); setCName(''); setCPhone(''); setCCity('Hargeisa'); setCStatus('ACTIVE'); setCShipments('0'); setCSpent('0'); setCBalance('0'); setShowModal(true); };
-  const openEditModal = (c: Customer) => { setIsEditMode(true); setEditingId(c.id); setCName(c.name); setCPhone(c.phone); setCCity(c.city); setCStatus(c.status); setCShipments(c.totalShipments.toString()); setCSpent(c.totalSpent.toString()); setCBalance(c.balance.toString()); setShowModal(true); };
+  const openAddModal = () => { setIsEditMode(false); setEditingId(null); setCName(''); setCPhone(''); setCCity('Hargeisa'); setCStatus('ACTIVE'); setCShipments('0'); setCSpent('0'); setCBalance('0'); setCAirRate('0'); setCSeaRate('0'); setCRateNotes(''); setShowModal(true); };
+  const openEditModal = (c: Customer) => { setIsEditMode(true); setEditingId(c.id); setCName(c.name); setCPhone(c.phone); setCCity(c.city); setCStatus(c.status); setCShipments(c.totalShipments.toString()); setCSpent(c.totalSpent.toString()); setCBalance(c.balance.toString()); setCAirRate(String(c.agreedAirRate || 0)); setCSeaRate(String(c.agreedSeaRate || 0)); setCRateNotes(c.rateNotes || ''); setShowModal(true); };
 
   const handleSaveCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cName.trim() || !cPhone.trim()) return alert('Name and phone required');
-    const payload = { name: cName, phone: cPhone, city: cCity, status: cStatus, totalShipments: parseInt(cShipments)||0, totalSpent: parseFloat(cSpent)||0, balance: parseFloat(cBalance)||0 };
+    const payload = { name: cName, phone: cPhone, city: cCity, status: cStatus, totalShipments: parseInt(cShipments)||0, totalSpent: parseFloat(cSpent)||0, balance: parseFloat(cBalance)||0, agreedAirRate: parseFloat(cAirRate)||0, agreedSeaRate: parseFloat(cSeaRate)||0, rateNotes: cRateNotes };
     try {
       if (isEditMode && editingId) {
         const res = await fetch(`/api/customers?id=${editingId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -187,8 +200,13 @@ export default function CustomersPage() {
   };
 
   // ── Derived data ──────────────────────────────────────────────────────────
+  const matchesTier = (c: Customer) => {
+    if (tierFilter === 'ALL') return true;
+    if (tierFilter === 'VIP' || tierFilter === 'ACTIVE') return c.status === tierFilter;
+    return segmentOf(c.totalSpent) === tierFilter; // GOLD / SILVER / BRONZE
+  };
   const filteredCustomers = useMemo(() => customers.filter(c =>
-    (tierFilter === 'ALL' || c.status === tierFilter) &&
+    matchesTier(c) &&
     (c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm) || c.city.toLowerCase().includes(searchTerm.toLowerCase()))
   ), [customers, searchTerm, tierFilter]);
   const leadsBy = useMemo(() => (stage: LeadStage) => leads.filter(l => l.stage === stage), [leads]);
@@ -212,6 +230,8 @@ export default function CustomersPage() {
     { id: 'leads'     as CRMTab, label: 'Lead Pipeline', icon: Target,  badge: leads.filter(l => l.stage !== 'WON' && l.stage !== 'LOST').length },
     { id: 'followups' as CRMTab, label: 'Follow-ups',  icon: Bell,     badge: overdueCount || pendingFollowups.length, badgeAlert: overdueCount > 0 },
     { id: 'activity'  as CRMTab, label: 'Activity Log', icon: MessageSquare, badge: 0 },
+    { id: 'tickets'   as CRMTab, label: 'Tickets',      icon: LifeBuoy, badge: 0 },
+    { id: 'targets'   as CRMTab, label: 'Sales Targets', icon: Target,  badge: 0 },
   ];
 
   return (
@@ -267,19 +287,25 @@ export default function CustomersPage() {
               <input type="text" placeholder="Search by name, phone, city…" className="search-input !pl-12 w-full" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
             </div>
             <div className="flex gap-2">
-              {(['ALL', 'VIP', 'ACTIVE'] as const).map(t => (
-                <button key={t} onClick={() => setTierFilter(t)}
-                  className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
-                    tierFilter === t
-                      ? t === 'VIP' ? 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-900/30'
-                        : t === 'ACTIVE' ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-900/30'
-                        : 'bg-slate-700 text-white border-slate-600'
-                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-600 hover:text-slate-200'
-                  }`}>
-                  {t === 'ALL' ? 'All Customers' : t === 'VIP' ? '⭐ VIP' : '✓ Active'}
-                  <span className="ml-1.5 opacity-70">({t === 'ALL' ? customers.length : customers.filter(c => c.status === t).length})</span>
-                </button>
-              ))}
+              {(['ALL', 'VIP', 'ACTIVE', 'GOLD', 'SILVER', 'BRONZE'] as TierFilter[]).map(t => {
+                const count = t === 'ALL' ? customers.length
+                  : (t === 'VIP' || t === 'ACTIVE') ? customers.filter(c => c.status === t).length
+                  : customers.filter(c => segmentOf(c.totalSpent) === t).length;
+                const labelMap: Record<TierFilter, string> = { ALL: 'All Customers', VIP: '⭐ VIP', ACTIVE: '✓ Active', GOLD: '🥇 Gold', SILVER: '🥈 Silver', BRONZE: '🥉 Bronze' };
+                return (
+                  <button key={t} onClick={() => setTierFilter(t)}
+                    className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                      tierFilter === t
+                        ? t === 'VIP' ? 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-900/30'
+                          : t === 'ACTIVE' ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-900/30'
+                          : 'bg-slate-700 text-white border-slate-600'
+                        : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-600 hover:text-slate-200'
+                    }`}>
+                    {labelMap[t]}
+                    <span className="ml-1.5 opacity-70">({count})</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div className="shipment-card !p-0 overflow-hidden border border-slate-800">
@@ -302,7 +328,17 @@ export default function CustomersPage() {
                       <td className="px-6 py-5"><div className="flex items-center gap-2"><MapPin size={12} className="text-slate-500" /><span className="text-xs font-bold text-slate-300">{c.city}</span></div></td>
                       <td className="px-6 py-5"><span className="font-bold text-slate-100">{c.totalShipments}</span><span className="text-[10px] text-slate-500 ml-1 uppercase">orders</span></td>
                       <td className="px-6 py-5">
-                        <span className={`text-[10px] font-black px-3 py-1 rounded-full ${c.status === 'VIP' ? 'bg-amber-950/30 text-amber-400 border border-amber-800/20' : 'bg-slate-900 text-slate-400 border border-slate-800'}`}>{c.status}</span>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-[10px] font-black px-2.5 py-1 rounded-full ${c.status === 'VIP' ? 'bg-amber-950/30 text-amber-400 border border-amber-800/20' : 'bg-slate-900 text-slate-400 border border-slate-800'}`}>{c.status}</span>
+                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${SEGMENT_META[segmentOf(c.totalSpent)].cls}`}>{SEGMENT_META[segmentOf(c.totalSpent)].label}</span>
+                          </div>
+                          {(c.agreedAirRate || c.agreedSeaRate) ? (
+                            <span className="text-[9px] font-bold text-slate-500">
+                              {c.agreedAirRate ? `Air $${c.agreedAirRate}/kg` : ''}{c.agreedAirRate && c.agreedSeaRate ? ' · ' : ''}{c.agreedSeaRate ? `Sea $${c.agreedSeaRate}/cbm` : ''}
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="px-6 py-5">
                         <span className={`font-black text-sm ${c.balance > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>{c.balance > 0 ? `-$${c.balance.toFixed(2)}` : 'CLEAR'}</span>
@@ -478,6 +514,12 @@ export default function CustomersPage() {
         </div>
       )}
 
+      {/* ── TICKETS TAB ── */}
+      {activeTab === 'tickets' && <TicketsTab customers={customers.map(c => ({ name: c.name, phone: c.phone }))} />}
+
+      {/* ── SALES TARGETS TAB ── */}
+      {activeTab === 'targets' && <TargetsTab />}
+
       {/* Customer history modal */}
       <CustomerHistoryModal customerId={historyId} onClose={() => setHistoryId(null)} />
 
@@ -505,6 +547,15 @@ export default function CustomersPage() {
                   <div><label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Balance</label><input type="number" value={cBalance} onChange={e=>setCBalance(e.target.value)} className="search-input w-full text-xs" /></div>
                 </div>
               )}
+              {/* Agreed rate (contract) */}
+              <div className="border-t border-slate-800/60 pt-4">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Agreed Rates (optional)</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div><label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Air ($/kg)</label><input type="number" step="0.01" value={cAirRate} onChange={e=>setCAirRate(e.target.value)} className="search-input w-full text-xs" placeholder="0" /></div>
+                  <div><label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Sea ($/cbm)</label><input type="number" step="0.01" value={cSeaRate} onChange={e=>setCSeaRate(e.target.value)} className="search-input w-full text-xs" placeholder="0" /></div>
+                </div>
+                <input type="text" value={cRateNotes} onChange={e=>setCRateNotes(e.target.value)} className="search-input w-full text-xs mt-3" placeholder="Rate notes — e.g. special deal until Dec" />
+              </div>
               <div className="flex gap-3 justify-end pt-2">
                 <button type="button" onClick={() => setShowModal(false)} className="btn bg-[#131B2E] border border-slate-800 text-slate-300 px-6">Cancel</button>
                 <button type="submit" className="btn btn-primary px-8">Save</button>

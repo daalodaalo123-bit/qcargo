@@ -12,6 +12,9 @@ export interface ICustomer extends Document {
   notes?: string;
   creditLimit?: number;
   createdBy?: ICreatedBy;
+  agreedAirRate?: number;   // agreed $/kg for air freight
+  agreedSeaRate?: number;   // agreed $/cbm for sea freight
+  rateNotes?: string;
 }
 
 const CustomerSchema = new Schema<ICustomer>({
@@ -25,6 +28,9 @@ const CustomerSchema = new Schema<ICustomer>({
   notes: { type: String },
   creditLimit: { type: Number, default: 0 },
   createdBy: { type: CreatedBySchema, default: null },
+  agreedAirRate: { type: Number, default: 0 },
+  agreedSeaRate: { type: Number, default: 0 },
+  rateNotes: { type: String, default: '' },
 }, { timestamps: true });
 
 export default mongoose.models.Customer || mongoose.model<ICustomer>('Customer', CustomerSchema);
