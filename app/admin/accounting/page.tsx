@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   TrendingUp, DollarSign, CreditCard, Search, MoreVertical,
   Download, Building2, PieChart, CheckCircle2, AlertCircle, BarChart3,
-  Landmark, Users, Trash2,
+  Landmark, Users, Trash2, Scale, Wallet, Percent, Settings, Banknote,
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -20,8 +20,13 @@ import {
   buildChartOfAccountsLive,
 } from '@/lib/accounting-summary';
 import { parseExpenseDate } from '@/lib/expense-analytics';
+import SetupTab, { type FinanceSettings } from './SetupTab';
+import BalanceSheetTab from './BalanceSheetTab';
+import BudgetTab from './BudgetTab';
+import TaxTab from './TaxTab';
+import BankRecTab from './BankRecTab';
 
-type TabType = 'overview' | 'invoices' | 'bills' | 'accounts' | 'ar-aging' | 'ap-aging' | 'pl-statement' | 'cashflow' | 'credit-limits';
+type TabType = 'overview' | 'invoices' | 'bills' | 'accounts' | 'ar-aging' | 'ap-aging' | 'pl-statement' | 'cashflow' | 'credit-limits' | 'balance-sheet' | 'budget' | 'tax' | 'bank-rec' | 'setup';
 type PLPeriod = 'this_month' | 'last_month' | 'this_year' | 'all';
 
 interface Invoice {
@@ -84,6 +89,11 @@ export default function AccountingPage() {
   const [customers, setCustomers]           = useState<{ _id: string; name: string; phone: string; creditLimit?: number }[]>([]);
   const [editingCreditId, setEditingCreditId] = useState<string | null>(null);
   const [creditInputVal, setCreditInputVal]   = useState('');
+  const [settings, setSettings]               = useState<FinanceSettings | null>(null);
+
+  const loadSettings = async () => {
+    try { const res = await fetch('/api/finance/settings'); if (res.ok) setSettings(await res.json()); } catch (e) { console.error(e); }
+  };
 
   const loadBills = async () => {
     try {
@@ -165,7 +175,7 @@ export default function AccountingPage() {
     } catch (e) { alert('Failed to delete invoice'); }
   };
 
-  useEffect(() => { loadBills(); loadInvoices(); loadShipments(); loadCustomers(); }, []);
+  useEffect(() => { loadBills(); loadInvoices(); loadShipments(); loadCustomers(); loadSettings(); }, []);
 
   const intelExpenses: IntelExpense[] = bills.map((b) => ({
     id: b.id, batchId: b.batchId || 'GENERAL', category: b.category,
@@ -190,6 +200,14 @@ export default function AccountingPage() {
 
   const totalPayables = useMemo(() =>
     bills.filter(b => b.status !== 'PAID').reduce((s, b) => s + b.amount, 0),
+  [bills]);
+
+  // Lifetime cash for the Balance Sheet: collected from customers, paid to vendors.
+  const lifetimeCashIn = useMemo(() =>
+    invoices.reduce((s, inv) => inv.status === 'PAID' ? s + inv.amount : inv.status === 'PARTIAL' ? s + (inv.amountPaidThisReceipt ?? 0) : s, 0),
+  [invoices]);
+  const lifetimeCashOut = useMemo(() =>
+    bills.filter(b => b.status === 'PAID').reduce((s, b) => s + b.amount, 0),
   [bills]);
 
   const liveMonth = useMemo(() =>
@@ -359,6 +377,11 @@ export default function AccountingPage() {
     { id: 'credit-limits', name: 'Credit Limits',  icon: Users       },
     { id: 'pl-statement',  name: 'P&L',            icon: BarChart3   },
     { id: 'cashflow',      name: 'Cash Flow',      icon: TrendingUp  },
+    { id: 'balance-sheet', name: 'Balance Sheet',  icon: Scale       },
+    { id: 'budget',        name: 'Budget',         icon: Wallet      },
+    { id: 'tax',           name: 'Tax',            icon: Percent     },
+    { id: 'bank-rec',      name: 'Bank Rec',       icon: Banknote    },
+    { id: 'setup',         name: 'Setup',          icon: Settings    },
   ];
 
   return (
@@ -414,6 +437,32 @@ export default function AccountingPage() {
               </div>
             ))}
           </div>
+
+          {/* Multi-currency snapshot */}
+          {settings && (
+            <div className="shipment-card border border-slate-800 bg-[#131B2E]">
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-sm font-black text-slate-200 uppercase tracking-widest">In Other Currencies</h3>
+                <button onClick={() => setActiveTab('setup')} className="text-[10px] font-black text-[#0d9488] uppercase tracking-widest hover:underline">Edit rates</button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  { label: 'Freight (this month)',    usd: liveMonth.freightRevenue },
+                  { label: 'Cash in (this month)',    usd: liveMonth.cashCollected  },
+                  { label: 'Net profit (this month)', usd: liveMonth.netProfit       },
+                ].map(item => (
+                  <div key={item.label} className="bg-slate-900/60 rounded-xl p-4">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{item.label}</p>
+                    <div className="mt-2 space-y-1">
+                      <p className="text-sm font-black text-slate-100">{money(item.usd)} <span className="text-slate-500 text-[10px]">USD</span></p>
+                      <p className="text-xs font-bold text-slate-300">¥{(item.usd * settings.rates.CNY).toLocaleString(undefined, { maximumFractionDigits: 0 })} <span className="text-slate-500 text-[10px]">CNY</span></p>
+                      <p className="text-xs font-bold text-slate-300">{(item.usd * settings.rates.AED).toLocaleString(undefined, { maximumFractionDigits: 0 })} <span className="text-slate-500 text-[10px]">AED</span></p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
             <div className="lg:col-span-2 shipment-card border border-slate-800 bg-[#131B2E]">
@@ -1041,6 +1090,37 @@ export default function AccountingPage() {
           </div>
         </div>
       )}
+
+      {/* ── BALANCE SHEET ── */}
+      {activeTab === 'balance-sheet' && (
+        <BalanceSheetTab
+          openingBalance={settings?.openingCashBalance ?? 0}
+          cashIn={lifetimeCashIn}
+          cashOut={lifetimeCashOut}
+          receivables={totalReceivables}
+          payables={totalPayables}
+        />
+      )}
+
+      {/* ── BUDGET vs ACTUAL ── */}
+      {activeTab === 'budget' && (
+        <BudgetTab bills={bills.map(b => ({ category: b.category, amount: b.amount, date: b.date }))} />
+      )}
+
+      {/* ── TAX ── */}
+      {activeTab === 'tax' && (
+        <TaxTab
+          shipments={shipments.map(s => ({ date: s.date, total: s.total }))}
+          settings={settings}
+          onGoSetup={() => setActiveTab('setup')}
+        />
+      )}
+
+      {/* ── BANK RECONCILIATION ── */}
+      {activeTab === 'bank-rec' && <BankRecTab />}
+
+      {/* ── SETUP ── */}
+      {activeTab === 'setup' && <SetupTab settings={settings} onSaved={loadSettings} />}
     </div>
   );
 }
