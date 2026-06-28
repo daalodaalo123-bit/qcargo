@@ -35,11 +35,7 @@ interface Order {
   date: string;
 }
 
-const DEFAULT_ORDERS: Order[] = [
-  { id: '1', orderNumber: 'PUR-2024-001', customer: 'Mustafe Ismail', supplier: 'Guangzhou Electronics Co.', items: 3, totalUSD: 1450.00, paidUSD: 1450.00, paymentStatus: 'PAID', status: 'IN_WAREHOUSE', date: '2026-05-10' },
-  { id: '2', orderNumber: 'PUR-2024-002', customer: 'Sahra Hassan', supplier: 'Yiwu Fashion Hub', items: 1, totalUSD: 850.00, paidUSD: 400.00, paymentStatus: 'PARTIAL', status: 'ORDERED', date: '2026-05-18' },
-  { id: '3', orderNumber: 'PUR-2024-003', customer: 'Ahmed Ali', supplier: 'Shenzhen Tech Ltd', items: 12, totalUSD: 5200.00, paidUSD: 5200.00, paymentStatus: 'PAID', status: 'SHIPPED', date: '2026-05-20' },
-];
+// Demo fallback data removed — real purchase orders come only from the database.
 
 export default function PurchasesPage() {
   const [searchTerm, setSearchTerm] = useState('');

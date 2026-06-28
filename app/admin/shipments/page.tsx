@@ -33,11 +33,7 @@ type Shipment = ShipmentRow & {
 
 type RawLine = Record<string, unknown>;
 
-const DEFAULT_SHIPMENTS: Shipment[] = [
-  { id: '1', shipmentNumber: 'AIR-2024-KM-901', customer: 'Khadar Mohamed', type: 'AIR', status: 'ARRIVED', payment: 'PAID', total: 245.50, batch: 'FLT-2024-001', date: '2026-05-18' },
-  { id: '2', shipmentNumber: 'SEA-2024-AD-312', customer: 'Abdi Dahir', type: 'SEA', status: 'IN_TRANSIT', payment: 'UNPAID', total: 1200.00, batch: 'CTN-2024-042', date: '2026-05-15' },
-  { id: '3', shipmentNumber: 'AIR-2024-ZA-505', customer: 'Zahra Ahmed', type: 'AIR', status: 'PENDING', payment: 'PAID', total: 450.00, batch: 'FLT-2024-002', date: '2026-05-20' },
-];
+// Demo fallback data removed — real shipments come only from the database.
 
 export default function ShipmentsPage() {
   const [searchTerm, setSearchTerm] = useState('');

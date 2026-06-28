@@ -28,48 +28,7 @@ interface Task {
   createdAt: string;
 }
 
-const DEFAULT_TASKS: Task[] = [
-  {
-    id: 't1',
-    title: 'Clear custom backlog for sea container QC-2024-001',
-    description: 'Ensure customs paperwork is signed off at Berbera Port and clear remaining fees.',
-    assignee: 'Khalid',
-    status: 'In_Progress',
-    priority: 'High',
-    dueDate: '2026-06-02',
-    createdAt: '2026-05-30'
-  },
-  {
-    id: 't2',
-    title: 'Coordinate flight batch manifest with Air Cargo Fuel',
-    description: 'Contact vendor regarding fuel surcharge and dispatch flight flight list to ground team.',
-    assignee: 'Sakariye',
-    status: 'Pending',
-    priority: 'High',
-    dueDate: '2026-06-03',
-    createdAt: '2026-05-30'
-  },
-  {
-    id: 't3',
-    title: 'Send WhatsApp notifications for new Hargeisa shipments',
-    description: 'Set up WhatsApp notifications for customers in Hargeisa branch about arrival dates.',
-    assignee: 'Khalid',
-    status: 'Completed',
-    priority: 'Medium',
-    dueDate: '2026-05-29',
-    createdAt: '2026-05-28'
-  },
-  {
-    id: 't4',
-    title: 'Update vendor bill spreadsheet for Berbera Port expenses',
-    description: 'Reconcile invoice BIL-901 against actual receipts from harbor log and update ledger.',
-    assignee: 'Sakariye',
-    status: 'In_Progress',
-    priority: 'Medium',
-    dueDate: '2026-06-05',
-    createdAt: '2026-05-30'
-  }
-];
+// Demo fallback data removed — real tasks come only from the database.
 
 export default function TodoPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -106,7 +65,7 @@ export default function TodoPage() {
       })));
     } catch (e) {
       console.error(e);
-      setTasks(DEFAULT_TASKS);
+      setTasks([]);
     }
   };
 

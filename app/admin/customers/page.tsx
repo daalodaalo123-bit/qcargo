@@ -28,10 +28,7 @@ const SOURCE_LABELS: Record<string, string> = {
   WHATSAPP: 'WhatsApp', REFERRAL: 'Referral', WALK_IN: 'Walk-in', SOCIAL: 'Social', OTHER: 'Other',
 };
 
-const DEFAULT_CUSTOMERS: Customer[] = [
-  { id: '1', name: 'Mustafe Ismail', phone: '+252 63 777 8986', city: 'Hargeisa', totalShipments: 12, totalSpent: 4500, balance: 0, status: 'VIP' },
-  { id: '2', name: 'Sahra Hassan',   phone: '+252 63 444 2211', city: 'Berbera',  totalShipments: 3,  totalSpent: 850,  balance: 150, status: 'ACTIVE' },
-];
+// Demo fallback data removed — real customers come only from the database.
 
 export default function CustomersPage() {
   const [activeTab, setActiveTab] = useState<CRMTab>('customers');
@@ -78,7 +75,7 @@ export default function CustomersPage() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       setCustomers(data.map((c: any) => ({ id: c._id || c.id, name: c.name, phone: c.phone, city: c.city || 'Hargeisa', totalShipments: c.totalShipments || 0, totalSpent: c.totalSpent || 0, balance: c.balance || 0, status: c.status || 'ACTIVE' })));
-    } catch { setCustomers(DEFAULT_CUSTOMERS); }
+    } catch { setCustomers([]); }
   };
 
   const loadLeads = async () => {

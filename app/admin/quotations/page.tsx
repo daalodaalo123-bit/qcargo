@@ -40,12 +40,7 @@ interface Quotation {
   createdByName?: string;
 }
 
-const DEFAULT_QUOTATIONS: Quotation[] = [
-  { id: 'q1', customer: 'Hassan Ahmed', phone: '+252 63 777 8986', goods: '50 Cartons Electronics', price: 1450.00, date: '2026-05-30', status: 'SENT', paymentStatus: 'UNPAID', amountPaid: 0, type: 'AIR' },
-  { id: 'q2', customer: 'Sahra Ismail', phone: '+252 63 444 2211', goods: '20 Sets Kitchenware', price: 850.00, date: '2026-05-29', status: 'DRAFT', paymentStatus: 'UNPAID', amountPaid: 0, type: 'SEA' },
-  { id: 'q3', customer: 'Abdi Dahir', phone: '+252 61 555 1234', goods: 'Textile Rolls (China)', price: 3200.00, date: '2026-05-28', status: 'APPROVED', paymentStatus: 'PAID', amountPaid: 3200, type: 'SEA' },
-  { id: 'q4', customer: 'Mustafe Mohamed', phone: '+252 63 777 8986', goods: 'Spare Parts - Batch 09', price: 650.00, date: '2026-05-27', status: 'REJECTED', paymentStatus: 'UNPAID', amountPaid: 0, type: 'AIR' },
-];
+// Demo fallback data removed — real quotations come only from the database.
 
 export default function QuotationsPage() {
   const [searchTerm, setSearchTerm] = useState('');

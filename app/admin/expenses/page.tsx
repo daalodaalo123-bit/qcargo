@@ -36,12 +36,7 @@ interface Expense {
   paymentMethod: string;
 }
 
-const DEFAULT_EXPENSES: Expense[] = [
-  { id: 'EXP-001', batchId: 'FLT-2024-001', category: 'Customs', vendor: 'Hargeisa Port Authority', amount: 1250.00, amountPaid: 1250.00, date: '2026-05-15', due: '2026-05-15', status: 'PAID', paymentMethod: 'ZAAD' },
-  { id: 'EXP-002', batchId: 'CTN-2024-042', category: 'Trucking', vendor: 'Berbera local Transport Co', amount: 450.00, amountPaid: 450.00, date: '2026-05-16', due: '2026-05-16', status: 'PAID', paymentMethod: 'CASH' },
-  { id: 'EXP-003', batchId: 'FLT-2024-001', category: 'Warehousing', vendor: 'Q CARGO GZ Warehouse', amount: 800.00, amountPaid: 0, date: '2026-05-18', due: '2026-05-18', status: 'PENDING', paymentMethod: 'WAAFI' },
-  { id: 'EXP-004', batchId: 'FLT-2024-002', category: 'Sourcing', vendor: 'Agent Lee Sourcing', amount: 300.00, amountPaid: 300.00, date: '2026-05-20', due: '2026-05-20', status: 'PAID', paymentMethod: 'EDAHAB' },
-];
+// Demo fallback data removed — real expenses come only from the database.
 
 export default function ExpensesPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -69,7 +64,7 @@ export default function ExpensesPage() {
       })));
     } catch (e) {
       console.error(e);
-      setExpenses(DEFAULT_EXPENSES);
+      setExpenses([]);
     }
   };
 
