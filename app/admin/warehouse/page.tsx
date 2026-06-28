@@ -100,16 +100,8 @@ export default function WarehousePage() {
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return shipments.filter(s => {
-      // Status-based filters
-      if (filter === 'ARRIVED' && s.status !== 'ARRIVED') return false;
-      if (filter === 'IN_TRANSIT' && s.status !== 'IN_TRANSIT') return false;
-      if (filter === 'PENDING' && s.status !== 'PENDING') return false;
-      // Item-based filters: show shipment only if it has at least one matching item
-      if (filter === 'IN_WAREHOUSE' && !(s.status === 'ARRIVED' && s.items.some(it => !it.warehouseStatus || it.warehouseStatus === 'IN_WAREHOUSE'))) return false;
-      if (filter === 'TAKEN' && !s.items.some(it => it.warehouseStatus === 'TAKEN')) return false;
-      if (filter === 'LOST' && !s.items.some(it => it.warehouseStatus === 'LOST')) return false;
-      // Search
+
+    const matchesSearch = (s: WarehouseShipment) => {
       if (!q) return true;
       if (s.shipmentNumber?.toLowerCase().includes(q)) return true;
       if (s.customer?.toLowerCase().includes(q)) return true;
@@ -117,6 +109,25 @@ export default function WarehousePage() {
       if (s.courierPackages?.some(p => p.trackingNumber?.toLowerCase().includes(q) || p.goods?.toLowerCase().includes(q))) return true;
       if (s.items?.some(it => it.description?.toLowerCase().includes(q))) return true;
       return false;
+    };
+
+    // Transport-status filters (Arrived / In Transit / Pending) operate at the
+    // BATCH level: if any shipment in a batch has the wanted status, show the
+    // WHOLE batch — not just the matching shipments. So the batch cards show
+    // real full counts instead of trimmed ones.
+    if (filter === 'ARRIVED' || filter === 'IN_TRANSIT' || filter === 'PENDING') {
+      const qualifying = new Set(
+        shipments.filter(s => s.status === filter).map(s => s.batch?.trim() || 'No Batch')
+      );
+      return shipments.filter(s => qualifying.has(s.batch?.trim() || 'No Batch') && matchesSearch(s));
+    }
+
+    return shipments.filter(s => {
+      // Item-based filters: show shipment only if it has at least one matching item
+      if (filter === 'IN_WAREHOUSE' && !(s.status === 'ARRIVED' && s.items.some(it => !it.warehouseStatus || it.warehouseStatus === 'IN_WAREHOUSE'))) return false;
+      if (filter === 'TAKEN' && !s.items.some(it => it.warehouseStatus === 'TAKEN')) return false;
+      if (filter === 'LOST' && !s.items.some(it => it.warehouseStatus === 'LOST')) return false;
+      return matchesSearch(s);
     });
   }, [query, filter, shipments]);
 

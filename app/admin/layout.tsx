@@ -50,6 +50,7 @@ export default function AdminLayout({
     shipments: { _id: string; shipmentNumber: string; customer: string; type: string }[];
   }>({ customers: [], shipments: [] });
   const [dbRole, setDbRole] = useState<StaffRole | null>(null);
+  const [sourcingAlerts, setSourcingAlerts] = useState(0);
 
   const INACTIVITY_MS = 30 * 60 * 1000;  // 30 minutes
   const WARNING_MS   = 25 * 60 * 1000;  // warn at 25 minutes
@@ -111,6 +112,20 @@ export default function AdminLayout({
     const interval = setInterval(ping, 30000);
     return () => clearInterval(interval);
   }, [isLoginPage, status]);
+
+  // Poll sourcing activity (unread agent messages + submitted prices) for the
+  // Sourcing nav badge. Refreshes every 30s and on route change so the count
+  // drops as soon as the admin opens/handles things.
+  useEffect(() => {
+    if (isLoginPage || status !== 'authenticated') return;
+    const load = () => fetch('/api/pricing/activity')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setSourcingAlerts(d.total || 0); })
+      .catch(() => {});
+    load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
+  }, [isLoginPage, status, pathname]);
 
   // Global search — Ctrl+K to open, Escape to close
   useEffect(() => {
@@ -235,7 +250,13 @@ export default function AdminLayout({
                   <item.icon size={18} className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-[#F15D38]'} />
                   {item.name}
                 </div>
-                {isActive && <ChevronRight size={14} className="opacity-50" />}
+                {item.href === '/admin/pricing' && sourcingAlerts > 0 ? (
+                  <span className={`min-w-[20px] h-5 px-1.5 inline-flex items-center justify-center rounded-full text-[10px] font-black ${
+                    isActive ? 'bg-white text-[#F15D38]' : 'bg-[#F15D38] text-white'
+                  }`}>
+                    {sourcingAlerts > 99 ? '99+' : sourcingAlerts}
+                  </span>
+                ) : isActive ? <ChevronRight size={14} className="opacity-50" /> : null}
               </Link>
             );
           })}
@@ -256,9 +277,14 @@ export default function AdminLayout({
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              <button className="p-2 rounded-lg bg-slate-900 text-slate-300 hover:text-slate-100 border border-slate-800 transition-colors flex items-center justify-center">
-                <Bell size={16} />
-              </button>
+              <Link href="/admin/pricing" onClick={() => setIsSidebarOpen(false)} title={sourcingAlerts > 0 ? `${sourcingAlerts} sourcing update${sourcingAlerts === 1 ? '' : 's'} waiting` : 'Notifications'} className="relative p-2 rounded-lg bg-slate-900 text-slate-300 hover:text-slate-100 border border-slate-800 transition-colors flex items-center justify-center">
+                <Bell size={16} className={sourcingAlerts > 0 ? 'text-[#F15D38]' : ''} />
+                {sourcingAlerts > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 inline-flex items-center justify-center rounded-full bg-[#F15D38] text-white text-[9px] font-black border border-[#131B2E]">
+                    {sourcingAlerts > 9 ? '9+' : sourcingAlerts}
+                  </span>
+                )}
+              </Link>
               <Link href="/admin/profile" onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-lg bg-slate-900 text-slate-300 hover:text-slate-100 border border-slate-800 transition-colors flex items-center justify-center" title="My Profile">
                 <User size={16} />
               </Link>
