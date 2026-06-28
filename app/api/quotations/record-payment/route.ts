@@ -5,6 +5,7 @@ import Customer from '@/lib/models/Customer';
 import Invoice from '@/lib/models/Invoice';
 import { deliverReceiptWhatsApp } from '@/lib/deliver-receipt-whatsapp';
 import { BRAND_NAME } from '@/lib/brand';
+import { getSessionUser } from '@/lib/sessionUser';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -131,6 +132,8 @@ export async function POST(request: Request) {
 
     const customer = await upsertCustomer(quotation.customer, phone.trim(), thisPayment);
 
+    const user = await getSessionUser();
+
     quotation.status = 'APPROVED';
     quotation.phone = phone.trim();
     quotation.amountPaid = newTotalPaid;
@@ -139,6 +142,14 @@ export async function POST(request: Request) {
       quotation.price = totalDue;
       quotation.discountAmount = (quotation.discountAmount || 0) + discountApplied;
     }
+    // Record who took this payment (for the HR scoreboard).
+    quotation.payments = quotation.payments || [];
+    quotation.payments.push({
+      amount: thisPayment,
+      by: user ? { id: user.id, name: user.name } : { id: '', name: 'Unknown' },
+      method: paymentMethod,
+      at: new Date(),
+    });
     await quotation.save();
 
     const invoiceNumber = nextInvoiceNumber();

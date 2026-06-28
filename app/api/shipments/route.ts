@@ -4,6 +4,7 @@ import { connectDB } from '@/lib/mongoose';
 import Shipment from '@/lib/models/Shipment';
 import { Batch } from '@/lib/models/Batch';
 import { ShipmentSchema, zodError } from '@/lib/validation';
+import { getSessionUser } from '@/lib/sessionUser';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +30,11 @@ export async function POST(request: Request) {
     }
 
     // Create new shipment document
-    const shipment = new Shipment(parsed.data);
+    const user = await getSessionUser();
+    const shipment = new Shipment({
+      ...parsed.data,
+      createdBy: user ? { id: user.id, name: user.name } : undefined,
+    });
     await shipment.save();
 
     // If batch is assigned, we should update the shipments count on the Batch model

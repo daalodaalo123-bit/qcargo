@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongoose';
 import { Batch } from '@/lib/models/Batch';
 import Shipment from '@/lib/models/Shipment';
+import { getSessionUser } from '@/lib/sessionUser';
 
 export const dynamic = 'force-dynamic';
 
@@ -149,7 +150,8 @@ export async function POST(request: Request) {
   try {
     await connectDB();
     const body = await request.json();
-    
+    const user = await getSessionUser();
+
     // Create new batch document
     const batch = new Batch({
       batchId: body.batchId,
@@ -159,7 +161,8 @@ export async function POST(request: Request) {
       status: body.status || 'IN_TRANSIT',
       shipments: body.shipments || 0,
       weight: body.weight || '',
-      arrival: body.arrival || ''
+      arrival: body.arrival || '',
+      createdBy: user ? { id: user.id, name: user.name } : undefined,
     });
     
     await batch.save();

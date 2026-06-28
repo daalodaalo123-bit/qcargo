@@ -37,6 +37,7 @@ interface Quotation {
   paymentStatus: 'UNPAID' | 'PARTIAL' | 'PAID';
   amountPaid: number;
   type: 'AIR' | 'SEA';
+  createdByName?: string;
 }
 
 const DEFAULT_QUOTATIONS: Quotation[] = [
@@ -73,7 +74,8 @@ export default function QuotationsPage() {
         status: q.status || 'SENT',
         paymentStatus: q.paymentStatus || 'UNPAID',
         amountPaid: q.amountPaid || 0,
-        type: q.type || 'AIR'
+        type: q.type || 'AIR',
+        createdByName: q.createdBy?.name || ''
       })));
     } catch (e) {
       console.error(e);
@@ -291,6 +293,11 @@ export default function QuotationsPage() {
                     <div className="flex flex-col">
                       <span className="font-bold text-slate-100">{quote.customer}</span>
                       <span className="text-[10px] font-bold text-slate-500 uppercase mt-0.5 tracking-wider">{quote.date}</span>
+                      {quote.createdByName && (
+                        <span className="text-[9px] font-black text-slate-400 bg-slate-800/60 border border-slate-700 w-fit px-1.5 py-0.5 rounded mt-1">
+                          By {quote.createdByName}
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-8 py-6">

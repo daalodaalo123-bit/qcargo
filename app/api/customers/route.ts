@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongoose';
 import Customer from '@/lib/models/Customer';
+import { getSessionUser } from '@/lib/sessionUser';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +22,11 @@ export async function POST(request: Request) {
     if (!body.name || !body.phone) {
       return NextResponse.json({ error: 'Name and Phone are required' }, { status: 400 });
     }
-    const customer = new Customer(body);
+    const user = await getSessionUser();
+    const customer = new Customer({
+      ...body,
+      createdBy: user ? { id: user.id, name: user.name } : undefined,
+    });
     await customer.save();
     return NextResponse.json(customer, { status: 201 });
   } catch (err: any) {

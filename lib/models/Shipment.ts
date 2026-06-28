@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { CreatedBySchema, PaymentEntrySchema, type ICreatedBy, type IPaymentEntry } from './attribution';
 
 export interface IProductNote {
   text: string;
@@ -58,6 +59,8 @@ export interface IShipment extends Document {
   items: IShipmentItem[];
   courierPackages: ICourierPackage[];
   takenAt?: Date;
+  createdBy?: ICreatedBy;
+  payments?: IPaymentEntry[];
 }
 
 const ProductNoteSchema = new Schema<IProductNote>({
@@ -116,6 +119,8 @@ const ShipmentSchema = new Schema<IShipment>({
   items: [ShipmentItemSchema],
   courierPackages: [CourierPackageSchema],
   takenAt: { type: Date },
+  createdBy: { type: CreatedBySchema, default: null },
+  payments: { type: [PaymentEntrySchema], default: [] },
 }, { timestamps: true });
 
 export default mongoose.models.Shipment || mongoose.model<IShipment>('Shipment', ShipmentSchema);

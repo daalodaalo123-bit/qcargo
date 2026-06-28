@@ -25,6 +25,7 @@ import {
   Globe,
   MessageSquare,
   Presentation,
+  Trophy,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -198,6 +199,7 @@ export default function AdminLayout({
     { name: 'Accounting', icon: BarChart3,        href: '/admin/accounting' },
     { name: 'Reports',    icon: Presentation,     href: '/admin/reports' },
     { name: 'To-Do List', icon: CheckSquare,      href: '/admin/todo' },
+    { name: 'Team',       icon: Trophy,           href: '/admin/team' },
     { name: 'Settings',   icon: Settings,         href: '/admin/settings' },
   ];
 

@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { CreatedBySchema, type ICreatedBy } from './attribution';
 
 export interface ICustomer extends Document {
   name: string;
@@ -10,6 +11,7 @@ export interface ICustomer extends Document {
   status?: string;
   notes?: string;
   creditLimit?: number;
+  createdBy?: ICreatedBy;
 }
 
 const CustomerSchema = new Schema<ICustomer>({
@@ -22,6 +24,7 @@ const CustomerSchema = new Schema<ICustomer>({
   status: { type: String, default: 'ACTIVE' },
   notes: { type: String },
   creditLimit: { type: Number, default: 0 },
+  createdBy: { type: CreatedBySchema, default: null },
 }, { timestamps: true });
 
 export default mongoose.models.Customer || mongoose.model<ICustomer>('Customer', CustomerSchema);

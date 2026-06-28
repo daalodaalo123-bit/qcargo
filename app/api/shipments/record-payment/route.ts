@@ -6,6 +6,7 @@ import Invoice from '@/lib/models/Invoice';
 import { deliverReceiptWhatsApp } from '@/lib/deliver-receipt-whatsapp';
 import { buildShipmentInvoiceItems } from '@/lib/build-shipment-invoice-items';
 import { BRAND_NAME } from '@/lib/brand';
+import { getSessionUser } from '@/lib/sessionUser';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -141,12 +142,22 @@ export async function POST(request: Request) {
 
     const customer = await upsertCustomer(shipment.customer, phone.trim(), thisPayment);
 
+    const user = await getSessionUser();
+
     shipment.phone = phone.trim();
     shipment.amountPaid = newTotalPaid;
     shipment.paidAmount = newTotalPaid;
     shipment.paymentStatus = isPaidInFull ? 'PAID' : 'PARTIAL';
     shipment.payment = isPaidInFull ? 'PAID' : 'UNPAID';
     shipment.paymentMethod = paymentMethod;
+    // Record who took this payment (for the HR scoreboard).
+    shipment.payments = shipment.payments || [];
+    shipment.payments.push({
+      amount: thisPayment,
+      by: user ? { id: user.id, name: user.name } : { id: '', name: 'Unknown' },
+      method: paymentMethod,
+      at: new Date(),
+    });
     await shipment.save();
 
     const invoiceNumber = nextInvoiceNumber();

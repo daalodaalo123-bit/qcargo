@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
+import { CreatedBySchema, type ICreatedBy } from './attribution';
 
 export interface IBatch extends Document {
   batchId: string;
@@ -10,6 +11,7 @@ export interface IBatch extends Document {
   weight: string;
   arrival: string; // ISO date string
   statusChanged?: boolean;
+  createdBy?: ICreatedBy;
 }
 
 const BatchSchema: Schema = new Schema({
@@ -22,6 +24,7 @@ const BatchSchema: Schema = new Schema({
   weight: { type: String, default: '' },
   arrival: { type: String },
   statusChanged: { type: Boolean, default: false },
-});
+  createdBy: { type: CreatedBySchema, default: null },
+}, { timestamps: true });
 
 export const Batch: Model<IBatch> = mongoose.models.Batch as Model<IBatch> || mongoose.model<IBatch>('Batch', BatchSchema);

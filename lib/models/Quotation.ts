@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { CreatedBySchema, PaymentEntrySchema, type ICreatedBy, type IPaymentEntry } from './attribution';
 
 export interface IQuotationItem {
   description: string;
@@ -23,6 +24,8 @@ export interface IQuotation extends Document {
   commissionAmount: number;
   discountRate: number;
   discountAmount: number;
+  createdBy?: ICreatedBy;
+  payments?: IPaymentEntry[];
 }
 
 const QuotationItemSchema = new Schema<IQuotationItem>({
@@ -48,6 +51,8 @@ const QuotationSchema = new Schema<IQuotation>({
   commissionAmount: { type: Number, default: 0 },
   discountRate: { type: Number, default: 0 },
   discountAmount: { type: Number, default: 0 },
+  createdBy: { type: CreatedBySchema, default: null },
+  payments: { type: [PaymentEntrySchema], default: [] },
 }, { timestamps: true });
 
 export default mongoose.models.Quotation || mongoose.model<IQuotation>('Quotation', QuotationSchema);
