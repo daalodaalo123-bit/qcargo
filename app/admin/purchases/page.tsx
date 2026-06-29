@@ -18,9 +18,14 @@ import {
   Pencil,
   Trash2,
   Download,
-  Building2
+  Building2,
+  Users,
+  X,
+  Loader2,
+  Save,
 } from 'lucide-react';
 import Link from 'next/link';
+import SuppliersTab from './SuppliersTab';
 
 interface Order {
   id: string;
@@ -28,6 +33,8 @@ interface Order {
   customer: string;
   supplier: string;
   items: number;
+  totalCNY?: number;
+  exchangeRate?: number;
   totalUSD: number;
   paidUSD: number;
   paymentStatus: 'PAID' | 'PARTIAL' | 'UNPAID';
@@ -35,11 +42,22 @@ interface Order {
   date: string;
 }
 
+type PurchaseTab = 'orders' | 'suppliers';
+
 // Demo fallback data removed — real purchase orders come only from the database.
 
 export default function PurchasesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [orders, setOrders] = useState<Order[]>([]);
+  const [activeTab, setActiveTab] = useState<PurchaseTab>('orders');
+  const [cnyRate, setCnyRate] = useState(7.1);
+
+  // Record-payment modal state
+  const [payingOrder, setPayingOrder] = useState<Order | null>(null);
+  const [payAmount, setPayAmount] = useState('');
+  const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
+  const [payMethod, setPayMethod] = useState('ALIPAY');
+  const [paySaving, setPaySaving] = useState(false);
 
   // Load orders from MongoDB
   const loadOrders = async () => {
@@ -59,7 +77,25 @@ export default function PurchasesPage() {
 
   useEffect(() => {
     loadOrders();
+    fetch('/api/finance/settings').then(r => r.ok ? r.json() : null).then(s => { if (s?.rates?.CNY) setCnyRate(s.rates.CNY); }).catch(() => {});
   }, []);
+
+  const recordSupplierPayment = async () => {
+    if (!payingOrder) return;
+    const amt = Number(payAmount);
+    if (!amt || amt <= 0) { alert('Enter an amount greater than zero'); return; }
+    setPaySaving(true);
+    try {
+      const res = await fetch(`/api/sourcing?id=${payingOrder.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordPayment: true, amountUSD: amt, date: payDate, method: payMethod }),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Failed'); }
+      setPayingOrder(null); setPayAmount('');
+      await loadOrders();
+    } catch (e: any) { alert(`Error: ${e.message}`); }
+    finally { setPaySaving(false); }
+  };
 
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this procurement order?')) {
@@ -76,8 +112,8 @@ export default function PurchasesPage() {
 
   const handleExport = () => {
     const csvContent = "data:text/csv;charset=utf-8," 
-      + ["Order Number,Customer,Supplier,Items Count,Total USD,Paid USD,Payment Status,Logistics Status,Date"].join(",") + "\n"
-      + orders.map(o => `"${o.orderNumber}","${o.customer}","${o.supplier}",${o.items},${o.totalUSD},${o.paidUSD},"${o.paymentStatus}","${o.status}","${o.date}"`).join("\n");
+      + ["Order Number,Customer,Supplier,Items,Total CNY,Total USD,Paid USD,Balance USD,Payment Status,Logistics Status,Date"].join(",") + "\n"
+      + orders.map(o => `"${o.orderNumber}","${o.customer}","${o.supplier}",${o.items},${o.totalCNY||0},${o.totalUSD},${o.paidUSD},${(o.totalUSD-o.paidUSD).toFixed(2)},"${o.paymentStatus}","${o.status}","${o.date}"`).join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -95,8 +131,11 @@ export default function PurchasesPage() {
 
   // Calculations
   const activeOrdersCount = orders.filter(o => o.status !== 'SHIPPED').length;
-  const totalVolume = orders.reduce((acc, o) => acc + o.totalUSD, 0);
-  const pendingPayment = orders.reduce((acc, o) => acc + (o.totalUSD - o.paidUSD), 0);
+  const totalVolume = orders.reduce((acc, o) => acc + (o.totalUSD || 0), 0);
+  const totalPaidSuppliers = orders.reduce((acc, o) => acc + (o.paidUSD || 0), 0);
+  const stillToPay = orders.reduce((acc, o) => acc + Math.max(0, (o.totalUSD || 0) - (o.paidUSD || 0)), 0);
+  const supplierCount = new Set(orders.map(o => (o.supplier || '').toLowerCase()).filter(Boolean)).size;
+  const money = (n: number) => `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
   return (
     <div className="admin-container">
@@ -123,6 +162,19 @@ export default function PurchasesPage() {
         </div>
       </div>
 
+      {/* Tab toggle */}
+      <div className="flex gap-2 mb-8 border-b border-slate-800">
+        {(['orders', 'suppliers'] as PurchaseTab[]).map(t => (
+          <button key={t} onClick={() => setActiveTab(t)}
+            className={`px-5 py-3 text-sm font-bold border-b-2 -mb-px transition-colors flex items-center gap-2 ${activeTab === t ? 'border-[#F15D38] text-slate-100' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
+            {t === 'orders' ? <ShoppingCart size={16} /> : <Building2 size={16} />}
+            {t === 'orders' ? 'Orders' : 'Suppliers'}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'suppliers' ? <SuppliersTab /> : (
+      <>
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
         <div className="shipment-card">
@@ -151,7 +203,7 @@ export default function PurchasesPage() {
             </div>
           </div>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pending Payment</p>
-          <h3 className="text-2xl font-black text-slate-100">${pendingPayment.toLocaleString()}</h3>
+          <h3 className="text-2xl font-black text-slate-100">${stillToPay.toLocaleString(undefined, { maximumFractionDigits: 0 })}</h3>
         </div>
         <div className="shipment-card">
           <div className="flex items-center justify-between mb-4">
@@ -160,7 +212,7 @@ export default function PurchasesPage() {
             </div>
           </div>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Suppliers</p>
-          <h3 className="text-2xl font-black text-slate-100">124</h3>
+          <h3 className="text-2xl font-black text-slate-100">{supplierCount}</h3>
         </div>
       </div>
 
@@ -235,18 +287,21 @@ export default function PurchasesPage() {
                   <td className="px-8 py-6 text-right">
                     <div className="flex flex-col items-end">
                       <span className="font-black text-slate-100">${order.totalUSD.toLocaleString()}</span>
+                      {order.totalCNY ? <span className="text-[10px] font-bold text-emerald-400">¥{order.totalCNY.toLocaleString()} CNY</span> : null}
                       <span className="text-[10px] font-bold text-slate-500">{order.items} Units</span>
                     </div>
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={() => alert('Editing order...')}
-                        className="p-2 hover:bg-slate-800 text-slate-400 hover:text-slate-100 rounded-lg transition-colors" 
-                        title="Edit Order"
-                      >
-                        <Pencil size={16} />
-                      </button>
+                      {order.paymentStatus !== 'PAID' && (
+                        <button
+                          onClick={() => { setPayingOrder(order); setPayAmount(''); setPayDate(new Date().toISOString().slice(0,10)); setPayMethod('ALIPAY'); }}
+                          className="p-2 hover:bg-emerald-950/30 text-slate-400 hover:text-emerald-400 rounded-lg transition-colors"
+                          title="Record supplier payment"
+                        >
+                          <DollarSign size={16} />
+                        </button>
+                      )}
                       <button 
                         onClick={() => handleDelete(order.id)}
                         className="p-2 hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-lg transition-colors" 
@@ -267,6 +322,55 @@ export default function PurchasesPage() {
           </table>
         </div>
       </div>
+      </>
+      )}
+
+      {/* Record supplier payment modal */}
+      {payingOrder && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0B0F19] border border-slate-800 rounded-3xl w-full max-w-md p-8 shadow-2xl">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xl font-black text-slate-100">Record Supplier Payment</h3>
+              <button onClick={() => setPayingOrder(null)} className="p-2 text-slate-400 hover:text-slate-200 rounded-lg"><X size={18} /></button>
+            </div>
+            <p className="text-xs font-bold text-slate-500 mb-1">{payingOrder.orderNumber} · {payingOrder.supplier}</p>
+            <p className="text-xs font-bold text-slate-400 mb-6">
+              Total {money(payingOrder.totalUSD)} · Paid {money(payingOrder.paidUSD)} ·
+              <span className="text-amber-400"> Balance {money(Math.max(0, payingOrder.totalUSD - payingOrder.paidUSD))}</span>
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Amount (USD)</label>
+                <input type="number" autoFocus className="search-input w-full" placeholder="0.00"
+                  value={payAmount} onChange={e => setPayAmount(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Date</label>
+                  <input type="date" className="search-input w-full" value={payDate} onChange={e => setPayDate(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Method</label>
+                  <select className="search-input w-full" value={payMethod} onChange={e => setPayMethod(e.target.value)}>
+                    <option value="ALIPAY">AliPay</option>
+                    <option value="ZAAD">Zaad</option>
+                    <option value="EDAHAB">E-Dahab</option>
+                    <option value="WAAFI">Waafi</option>
+                    <option value="CASH">Cash</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-3 justify-end pt-2">
+                <button onClick={() => setPayingOrder(null)} className="btn bg-[#131B2E] border border-slate-800 text-slate-300 px-6">Cancel</button>
+                <button onClick={recordSupplierPayment} disabled={paySaving} className="btn btn-primary px-8 flex items-center gap-2">
+                  {paySaving && <Loader2 size={14} className="animate-spin" />} Record Payment
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

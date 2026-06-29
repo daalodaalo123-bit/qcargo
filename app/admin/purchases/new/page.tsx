@@ -1,18 +1,45 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus, Trash2, Save, ArrowLeft, Link as LinkIcon, DollarSign, RefreshCcw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Trash2, Save, ArrowLeft, Link as LinkIcon, DollarSign, RefreshCcw, Search, User, Phone, Package, History } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function NewPurchasePage() {
   const router = useRouter();
-  const [exchangeRate, setExchangeRate] = useState(7.2);
+  const [exchangeRate, setExchangeRate] = useState(7.1);
+  const [suppliers, setSuppliers] = useState<{ _id: string; name: string }[]>([]);
+  const [customers, setCustomers] = useState<{ _id: string; name: string; phone?: string }[]>([]);
+  const [allOrders, setAllOrders] = useState<any[]>([]);
+  const [showCustList, setShowCustList] = useState(false);
   const [items, setItems] = useState([
     { productName: '', productUrl: '', quantity: 1, unitPriceCNY: 0 }
   ]);
   const [formData, setFormData] = useState({
     customerName: '', supplierName: '', paymentMethod: 'ZAAD', notes: ''
   });
+
+  // Load the saved Yuan rate (from Finance Setup), the supplier directory,
+  // the customer directory, and every past order (for the history lookup).
+  useEffect(() => {
+    fetch('/api/finance/settings').then(r => r.ok ? r.json() : null).then(s => {
+      if (s?.rates?.CNY) setExchangeRate(s.rates.CNY);
+    }).catch(() => {});
+    fetch('/api/suppliers').then(r => r.ok ? r.json() : []).then(d => setSuppliers(Array.isArray(d) ? d : [])).catch(() => {});
+    fetch('/api/customers').then(r => r.ok ? r.json() : []).then(d => setCustomers(Array.isArray(d) ? d : [])).catch(() => {});
+    fetch('/api/sourcing').then(r => r.ok ? r.json() : []).then(d => setAllOrders(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+
+  // Customers matching what's typed (for the live dropdown).
+  const custQuery = formData.customerName.trim().toLowerCase();
+  const matchingCustomers = custQuery
+    ? customers.filter(c => c.name.toLowerCase().includes(custQuery)).slice(0, 6)
+    : customers.slice(0, 6);
+
+  // The selected customer's past orders (exact name match).
+  const customerHistory = custQuery
+    ? allOrders.filter(o => (o.customer || '').trim().toLowerCase() === custQuery)
+    : [];
+  const historyTotal = customerHistory.reduce((s, o) => s + (o.totalUSD || 0), 0);
 
   const addItem = () => setItems([...items, { productName: '', productUrl: '', quantity: 1, unitPriceCNY: 0 }]);
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
@@ -36,11 +63,29 @@ export default function NewPurchasePage() {
       totalUSD: parseFloat(((item.unitPriceCNY * item.quantity) / exchangeRate).toFixed(2))
     }));
 
+    // Resolve the supplier against the directory — create it if it's new.
+    const supplierName = formData.supplierName.trim() || 'Unknown Supplier';
+    let supplierId: string | null = null;
+    if (formData.supplierName.trim()) {
+      const existing = suppliers.find(s => s.name.toLowerCase() === supplierName.toLowerCase());
+      if (existing) supplierId = existing._id;
+      else {
+        try {
+          const sres = await fetch('/api/suppliers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: supplierName }) });
+          if (sres.ok) { const s = await sres.json(); supplierId = s._id; }
+        } catch { /* non-fatal */ }
+      }
+    }
+    const totalCNY = items.reduce((sum, item) => sum + (item.unitPriceCNY * item.quantity), 0);
+
     const payload = {
       orderNumber,
       customer: formData.customerName,
-      supplier: formData.supplierName || 'Unknown Supplier',
+      supplier: supplierName,
+      supplierId,
       items: itemsPayload,
+      totalCNY: parseFloat(totalCNY.toFixed(2)),
+      exchangeRate,
       totalUSD: parseFloat(totalUSD.toFixed(2)),
       paidUSD: 0,
       paymentStatus: 'UNPAID',
@@ -86,18 +131,81 @@ export default function NewPurchasePage() {
           <div className="shipment-card">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6 pb-4 border-b border-slate-800/40">Client Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+              <div className="relative">
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Customer Name</label>
-                <input type="text" className="search-input" placeholder="e.g. Mustafe Ismail"
-                  value={formData.customerName} onChange={(e) => setFormData({...formData, customerName: e.target.value})} />
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                  <input type="text" className="search-input !pl-9" placeholder="Type to find a customer…" autoComplete="off"
+                    value={formData.customerName}
+                    onChange={(e) => { setFormData({...formData, customerName: e.target.value}); setShowCustList(true); }}
+                    onFocus={() => setShowCustList(true)}
+                    onBlur={() => setTimeout(() => setShowCustList(false), 150)} />
+                </div>
+                {showCustList && matchingCustomers.length > 0 && (
+                  <div className="absolute z-20 mt-1 w-full bg-[#0B0F19] border border-slate-800 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
+                    {matchingCustomers.map(c => {
+                      const cOrders = allOrders.filter(o => (o.customer || '').trim().toLowerCase() === c.name.trim().toLowerCase());
+                      return (
+                        <button key={c._id} type="button"
+                          onMouseDown={(e) => { e.preventDefault(); setFormData({ ...formData, customerName: c.name }); setShowCustList(false); }}
+                          className="w-full text-left px-4 py-2.5 hover:bg-slate-800/60 border-b border-slate-800/40 last:border-0 flex items-center justify-between gap-2">
+                          <span className="min-w-0">
+                            <span className="block text-sm font-bold text-slate-100 truncate flex items-center gap-1.5"><User size={12} className="text-[#F15D38]" />{c.name}</span>
+                            {c.phone && <span className="block text-[11px] font-bold text-slate-500 flex items-center gap-1 mt-0.5"><Phone size={10} />{c.phone}</span>}
+                          </span>
+                          <span className="text-[10px] font-black text-slate-500 shrink-0">{cOrders.length} order{cOrders.length === 1 ? '' : 's'}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Supplier Name (China)</label>
-                <input type="text" className="search-input" placeholder="e.g. Guangzhou Electronics"
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Supplier (China)</label>
+                <input type="text" list="supplier-list" className="search-input" placeholder="Pick a supplier or type a new one"
                   value={formData.supplierName} onChange={(e) => setFormData({...formData, supplierName: e.target.value})} />
+                <datalist id="supplier-list">
+                  {suppliers.map(s => <option key={s._id} value={s.name} />)}
+                </datalist>
+                <p className="text-[10px] text-slate-500 mt-1">New names are added to your Supplier Directory automatically.</p>
               </div>
             </div>
           </div>
+
+          {/* Customer History — shows this customer's past purchases */}
+          {customerHistory.length > 0 && (
+            <div className="shipment-card">
+              <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-800/40">
+                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <History size={15} className="text-[#F15D38]" /> Customer History
+                </h3>
+                <span className="text-[11px] font-black text-slate-300">
+                  {customerHistory.length} order{customerHistory.length === 1 ? '' : 's'} · <span className="text-emerald-400">${historyTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span> total
+                </span>
+              </div>
+              <div className="space-y-3">
+                {customerHistory.map((o) => (
+                  <div key={o._id} className="p-4 bg-[#0B0F19] rounded-2xl border border-slate-800">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="font-mono text-xs font-black text-slate-100">{o.orderNumber}</span>
+                      <span className="text-[10px] font-bold text-slate-500">{o.date}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {(o.items || []).map((it: any, i: number) => (
+                        <span key={i} className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-300 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1">
+                          <Package size={10} className="text-slate-500" /> {it.productName || 'Item'} <span className="text-slate-500">×{it.quantity}</span>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] font-bold">
+                      <span className="text-slate-500">{o.supplier}</span>
+                      <span className="text-emerald-400">${(o.totalUSD || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Order Items */}
           <div className="shipment-card">
