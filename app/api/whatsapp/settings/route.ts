@@ -20,6 +20,10 @@ export async function GET() {
       apiVersion: s?.apiVersion || 'v21.0',
       enabled: s?.enabled || false,
       senderLabel: s?.senderLabel || '',
+      templateLang: s?.templateLang || 'en_US',
+      invoiceTemplate: s?.invoiceTemplate || '',
+      quotationTemplate: s?.quotationTemplate || '',
+      otpTemplate: s?.otpTemplate || '',
       tokenSet: !!s?.accessToken,
       tokenPreview: s?.accessToken ? `…${s.accessToken.slice(-6)}` : '',
     });
@@ -44,6 +48,10 @@ export async function POST(request: Request) {
       apiVersion: (body.apiVersion || 'v21.0').trim(),
       enabled: !!body.enabled,
       senderLabel: (body.senderLabel || '').trim(),
+      templateLang: (body.templateLang || 'en_US').trim(),
+      invoiceTemplate: (body.invoiceTemplate || '').trim(),
+      quotationTemplate: (body.quotationTemplate || '').trim(),
+      otpTemplate: (body.otpTemplate || '').trim(),
     };
     // Only overwrite the token when a new non-empty one is provided (blank = keep existing).
     if (typeof body.accessToken === 'string' && body.accessToken.trim()) {
@@ -58,6 +66,10 @@ export async function POST(request: Request) {
       apiVersion: s.apiVersion,
       enabled: s.enabled,
       senderLabel: s.senderLabel,
+      templateLang: s.templateLang,
+      invoiceTemplate: s.invoiceTemplate,
+      quotationTemplate: s.quotationTemplate,
+      otpTemplate: s.otpTemplate,
       tokenSet: !!s.accessToken,
       tokenPreview: s.accessToken ? `…${s.accessToken.slice(-6)}` : '',
     });

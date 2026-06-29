@@ -13,13 +13,18 @@ interface WaSettings {
   apiVersion: string;
   enabled: boolean;
   senderLabel: string;
+  templateLang: string;
+  invoiceTemplate: string;
+  quotationTemplate: string;
+  otpTemplate: string;
   tokenSet: boolean;
   tokenPreview: string;
 }
 
 const BLANK: WaSettings = {
   phoneNumberId: '', wabaId: '', apiVersion: 'v21.0', enabled: false,
-  senderLabel: '', tokenSet: false, tokenPreview: '',
+  senderLabel: '', templateLang: 'en_US', invoiceTemplate: '', quotationTemplate: '',
+  otpTemplate: '', tokenSet: false, tokenPreview: '',
 };
 
 export default function WhatsAppSettingsPage() {
@@ -140,6 +145,28 @@ export default function WhatsAppSettingsPage() {
               </div>
             </div>
 
+            <div className="flex items-center gap-3 mt-6">
+              <button onClick={save} disabled={saving} className="btn btn-primary px-7 flex items-center gap-2">
+                {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Save
+              </button>
+              {saved && <span className="text-xs font-bold text-emerald-400 flex items-center gap-1"><CheckCircle2 size={14} /> Saved</span>}
+            </div>
+          </div>
+
+          {/* Templates */}
+          <div className="bg-[#131B2E] border border-slate-800 rounded-2xl p-7">
+            <h2 className="text-sm font-black text-slate-200 uppercase tracking-widest mb-2">Message Templates</h2>
+            <p className="text-[11px] text-slate-400 mb-5">Enter the exact names of the templates you got <b>approved</b> in Meta. Used to send invoices, quotations, and login codes to customers any time.</p>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><label className={lbl}>Invoice template name</label><input className={field} value={s.invoiceTemplate} onChange={e => setS({ ...s, invoiceTemplate: e.target.value })} placeholder="e.g. invoice_ready" /></div>
+                <div><label className={lbl}>Quotation template name</label><input className={field} value={s.quotationTemplate} onChange={e => setS({ ...s, quotationTemplate: e.target.value })} placeholder="e.g. quotation_ready" /></div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><label className={lbl}>Login-code (OTP) template name</label><input className={field} value={s.otpTemplate} onChange={e => setS({ ...s, otpTemplate: e.target.value })} placeholder="e.g. qcargo_login" /></div>
+                <div><label className={lbl}>Template language code</label><input className={field} value={s.templateLang} onChange={e => setS({ ...s, templateLang: e.target.value })} placeholder="en_US" /></div>
+              </div>
+            </div>
             <div className="flex items-center gap-3 mt-6">
               <button onClick={save} disabled={saving} className="btn btn-primary px-7 flex items-center gap-2">
                 {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Save

@@ -66,6 +66,10 @@ interface WhatsAppConfig {
   accessToken: string;
   apiVersion: string;
   enabled: boolean;
+  templateLang: string;
+  invoiceTemplate: string;
+  quotationTemplate: string;
+  otpTemplate: string;
 }
 
 /** Read the stored Meta credentials (null if not configured). */
@@ -78,6 +82,10 @@ export async function getWhatsAppConfig(): Promise<WhatsAppConfig | null> {
     accessToken: s.accessToken,
     apiVersion: s.apiVersion || 'v21.0',
     enabled: s.enabled,
+    templateLang: s.templateLang || 'en_US',
+    invoiceTemplate: s.invoiceTemplate || '',
+    quotationTemplate: s.quotationTemplate || '',
+    otpTemplate: s.otpTemplate || '',
   };
 }
 
@@ -146,6 +154,56 @@ export async function sendWhatsAppTemplate(
       name: templateName,
       language: { code: languageCode },
       ...(components ? { components } : {}),
+    },
+  });
+}
+
+/**
+ * Send a template that carries a PDF in its header (for invoices/quotations).
+ * Works ANY time (template), unlike a raw document message.
+ */
+export async function sendDocumentTemplate(opts: {
+  to: string;
+  templateName: string;
+  lang?: string;
+  pdfUrl: string;
+  filename: string;
+  bodyParams: string[];
+}): Promise<WhatsAppSendResult> {
+  return postMessage({
+    to: normalizeRecipient(opts.to),
+    type: 'template',
+    template: {
+      name: opts.templateName,
+      language: { code: opts.lang || 'en_US' },
+      components: [
+        { type: 'header', parameters: [{ type: 'document', document: { link: opts.pdfUrl, filename: opts.filename } }] },
+        { type: 'body', parameters: opts.bodyParams.map(t => ({ type: 'text', text: t })) },
+      ],
+    },
+  });
+}
+
+/**
+ * Send a one-time login code via an Authentication-category template.
+ * Passes the code to both the body and the copy-code button.
+ */
+export async function sendOtpTemplate(
+  to: string,
+  code: string,
+  templateName: string,
+  lang = 'en_US',
+): Promise<WhatsAppSendResult> {
+  return postMessage({
+    to: normalizeRecipient(to),
+    type: 'template',
+    template: {
+      name: templateName,
+      language: { code: lang },
+      components: [
+        { type: 'body', parameters: [{ type: 'text', text: code }] },
+        { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: code }] },
+      ],
     },
   });
 }

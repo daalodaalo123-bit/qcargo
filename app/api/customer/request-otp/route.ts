@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongoose';
 import CustomerOtp from '@/lib/models/CustomerOtp';
 import Customer from '@/lib/models/Customer';
-import { sendWhatsAppMessage, formatSomaliaWhatsAppPhone } from '@/lib/whatsapp';
+import { sendWhatsAppMessage, sendOtpTemplate, getWhatsAppConfig, formatSomaliaWhatsAppPhone } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,9 +36,15 @@ export async function POST(request: Request) {
     { upsert: true }
   );
 
-  // Send via WhatsApp
-  const msg = `Your Q Cargo verification code is: *${code}*\n\nValid for 10 minutes. Do not share this code.`;
-  const sent = await sendWhatsAppMessage(fmt.phone, msg);
+  // Send via WhatsApp. Prefer the approved Authentication template (works any
+  // time); fall back to a plain text message only if no template is configured.
+  const cfg = await getWhatsAppConfig();
+  const sent = cfg?.otpTemplate
+    ? await sendOtpTemplate(fmt.phone, code, cfg.otpTemplate, cfg.templateLang)
+    : await sendWhatsAppMessage(
+        fmt.phone,
+        `Your Q Cargo verification code is: *${code}*\n\nValid for 10 minutes. Do not share this code.`,
+      );
 
   if (!sent.success) {
     console.error('[OTP] WhatsApp send failed | phone:', fmt.phone, '| error:', sent.error);

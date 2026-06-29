@@ -11,6 +11,10 @@ export interface IWhatsAppSettings extends Document {
   apiVersion: string;           // graph API version, e.g. v21.0
   enabled: boolean;             // master on/off switch
   senderLabel: string;          // friendly name for the sending number (display only)
+  templateLang: string;         // language code used by the templates, e.g. en_US
+  invoiceTemplate: string;      // approved Utility template name for invoices
+  quotationTemplate: string;    // approved Utility template name for quotations
+  otpTemplate: string;          // approved Authentication template name for login codes
 }
 
 const WhatsAppSettingsSchema = new Schema<IWhatsAppSettings>({
@@ -20,6 +24,10 @@ const WhatsAppSettingsSchema = new Schema<IWhatsAppSettings>({
   apiVersion: { type: String, default: 'v21.0' },
   enabled: { type: Boolean, default: false },
   senderLabel: { type: String, default: '' },
+  templateLang: { type: String, default: 'en_US' },
+  invoiceTemplate: { type: String, default: '' },
+  quotationTemplate: { type: String, default: '' },
+  otpTemplate: { type: String, default: '' },
 }, { timestamps: true });
 
 export default mongoose.models.WhatsAppSettings ||
