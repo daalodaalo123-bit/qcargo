@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Pencil, Check, X, Lock, Copy, ExternalLink, MapPin, Phone, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Pencil, Check, X, Lock, Copy, ExternalLink, MapPin, Phone, Eye, EyeOff, MessageCircle } from 'lucide-react';
+import Link from 'next/link';
 import { ROLE_META, type StaffRole } from '@/lib/permissions';
 
 interface AdminUser {
@@ -160,6 +161,10 @@ export default function SettingsPage() {
           <p className="text-slate-400 text-sm font-bold mt-1">Manage staff accounts and role-based access</p>
         </div>
         <div className="flex items-center gap-4">
+          <Link href="/admin/settings/whatsapp"
+            className="flex items-center gap-2 px-4 py-2 bg-[#131B2E] border border-slate-800 hover:border-[#25D366]/40 rounded-xl text-[11px] font-black text-[#25D366] transition-colors">
+            <MessageCircle size={15} /> WhatsApp API
+          </Link>
           {/* Live status summary */}
           <div className="flex items-center gap-3 px-4 py-2 bg-[#131B2E] border border-slate-800 rounded-xl">
             <span className="flex items-center gap-1.5 text-[11px] font-black text-emerald-400">

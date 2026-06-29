@@ -50,13 +50,104 @@ export function normalizePhone(rawPhone: string): string {
   return result.ok ? result.phone : '';
 }
 
-// ─── WhatsApp sending (Meta API — not yet configured) ────────────────────────
-// These functions are stubs. When the Meta WhatsApp Business API credentials
-// are added, replace the body of each function with the real implementation.
+// ─── WhatsApp sending (Meta WhatsApp Cloud API) ──────────────────────────────
+// Credentials are stored in the WhatsAppSettings singleton (Settings → WhatsApp)
+// and pasted by the office from the Meta for Developers dashboard.
 
-export async function sendWhatsAppMessage(to: string, message: string) {
-  console.warn('[WhatsApp] sendWhatsAppMessage called but Meta API is not yet configured. to:', to);
-  return { success: false, error: 'WhatsApp API not yet configured. Contact office to set up Meta API.' };
+import { connectDB } from './mongoose';
+import WhatsAppSettings from './models/WhatsAppSettings';
+
+export type WhatsAppSendResult =
+  | { success: true; messageId?: string }
+  | { success: false; error: string };
+
+interface WhatsAppConfig {
+  phoneNumberId: string;
+  accessToken: string;
+  apiVersion: string;
+  enabled: boolean;
+}
+
+/** Read the stored Meta credentials (null if not configured). */
+export async function getWhatsAppConfig(): Promise<WhatsAppConfig | null> {
+  await connectDB();
+  const s = await WhatsAppSettings.findOne({});
+  if (!s || !s.phoneNumberId || !s.accessToken) return null;
+  return {
+    phoneNumberId: s.phoneNumberId,
+    accessToken: s.accessToken,
+    apiVersion: s.apiVersion || 'v21.0',
+    enabled: s.enabled,
+  };
+}
+
+/** Best-effort normalize a recipient to international digits (no +). */
+function normalizeRecipient(raw: string): string {
+  const somali = formatSomaliaWhatsAppPhone(raw);
+  if (somali.ok) return somali.phone;
+  return raw.replace(/\D/g, '');
+}
+
+/** Low-level POST to the Meta Cloud API messages endpoint. */
+async function postMessage(payload: Record<string, unknown>): Promise<WhatsAppSendResult> {
+  const cfg = await getWhatsAppConfig();
+  if (!cfg) {
+    return { success: false, error: 'WhatsApp is not configured yet. Go to Settings → WhatsApp and paste your Meta credentials.' };
+  }
+  if (!cfg.enabled) {
+    return { success: false, error: 'WhatsApp sending is turned OFF. Enable it in Settings → WhatsApp.' };
+  }
+  try {
+    const res = await fetch(
+      `https://graph.facebook.com/${cfg.apiVersion}/${cfg.phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${cfg.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ messaging_product: 'whatsapp', ...payload }),
+      }
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = data?.error?.message || `Meta API error (HTTP ${res.status})`;
+      console.error('[WhatsApp] send failed:', msg, data?.error);
+      return { success: false, error: msg };
+    }
+    return { success: true, messageId: data?.messages?.[0]?.id };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Network error reaching Meta';
+    console.error('[WhatsApp] send exception:', message);
+    return { success: false, error: message };
+  }
+}
+
+/** Send a plain text message (only works inside the 24h customer window). */
+export async function sendWhatsAppMessage(to: string, message: string): Promise<WhatsAppSendResult> {
+  return postMessage({
+    to: normalizeRecipient(to),
+    type: 'text',
+    text: { preview_url: true, body: message },
+  });
+}
+
+/** Send a pre-approved template message (works any time). */
+export async function sendWhatsAppTemplate(
+  to: string,
+  templateName: string,
+  languageCode = 'en_US',
+  components?: unknown[],
+): Promise<WhatsAppSendResult> {
+  return postMessage({
+    to: normalizeRecipient(to),
+    type: 'template',
+    template: {
+      name: templateName,
+      language: { code: languageCode },
+      ...(components ? { components } : {}),
+    },
+  });
 }
 
 export interface SendWhatsAppPdfOptions {
@@ -66,7 +157,11 @@ export interface SendWhatsAppPdfOptions {
   caption: string;
 }
 
-export async function sendWhatsAppPdf(options: SendWhatsAppPdfOptions) {
-  console.warn('[WhatsApp] sendWhatsAppPdf called but Meta API is not yet configured. to:', options.to);
-  return { success: false, error: 'WhatsApp API not yet configured. Contact office to set up Meta API.' };
+/** Send a PDF document (only works inside the 24h customer window). */
+export async function sendWhatsAppPdf(options: SendWhatsAppPdfOptions): Promise<WhatsAppSendResult> {
+  return postMessage({
+    to: normalizeRecipient(options.to),
+    type: 'document',
+    document: { link: options.pdfUrl, filename: options.filename, caption: options.caption },
+  });
 }
