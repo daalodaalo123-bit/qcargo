@@ -67,6 +67,15 @@ export default function NewPurchasePage() {
     setItems([{ productName: '', productUrl: '', quantity: 1, unitPriceCNY: 0 }]);
   };
 
+  // Friendly status badge so you can tell which orders he already received.
+  const statusBadge = (status: string) => {
+    switch (status) {
+      case 'SHIPPED': return { label: 'Shipped', cls: 'bg-emerald-950/40 text-emerald-400 border-emerald-800/30' };
+      case 'IN_WAREHOUSE': return { label: 'In Warehouse', cls: 'bg-sky-950/40 text-sky-400 border-sky-800/30' };
+      default: return { label: 'Ordered', cls: 'bg-amber-950/40 text-amber-400 border-amber-800/30' };
+    }
+  };
+
   const totalUSD = items.reduce((sum, item) => sum + ((item.unitPriceCNY * item.quantity) / exchangeRate), 0);
 
   const handleSave = async () => {
@@ -216,9 +225,14 @@ export default function NewPurchasePage() {
                       <div className="flex items-center gap-3 min-w-0">
                         <FileText size={14} className="text-slate-500 shrink-0" />
                         <div className="min-w-0">
-                          <p className="text-sm font-bold text-slate-100 truncate">
-                            {(o.items || []).map((it: any) => `${it.quantity}x ${it.productName}`).join(', ') || o.orderNumber}
-                          </p>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <p className="text-sm font-bold text-slate-100 truncate">
+                              {(o.items || []).map((it: any) => `${it.quantity}x ${it.productName}`).join(', ') || o.orderNumber}
+                            </p>
+                            <span className={`shrink-0 text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${statusBadge(o.status).cls}`}>
+                              {statusBadge(o.status).label}
+                            </span>
+                          </div>
                           <p className="text-[10px] text-slate-500 font-bold mt-0.5">{o.orderNumber} • {o.date} • {o.supplier} • ${(o.totalUSD || 0).toFixed(2)}</p>
                         </div>
                       </div>
