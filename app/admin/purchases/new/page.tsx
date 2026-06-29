@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Save, ArrowLeft, Link as LinkIcon, DollarSign, RefreshCcw, Search, User, Phone, Package, History } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft, Link as LinkIcon, DollarSign, RefreshCcw, Search, User, Phone, ClipboardCheck, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function NewPurchasePage() {
@@ -11,6 +11,7 @@ export default function NewPurchasePage() {
   const [customers, setCustomers] = useState<{ _id: string; name: string; phone?: string }[]>([]);
   const [allOrders, setAllOrders] = useState<any[]>([]);
   const [showCustList, setShowCustList] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [items, setItems] = useState([
     { productName: '', productUrl: '', quantity: 1, unitPriceCNY: 0 }
   ]);
@@ -47,6 +48,23 @@ export default function NewPurchasePage() {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
     setItems(newItems);
+  };
+
+  // Load a past order's products into the form (re-order from history).
+  const loadOrderIntoPurchase = (order: any) => {
+    const lines = (order.items || []).map((it: any) => ({
+      productName: it.productName || '',
+      productUrl: it.productUrl || '',
+      quantity: it.quantity || 1,
+      unitPriceCNY: it.unitPriceCNY || 0,
+    }));
+    setItems(lines.length > 0 ? lines : [{ productName: '', productUrl: '', quantity: 1, unitPriceCNY: 0 }]);
+    if (order.supplier && order.supplier !== 'Unknown Supplier') setFormData(prev => ({ ...prev, supplierName: order.supplier }));
+    setSelectedOrderId(order._id);
+  };
+  const clearLoadedOrder = () => {
+    setSelectedOrderId(null);
+    setItems([{ productName: '', productUrl: '', quantity: 1, unitPriceCNY: 0 }]);
   };
 
   const totalUSD = items.reduce((sum, item) => sum + ((item.unitPriceCNY * item.quantity) / exchangeRate), 0);
@@ -170,42 +188,54 @@ export default function NewPurchasePage() {
                 <p className="text-[10px] text-slate-500 mt-1">New names are added to your Supplier Directory automatically.</p>
               </div>
             </div>
-          </div>
 
-          {/* Customer History — shows this customer's past purchases */}
-          {customerHistory.length > 0 && (
-            <div className="shipment-card">
-              <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-800/40">
-                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <History size={15} className="text-[#F15D38]" /> Customer History
-                </h3>
-                <span className="text-[11px] font-black text-slate-300">
-                  {customerHistory.length} order{customerHistory.length === 1 ? '' : 's'} · <span className="text-emerald-400">${historyTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span> total
-                </span>
+            {/* Customer's past orders — history & one-click re-order */}
+            {customerHistory.length > 0 && (
+              <div className="mt-6 p-5 rounded-2xl bg-emerald-950/10 border border-emerald-800/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <ClipboardCheck size={16} className="text-emerald-400" />
+                  <h4 className="text-xs font-black text-emerald-400 uppercase tracking-wider">
+                    {customerHistory.length} Order{customerHistory.length !== 1 ? 's' : ''} Found · ${historyTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })} total
+                  </h4>
+                </div>
+                <p className="text-[11px] text-slate-400 mb-3">
+                  This customer&apos;s past purchases. Click an order to load its products into this new order, or just review the history.
+                </p>
+                <div className="space-y-2">
+                  {customerHistory.map((o: any) => (
+                    <button
+                      key={o._id}
+                      type="button"
+                      onClick={() => loadOrderIntoPurchase(o)}
+                      className={`w-full flex items-center justify-between gap-3 p-3 rounded-xl border text-left transition-all ${
+                        selectedOrderId === o._id
+                          ? 'bg-[#F15D38]/10 border-[#F15D38]/30'
+                          : 'bg-[#0B0F19] border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <FileText size={14} className="text-slate-500 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-slate-100 truncate">
+                            {(o.items || []).map((it: any) => `${it.quantity}x ${it.productName}`).join(', ') || o.orderNumber}
+                          </p>
+                          <p className="text-[10px] text-slate-500 font-bold mt-0.5">{o.orderNumber} • {o.date} • {o.supplier} • ${(o.totalUSD || 0).toFixed(2)}</p>
+                        </div>
+                      </div>
+                      <span className={`text-[9px] font-black uppercase shrink-0 ${selectedOrderId === o._id ? 'text-[#F15D38]' : 'text-slate-400'}`}>
+                        {selectedOrderId === o._id ? 'Loaded ✓' : 'Use Order'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {selectedOrderId && (
+                  <button type="button" onClick={clearLoadedOrder} className="mt-3 text-[10px] font-bold text-slate-500 hover:text-slate-300 underline">
+                    Clear loaded order
+                  </button>
+                )}
               </div>
-              <div className="space-y-3">
-                {customerHistory.map((o) => (
-                  <div key={o._id} className="p-4 bg-[#0B0F19] rounded-2xl border border-slate-800">
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <span className="font-mono text-xs font-black text-slate-100">{o.orderNumber}</span>
-                      <span className="text-[10px] font-bold text-slate-500">{o.date}</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 mb-2">
-                      {(o.items || []).map((it: any, i: number) => (
-                        <span key={i} className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-300 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1">
-                          <Package size={10} className="text-slate-500" /> {it.productName || 'Item'} <span className="text-slate-500">×{it.quantity}</span>
-                        </span>
-                      ))}
-                    </div>
-                    <div className="flex items-center justify-between text-[11px] font-bold">
-                      <span className="text-slate-500">{o.supplier}</span>
-                      <span className="text-emerald-400">${(o.totalUSD || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Order Items */}
           <div className="shipment-card">
