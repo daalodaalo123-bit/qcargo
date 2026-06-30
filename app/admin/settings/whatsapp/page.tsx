@@ -16,6 +16,7 @@ interface WaSettings {
   templateLang: string;
   invoiceTemplate: string;
   quotationTemplate: string;
+  arrivalTemplate: string;
   otpTemplate: string;
   botEnabled: boolean;
   webhookVerifyToken: string;
@@ -35,7 +36,7 @@ interface WaSettings {
 const BLANK: WaSettings = {
   phoneNumberId: '', wabaId: '', apiVersion: 'v21.0', enabled: false,
   senderLabel: '', templateLang: 'en_US', invoiceTemplate: '', quotationTemplate: '',
-  otpTemplate: '', botEnabled: false, webhookVerifyToken: '', operationNumber: '', salesNumber: '',
+  arrivalTemplate: '', otpTemplate: '', botEnabled: false, webhookVerifyToken: '', operationNumber: '', salesNumber: '',
   botWelcome: '', botShipmentText: '', botProductsText: '', botAirText: '', botSeaText: '',
   botAboutText: '', botFaqText: '', tokenSet: false, tokenPreview: '',
 };
@@ -181,7 +182,10 @@ export default function WhatsAppSettingsPage() {
                 <div><label className={lbl}>Quotation template name</label><input className={field} value={s.quotationTemplate} onChange={e => setS({ ...s, quotationTemplate: e.target.value })} placeholder="e.g. quotation_ready" /></div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><label className={lbl}>Batch-arrival template name</label><input className={field} value={s.arrivalTemplate} onChange={e => setS({ ...s, arrivalTemplate: e.target.value })} placeholder="e.g. batch_arrived" /></div>
                 <div><label className={lbl}>Login-code (OTP) template name</label><input className={field} value={s.otpTemplate} onChange={e => setS({ ...s, otpTemplate: e.target.value })} placeholder="e.g. qcargo_login" /></div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><label className={lbl}>Template language code</label><input className={field} value={s.templateLang} onChange={e => setS({ ...s, templateLang: e.target.value })} placeholder="en_US" /></div>
               </div>
             </div>

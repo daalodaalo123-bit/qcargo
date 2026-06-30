@@ -109,6 +109,7 @@ export interface IWhatsAppSettings extends Document {
   templateLang: string;         // language code used by the templates, e.g. en_US
   invoiceTemplate: string;      // approved Utility template name for invoices
   quotationTemplate: string;    // approved Utility template name for quotations
+  arrivalTemplate: string;      // approved Utility template name for batch-arrival notices
   otpTemplate: string;          // approved Authentication template name for login codes
 
   // ── Auto-reply "robot" (webhook) ──
@@ -135,6 +136,7 @@ const WhatsAppSettingsSchema = new Schema<IWhatsAppSettings>({
   templateLang: { type: String, default: 'en_US' },
   invoiceTemplate: { type: String, default: '' },
   quotationTemplate: { type: String, default: '' },
+  arrivalTemplate: { type: String, default: '' },
   otpTemplate: { type: String, default: '' },
 
   botEnabled: { type: Boolean, default: false },

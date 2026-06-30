@@ -69,6 +69,7 @@ interface WhatsAppConfig {
   templateLang: string;
   invoiceTemplate: string;
   quotationTemplate: string;
+  arrivalTemplate: string;
   otpTemplate: string;
 }
 
@@ -85,6 +86,7 @@ export async function getWhatsAppConfig(): Promise<WhatsAppConfig | null> {
     templateLang: s.templateLang || 'en_US',
     invoiceTemplate: s.invoiceTemplate || '',
     quotationTemplate: s.quotationTemplate || '',
+    arrivalTemplate: s.arrivalTemplate || '',
     otpTemplate: s.otpTemplate || '',
   };
 }

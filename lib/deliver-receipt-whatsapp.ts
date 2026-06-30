@@ -1,6 +1,6 @@
 import { generateReceiptPdf, type ReceiptData } from '@/lib/generate-receipt-pdf';
 import { isCloudinaryConfigured, uploadReceiptPdf } from '@/lib/upload-receipt-pdf';
-import { sendWhatsAppMessage, sendWhatsAppPdf } from '@/lib/whatsapp';
+import { sendWhatsAppMessage, sendWhatsAppPdf, sendDocumentTemplate, getWhatsAppConfig } from '@/lib/whatsapp';
 
 export interface DeliverReceiptInput {
   phone: string;
@@ -8,6 +8,10 @@ export interface DeliverReceiptInput {
   invoiceNumber: string;
   invoiceId?: string;
   caption: string;
+  // Body variables for the approved invoice template, in template order
+  // ({{1}} name, {{2}} invoice#, {{3}} amount). If omitted, sensible defaults
+  // are derived from receiptData.
+  templateParams?: string[];
 }
 
 export interface DeliverReceiptResult {
@@ -73,6 +77,32 @@ export async function deliverReceiptWhatsApp(input: DeliverReceiptInput): Promis
     const msg = e instanceof Error ? e.message : 'PDF upload failed';
     steps.push({ step: 'upload_pdf', ok: false, detail: msg });
     return { pdfAttached: false, whatsappSent: false, error: msg, steps };
+  }
+
+  // PRODUCTION PATH: if an approved invoice template is configured, send via
+  // template so it works 24/7 (outside the 24-hour window). The PDF rides in
+  // the template's document header.
+  const cfg = await getWhatsAppConfig();
+  if (cfg?.invoiceTemplate) {
+    const bodyParams = input.templateParams ?? [
+      input.receiptData.customerName,
+      input.invoiceNumber,
+      `$${(input.receiptData.totalAmount || 0).toFixed(2)}`,
+    ];
+    const tpl = await sendDocumentTemplate({
+      to: input.phone,
+      templateName: cfg.invoiceTemplate,
+      lang: cfg.templateLang,
+      pdfUrl,
+      filename: `${input.invoiceNumber}.pdf`,
+      bodyParams,
+    });
+    if (tpl.success) {
+      steps.push({ step: 'whatsapp_template', ok: true, detail: cfg.invoiceTemplate });
+      return { pdfUrl, pdfAttached: true, whatsappSent: true, steps };
+    }
+    steps.push({ step: 'whatsapp_template', ok: false, detail: tpl.error });
+    // fall through to the 24-hour raw-PDF path below
   }
 
   const pdfResult = await sendWhatsAppPdf({

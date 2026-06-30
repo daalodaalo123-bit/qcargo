@@ -4,7 +4,7 @@ import { useState, useEffect, use } from 'react';
 import {
   ArrowLeft, Save, Package, Truck, DollarSign, Plus, Trash2,
   CheckCircle2, User, Scale, Box, Calendar, FileText,
-  ChevronDown, ChevronRight, Check, Clock, StickyNote
+  ChevronDown, ChevronRight, Check, Clock, StickyNote, MessageCircle, Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -35,6 +35,7 @@ export default function BatchDetail({ params }: { params: Promise<{ id: string }
   const [arrivalDate, setArrivalDate] = useState('');
   
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [notifying, setNotifying] = useState(false);
 
   // Real batch expenses (saved in the shared Expenses section, linked to this batch)
   const [batchExpenses, setBatchExpenses] = useState<any[]>([]);
@@ -147,6 +148,25 @@ export default function BatchDetail({ params }: { params: Promise<{ id: string }
     } catch (err: any) {
       console.error(err);
       alert(`Error saving changes: ${err.message}`);
+    }
+  };
+
+  const handleNotifyArrival = async () => {
+    if (!confirm(`Send a WhatsApp arrival notice to every customer in batch ${batch.batchId}?`)) return;
+    setNotifying(true);
+    try {
+      const res = await fetch('/api/batches/notify-arrival', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || 'Failed to notify customers');
+      alert(`Done! Notified ${d.sent} of ${d.total} customer(s).`);
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setNotifying(false);
     }
   };
 
@@ -284,6 +304,21 @@ export default function BatchDetail({ params }: { params: Promise<{ id: string }
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Arrival broadcast */}
+            <div className="mt-6 pt-5 border-t border-slate-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <p className="text-[11px] text-slate-400 font-medium">
+                Send a WhatsApp arrival notice to all {shipments.length} customer{shipments.length === 1 ? '' : 's'} in this batch.
+              </p>
+              <button
+                onClick={handleNotifyArrival}
+                disabled={notifying || shipments.length === 0}
+                className="btn bg-[#25D366] hover:bg-[#1eb858] text-white flex items-center justify-center gap-2 font-black rounded-xl px-6 disabled:opacity-50"
+              >
+                {notifying ? <Loader2 size={16} className="animate-spin" /> : <MessageCircle size={16} />}
+                {notifying ? 'Sending…' : 'Notify Customers (WhatsApp)'}
+              </button>
             </div>
           </div>
 

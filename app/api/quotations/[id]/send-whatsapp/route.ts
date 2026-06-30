@@ -3,7 +3,7 @@ import { connectDB } from '@/lib/mongoose';
 import Quotation from '@/lib/models/Quotation';
 import { generateQuotationPdf } from '@/lib/generate-quotation-pdf';
 import { isCloudinaryConfigured, uploadReceiptPdf } from '@/lib/upload-receipt-pdf';
-import { sendWhatsAppPdf, sendWhatsAppMessage } from '@/lib/whatsapp';
+import { sendWhatsAppPdf, sendWhatsAppMessage, sendDocumentTemplate, getWhatsAppConfig } from '@/lib/whatsapp';
 import { BRAND_NAME } from '@/lib/brand';
 import { personalizedPdfFilename } from '@/lib/pdf-filename';
 
@@ -60,8 +60,27 @@ export async function POST(
     const pdfUrl = await uploadReceiptPdf(pdfBytes, quoteNumber);
 
     const caption = `Asc ${quotation.customer}, ${BRAND_NAME} quotation ${quoteNumber}. ${quotation.type} Cargo, $${quotation.price?.toFixed(2)} USD. Contact us to confirm. Mahadsanid!`;
+    const filename = personalizedPdfFilename(quotation.customer, quoteNumber);
 
-    const pdfResult = await sendWhatsAppPdf({ to: phone, pdfUrl, filename: personalizedPdfFilename(quotation.customer, quoteNumber), caption });
+    // PRODUCTION PATH: send via approved quotation template (works 24/7) when
+    // configured. Template body order: {{1}} name, {{2}} quote#, {{3}} total.
+    const cfg = await getWhatsAppConfig();
+    if (cfg?.quotationTemplate) {
+      const tpl = await sendDocumentTemplate({
+        to: phone,
+        templateName: cfg.quotationTemplate,
+        lang: cfg.templateLang,
+        pdfUrl,
+        filename,
+        bodyParams: [quotation.customer, quoteNumber, `$${(quotation.price || 0).toFixed(2)}`],
+      });
+      if (tpl.success) {
+        return NextResponse.json({ success: true, pdfSent: true, viaTemplate: true, pdfUrl });
+      }
+      // fall through to the 24-hour raw-PDF path
+    }
+
+    const pdfResult = await sendWhatsAppPdf({ to: phone, pdfUrl, filename, caption });
 
     if (pdfResult.success) {
       return NextResponse.json({ success: true, pdfSent: true, pdfUrl });
