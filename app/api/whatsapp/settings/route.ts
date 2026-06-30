@@ -13,7 +13,10 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     await connectDB();
-    const s = await WhatsAppSettings.findOne({});
+    // Ensure the singleton exists so schema defaults (Somali bot texts) are populated.
+    const s = await WhatsAppSettings.findOneAndUpdate(
+      {}, { $setOnInsert: {} }, { new: true, upsert: true, setDefaultsOnInsert: true },
+    );
     return NextResponse.json({
       phoneNumberId: s?.phoneNumberId || '',
       wabaId: s?.wabaId || '',
@@ -24,6 +27,17 @@ export async function GET() {
       invoiceTemplate: s?.invoiceTemplate || '',
       quotationTemplate: s?.quotationTemplate || '',
       otpTemplate: s?.otpTemplate || '',
+      botEnabled: s?.botEnabled || false,
+      webhookVerifyToken: s?.webhookVerifyToken || '',
+      operationNumber: s?.operationNumber || '',
+      salesNumber: s?.salesNumber || '',
+      botWelcome: s?.botWelcome || '',
+      botShipmentText: s?.botShipmentText || '',
+      botProductsText: s?.botProductsText || '',
+      botAirText: s?.botAirText || '',
+      botSeaText: s?.botSeaText || '',
+      botAboutText: s?.botAboutText || '',
+      botFaqText: s?.botFaqText || '',
       tokenSet: !!s?.accessToken,
       tokenPreview: s?.accessToken ? `…${s.accessToken.slice(-6)}` : '',
     });
@@ -52,6 +66,17 @@ export async function POST(request: Request) {
       invoiceTemplate: (body.invoiceTemplate || '').trim(),
       quotationTemplate: (body.quotationTemplate || '').trim(),
       otpTemplate: (body.otpTemplate || '').trim(),
+      botEnabled: !!body.botEnabled,
+      webhookVerifyToken: (body.webhookVerifyToken || '').trim(),
+      operationNumber: (body.operationNumber || '').trim(),
+      salesNumber: (body.salesNumber || '').trim(),
+      botWelcome: body.botWelcome ?? '',
+      botShipmentText: body.botShipmentText ?? '',
+      botProductsText: body.botProductsText ?? '',
+      botAirText: body.botAirText ?? '',
+      botSeaText: body.botSeaText ?? '',
+      botAboutText: body.botAboutText ?? '',
+      botFaqText: body.botFaqText ?? '',
     };
     // Only overwrite the token when a new non-empty one is provided (blank = keep existing).
     if (typeof body.accessToken === 'string' && body.accessToken.trim()) {
@@ -70,6 +95,17 @@ export async function POST(request: Request) {
       invoiceTemplate: s.invoiceTemplate,
       quotationTemplate: s.quotationTemplate,
       otpTemplate: s.otpTemplate,
+      botEnabled: s.botEnabled,
+      webhookVerifyToken: s.webhookVerifyToken,
+      operationNumber: s.operationNumber,
+      salesNumber: s.salesNumber,
+      botWelcome: s.botWelcome,
+      botShipmentText: s.botShipmentText,
+      botProductsText: s.botProductsText,
+      botAirText: s.botAirText,
+      botSeaText: s.botSeaText,
+      botAboutText: s.botAboutText,
+      botFaqText: s.botFaqText,
       tokenSet: !!s.accessToken,
       tokenPreview: s.accessToken ? `…${s.accessToken.slice(-6)}` : '',
     });

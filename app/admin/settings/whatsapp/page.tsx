@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   MessageCircle, Save, Loader2, Send, ArrowLeft, CheckCircle2,
-  XCircle, Eye, EyeOff, ExternalLink, ShieldCheck,
+  XCircle, Eye, EyeOff, ExternalLink, ShieldCheck, Bot, Copy, RefreshCw,
 } from 'lucide-react';
 
 interface WaSettings {
@@ -17,6 +17,17 @@ interface WaSettings {
   invoiceTemplate: string;
   quotationTemplate: string;
   otpTemplate: string;
+  botEnabled: boolean;
+  webhookVerifyToken: string;
+  operationNumber: string;
+  salesNumber: string;
+  botWelcome: string;
+  botShipmentText: string;
+  botProductsText: string;
+  botAirText: string;
+  botSeaText: string;
+  botAboutText: string;
+  botFaqText: string;
   tokenSet: boolean;
   tokenPreview: string;
 }
@@ -24,7 +35,9 @@ interface WaSettings {
 const BLANK: WaSettings = {
   phoneNumberId: '', wabaId: '', apiVersion: 'v21.0', enabled: false,
   senderLabel: '', templateLang: 'en_US', invoiceTemplate: '', quotationTemplate: '',
-  otpTemplate: '', tokenSet: false, tokenPreview: '',
+  otpTemplate: '', botEnabled: false, webhookVerifyToken: '', operationNumber: '', salesNumber: '',
+  botWelcome: '', botShipmentText: '', botProductsText: '', botAirText: '', botSeaText: '',
+  botAboutText: '', botFaqText: '', tokenSet: false, tokenPreview: '',
 };
 
 export default function WhatsAppSettingsPage() {
@@ -86,7 +99,12 @@ export default function WhatsAppSettingsPage() {
   };
 
   const field = 'w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-100 placeholder-slate-600 focus:outline-none focus:border-[#25D366]';
+  const area = 'w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-100 placeholder-slate-600 focus:outline-none focus:border-[#25D366] leading-relaxed whitespace-pre-wrap';
   const lbl = 'block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5';
+
+  const webhookUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/whatsapp/webhook` : '/api/whatsapp/webhook';
+  const generateToken = () => setS({ ...s, webhookVerifyToken: `qcargo_${Math.random().toString(36).slice(2, 10)}${Math.random().toString(36).slice(2, 8)}` });
+  const copy = (text: string) => { navigator.clipboard?.writeText(text); };
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -167,6 +185,63 @@ export default function WhatsAppSettingsPage() {
                 <div><label className={lbl}>Template language code</label><input className={field} value={s.templateLang} onChange={e => setS({ ...s, templateLang: e.target.value })} placeholder="en_US" /></div>
               </div>
             </div>
+            <div className="flex items-center gap-3 mt-6">
+              <button onClick={save} disabled={saving} className="btn btn-primary px-7 flex items-center gap-2">
+                {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Save
+              </button>
+              {saved && <span className="text-xs font-bold text-emerald-400 flex items-center gap-1"><CheckCircle2 size={14} /> Saved</span>}
+            </div>
+          </div>
+
+          {/* Auto-Reply Robot */}
+          <div className="bg-[#131B2E] border border-slate-800 rounded-2xl p-7" style={{ borderTopWidth: 2, borderTopColor: '#0d9488' }}>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-black text-slate-200 uppercase tracking-widest flex items-center gap-2"><Bot size={16} className="text-[#0d9488]" /> Auto-Reply Robot</h2>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <span className={`text-[11px] font-black uppercase ${s.botEnabled ? 'text-emerald-400' : 'text-slate-500'}`}>{s.botEnabled ? 'On' : 'Off'}</span>
+                <button type="button" onClick={() => setS({ ...s, botEnabled: !s.botEnabled })}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${s.botEnabled ? 'bg-emerald-500' : 'bg-slate-700'}`}>
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${s.botEnabled ? 'translate-x-5' : ''}`} />
+                </button>
+              </label>
+            </div>
+            <p className="text-[11px] text-slate-400 mb-5">When a customer messages this number, the robot replies with a Somali menu and routes them to the right team. Edit any wording below — your changes go live instantly.</p>
+
+            {/* Webhook setup */}
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className={lbl}>Webhook URL (paste into Meta → WhatsApp → Configuration)</label>
+                <div className="flex gap-2">
+                  <input className={`${field} flex-1`} readOnly value={webhookUrl} />
+                  <button type="button" onClick={() => copy(webhookUrl)} className="px-3 rounded-xl border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500"><Copy size={15} /></button>
+                </div>
+              </div>
+              <div>
+                <label className={lbl}>Verify Token (paste the same value into Meta)</label>
+                <div className="flex gap-2">
+                  <input className={`${field} flex-1`} value={s.webhookVerifyToken} onChange={e => setS({ ...s, webhookVerifyToken: e.target.value })} placeholder="Click Generate →" />
+                  <button type="button" onClick={generateToken} className="px-3 rounded-xl border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500" title="Generate"><RefreshCw size={15} /></button>
+                  <button type="button" onClick={() => copy(s.webhookVerifyToken)} className="px-3 rounded-xl border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500"><Copy size={15} /></button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><label className={lbl}>Operation number (…835) — for shipment chats</label><input className={field} value={s.operationNumber} onChange={e => setS({ ...s, operationNumber: e.target.value })} placeholder="e.g. 252638884835" /></div>
+                <div><label className={lbl}>Sales number (…837) — for product/price chats</label><input className={field} value={s.salesNumber} onChange={e => setS({ ...s, salesNumber: e.target.value })} placeholder="e.g. 252638884837" /></div>
+              </div>
+            </div>
+
+            {/* Editable Somali texts */}
+            <div className="space-y-4 border-t border-slate-800 pt-5">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Robot messages (Somali — edit freely)</p>
+              <div><label className={lbl}>👋 Welcome / main menu</label><textarea className={area} rows={8} value={s.botWelcome} onChange={e => setS({ ...s, botWelcome: e.target.value })} /></div>
+              <div><label className={lbl}>📦 La Soco Shixnaddaada (shipment)</label><textarea className={area} rows={4} value={s.botShipmentText} onChange={e => setS({ ...s, botShipmentText: e.target.value })} /></div>
+              <div><label className={lbl}>🛍️ Qiimo & Alaab (products)</label><textarea className={area} rows={6} value={s.botProductsText} onChange={e => setS({ ...s, botProductsText: e.target.value })} /></div>
+              <div><label className={lbl}>✈️ Air Cargo</label><textarea className={area} rows={9} value={s.botAirText} onChange={e => setS({ ...s, botAirText: e.target.value })} /></div>
+              <div><label className={lbl}>🚢 Sea Cargo</label><textarea className={area} rows={9} value={s.botSeaText} onChange={e => setS({ ...s, botSeaText: e.target.value })} /></div>
+              <div><label className={lbl}>🏢 Ku Saabsan Q Cargo (about)</label><textarea className={area} rows={9} value={s.botAboutText} onChange={e => setS({ ...s, botAboutText: e.target.value })} /></div>
+              <div><label className={lbl}>❓ FAQ</label><textarea className={area} rows={11} value={s.botFaqText} onChange={e => setS({ ...s, botFaqText: e.target.value })} /></div>
+            </div>
+
             <div className="flex items-center gap-3 mt-6">
               <button onClick={save} disabled={saving} className="btn btn-primary px-7 flex items-center gap-2">
                 {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Save

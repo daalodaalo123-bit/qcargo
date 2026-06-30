@@ -208,6 +208,69 @@ export async function sendOtpTemplate(
   });
 }
 
+// ─── Interactive messages (auto-reply robot) ────────────────────────────────
+// These are session messages — they only work inside the 24h customer window,
+// which is exactly when the webhook fires (the customer just messaged us).
+
+export interface ListRow { id: string; title: string; description?: string }
+
+/** Send a tappable list menu (the main robot menu). */
+export async function sendInteractiveList(
+  to: string,
+  opts: { body: string; buttonLabel: string; rows: ListRow[]; sectionTitle?: string; footer?: string },
+): Promise<WhatsAppSendResult> {
+  return postMessage({
+    to: normalizeRecipient(to),
+    type: 'interactive',
+    interactive: {
+      type: 'list',
+      body: { text: opts.body },
+      ...(opts.footer ? { footer: { text: opts.footer } } : {}),
+      action: {
+        button: opts.buttonLabel,
+        sections: [{
+          title: opts.sectionTitle || 'Adeegyada',
+          rows: opts.rows.map(r => ({ id: r.id, title: r.title, ...(r.description ? { description: r.description } : {}) })),
+        }],
+      },
+    },
+  });
+}
+
+/** Send up to 3 quick-reply buttons (e.g. "Dib u laabo"). */
+export async function sendInteractiveButtons(
+  to: string,
+  opts: { body: string; buttons: { id: string; title: string }[]; footer?: string },
+): Promise<WhatsAppSendResult> {
+  return postMessage({
+    to: normalizeRecipient(to),
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      body: { text: opts.body },
+      ...(opts.footer ? { footer: { text: opts.footer } } : {}),
+      action: { buttons: opts.buttons.slice(0, 3).map(b => ({ type: 'reply', reply: { id: b.id, title: b.title } })) },
+    },
+  });
+}
+
+/** Send a single call-to-action URL button (e.g. a wa.me link that opens another chat). */
+export async function sendInteractiveCtaUrl(
+  to: string,
+  opts: { body: string; displayText: string; url: string; footer?: string },
+): Promise<WhatsAppSendResult> {
+  return postMessage({
+    to: normalizeRecipient(to),
+    type: 'interactive',
+    interactive: {
+      type: 'cta_url',
+      body: { text: opts.body },
+      ...(opts.footer ? { footer: { text: opts.footer } } : {}),
+      action: { name: 'cta_url', parameters: { display_text: opts.displayText, url: opts.url } },
+    },
+  });
+}
+
 export interface SendWhatsAppPdfOptions {
   to: string;
   pdfUrl: string;
