@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongoose';
 import Shipment from '@/lib/models/Shipment';
-import { generateQuotationPdf } from '@/lib/generate-quotation-pdf';
 import { generateReceiptPdf } from '@/lib/generate-receipt-pdf';
 import { buildShipmentInvoiceItems } from '@/lib/build-shipment-invoice-items';
 import { buildShipmentGoods } from '@/lib/build-shipment-goods';
+import { buildShipmentQuotationPdf } from '@/lib/build-shipment-pdf';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -90,20 +90,7 @@ export async function GET(
       });
       filename = `Invoice-${shipment.shipmentNumber}.pdf`;
     } else {
-      bytes = await generateQuotationPdf({
-        quoteNumber: shipment.shipmentNumber,
-        customerName: shipment.customer,
-        customerPhone: shipment.phone,
-        date: shipment.date,
-        freightType: shipment.type,
-        items: charges.map((c) => ({ description: c.description, qty: c.qty, price: c.price })),
-        goods,
-        freightSummary,
-        total: shipment.total,
-        status: shipment.status === 'ARRIVED' ? 'ARRIVED' : 'SENT',
-        paymentStatus: shipment.paymentStatus,
-        itemsTitle: 'Shipment Charges',
-      });
+      bytes = await buildShipmentQuotationPdf(shipment);
       filename = `Quotation-${shipment.shipmentNumber}.pdf`;
     }
 

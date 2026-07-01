@@ -3,7 +3,9 @@ import { connectDB } from '@/lib/mongoose';
 import { Batch } from '@/lib/models/Batch';
 import Shipment, { IShipment, IShipmentItem } from '@/lib/models/Shipment';
 import { getSessionUser } from '@/lib/sessionUser';
-import { getWhatsAppConfig, sendWhatsAppTemplate, sendWhatsAppMessage } from '@/lib/whatsapp';
+import { getWhatsAppConfig, sendDocumentTemplate, sendWhatsAppPdf, sendWhatsAppMessage } from '@/lib/whatsapp';
+import { isCloudinaryConfigured, uploadReceiptPdf } from '@/lib/upload-receipt-pdf';
+import { buildShipmentQuotationPdf } from '@/lib/build-shipment-pdf';
 import { BRAND_NAME } from '@/lib/brand';
 
 export const dynamic = 'force-dynamic';
@@ -36,37 +38,78 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'WhatsApp is not connected/enabled. Open Settings → WhatsApp.' }, { status: 400 });
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || '';
-    const trackLink = appUrl ? `${appUrl}/track/${batch.batchId}` : '';
+    const cloudinaryReady = isCloudinaryConfigured();
+    const results: { name: string; phone: string; shipment: string; ok: boolean; via?: string; error?: string }[] = [];
 
-    // One message per customer (group their shipments by phone).
-    const byPhone = new Map<string, { name: string; goods: Set<string> }>();
+    // One document per shipment: build the customer's quotation PDF (goods +
+    // cost), host it, and send it. Template (PDF header) works 24/7; raw PDF /
+    // text are used as fallbacks inside the 24-hour window.
     for (const s of shipments) {
-      if (!s.phone) continue;
-      const entry = byPhone.get(s.phone) || { name: s.customer || 'Customer', goods: new Set<string>() };
-      (s.items || []).forEach((it: IShipmentItem) => { if (it.description) entry.goods.add(it.description); });
-      (s.courierPackages || []).forEach((p) => { if (p.goods) entry.goods.add(p.goods); });
-      byPhone.set(s.phone, entry);
-    }
-
-    const results: { name: string; phone: string; ok: boolean; via?: string; error?: string }[] = [];
-
-    for (const [phone, info] of byPhone) {
-      const goodsSummary = [...info.goods].slice(0, 6).join(', ') || 'your goods';
-
-      if (cfg.arrivalTemplate) {
-        // Template body order: {{1}} name, {{2}} batch id, {{3}} goods summary.
-        const tpl = await sendWhatsAppTemplate(phone, cfg.arrivalTemplate, cfg.templateLang, [
-          { type: 'body', parameters: [info.name, batch.batchId, goodsSummary].map((t) => ({ type: 'text', text: t })) },
-        ]);
-        if (tpl.success) { results.push({ name: info.name, phone, ok: true, via: 'template' }); continue; }
-        results.push({ name: info.name, phone, ok: false, via: 'template', error: tpl.error });
-        // fall through to text fallback
+      if (!s.phone) {
+        results.push({ name: s.customer || 'Customer', phone: '', shipment: s.shipmentNumber, ok: false, error: 'No phone number' });
+        continue;
       }
 
-      const text = `Asc ${info.name}, ${BRAND_NAME}: shipmentkaagii (${goodsSummary}) ee batch ${batch.batchId} wuu yimid! ${trackLink ? `La soco: ${trackLink}` : ''} Mahadsanid!`;
-      const txt = await sendWhatsAppMessage(phone, text);
-      results.push({ name: info.name, phone, ok: txt.success, via: 'text', error: txt.success ? undefined : txt.error });
+      const filename = `Quotation-${s.shipmentNumber}.pdf`;
+      const goodsSummary =
+        [
+          ...new Set([
+            ...(s.items || []).map((it: IShipmentItem) => it.description).filter(Boolean),
+            ...(s.courierPackages || []).map((p) => p.goods).filter(Boolean),
+          ]),
+        ]
+          .slice(0, 6)
+          .join(', ') || 'alaabtaada';
+
+      let pdfUrl = '';
+      if (cloudinaryReady) {
+        try {
+          const bytes = await buildShipmentQuotationPdf(s);
+          pdfUrl = await uploadReceiptPdf(bytes, `arrival-${s.shipmentNumber}`);
+        } catch (e) {
+          console.error('arrival pdf build/upload failed', s.shipmentNumber, e);
+        }
+      }
+
+      const caption = `Asalaamu calaykum ${s.customer}, shixnaddaadii (${s.shipmentNumber}) ee batch ${batch.batchId} way soo gaadhay ${BRAND_NAME}. Faylka lifaaqan waa alaabtaada iyo qiimaha. Fadlan nala soo xidhiidh. Mahadsanid.`;
+
+      // 1) Approved document template (PDF header) — works any time.
+      if (pdfUrl && cfg.arrivalTemplate) {
+        const tpl = await sendDocumentTemplate({
+          to: s.phone,
+          templateName: cfg.arrivalTemplate,
+          lang: cfg.templateLang,
+          pdfUrl,
+          filename,
+          bodyParams: [s.customer || 'Customer', batch.batchId],
+        });
+        if (tpl.success) {
+          results.push({ name: s.customer, phone: s.phone, shipment: s.shipmentNumber, ok: true, via: 'template' });
+          continue;
+        }
+        results.push({ name: s.customer, phone: s.phone, shipment: s.shipmentNumber, ok: false, via: 'template', error: tpl.error });
+        // fall through to raw sends (inside the 24h window)
+      }
+
+      // 2) Raw PDF (only inside the 24h window).
+      if (pdfUrl) {
+        const pdf = await sendWhatsAppPdf({ to: s.phone, pdfUrl, filename, caption });
+        if (pdf.success) {
+          results.push({ name: s.customer, phone: s.phone, shipment: s.shipmentNumber, ok: true, via: 'pdf' });
+          continue;
+        }
+      }
+
+      // 3) Text fallback.
+      const txt = await sendWhatsAppMessage(s.phone, `${caption}\n\nAlaab: ${goodsSummary}`);
+      results.push({
+        name: s.customer,
+        phone: s.phone,
+        shipment: s.shipmentNumber,
+        ok: txt.success,
+        via: 'text',
+        error: txt.success ? undefined : txt.error,
+      });
     }
 
     const sent = results.filter((r) => r.ok).length;
