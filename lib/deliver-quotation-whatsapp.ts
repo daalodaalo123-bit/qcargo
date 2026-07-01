@@ -12,7 +12,8 @@ export interface DeliverQuotationInput {
   pdfData: QuotationPdfData;
   caption: string;
   // Body variables for the approved quotation template, in template order
-  // ({{1}} name, {{2}} quote#, {{3}} total). Defaults derived from pdfData.
+  // ({{1}} name, {{2}} quote#). The total is shown inside the PDF, not in the
+  // message text, so it is not a template variable. Defaults derived from pdfData.
   templateParams?: string[];
 }
 
@@ -57,13 +58,13 @@ export async function deliverQuotationWhatsApp(input: DeliverQuotationInput): Pr
   }
 
   // PRODUCTION PATH: send via approved quotation template (works 24/7) when
-  // configured. Template body order: {{1}} name, {{2}} quote#, {{3}} total.
+  // configured. Template body order: {{1}} name, {{2}} quote#. The total lives
+  // inside the attached PDF, so it is not sent as a text variable.
   const cfg = await getWhatsAppConfig();
   if (cfg?.quotationTemplate) {
     const bodyParams = input.templateParams ?? [
       pdfData.customerName,
       pdfData.quoteNumber,
-      `$${(pdfData.total || 0).toFixed(2)}`,
     ];
     const tpl = await sendDocumentTemplate({
       to: phone,

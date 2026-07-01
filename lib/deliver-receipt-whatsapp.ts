@@ -9,7 +9,8 @@ export interface DeliverReceiptInput {
   invoiceId?: string;
   caption: string;
   // Body variables for the approved invoice template, in template order
-  // ({{1}} name, {{2}} invoice#, {{3}} amount). If omitted, sensible defaults
+  // ({{1}} name, {{2}} invoice#). The amount is shown inside the PDF, not in the
+  // message text, so it is not a template variable. If omitted, sensible defaults
   // are derived from receiptData.
   templateParams?: string[];
 }
@@ -87,7 +88,6 @@ export async function deliverReceiptWhatsApp(input: DeliverReceiptInput): Promis
     const bodyParams = input.templateParams ?? [
       input.receiptData.customerName,
       input.invoiceNumber,
-      `$${(input.receiptData.totalAmount || 0).toFixed(2)}`,
     ];
     const tpl = await sendDocumentTemplate({
       to: input.phone,
