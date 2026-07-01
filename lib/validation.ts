@@ -22,6 +22,14 @@ export const ShipmentSchema = z.object({
   paymentMethod: z.string().optional(),
   paidAmount: num.optional(),
   amountPaid: num.optional(),
+  priceLines: z.array(z.object({
+    product: z.string().min(1),
+    weight: num.optional(),
+    cbm: num.optional(),
+    rate: num.optional(),
+    customs: num.optional(),
+    tax: num.optional(),
+  })).optional(),
   items: z.array(z.object({
     description: z.string().min(1),
     qty: z.coerce.number().int().positive(),

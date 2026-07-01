@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Plus, Trash2, Save, ArrowLeft, DollarSign, Package,
-  Hash, Scale, Box, User, Plane, Ship, CheckCircle2, AlertCircle, Phone, Search, X, FileText, ClipboardCheck
+  Hash, User, Plane, Ship, CheckCircle2, AlertCircle, Phone, Search, X, FileText, ClipboardCheck
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -192,6 +192,26 @@ const emptyCargoLine = (): CargoLine => ({
   cbm: 0,
 });
 
+// One priced product line — a product name + its measure (KG/CBM) + rate,
+// plus customs/tax for AIR. Each product carries its own rate.
+interface PriceLine {
+  product: string;
+  weight: number;
+  cbm: number;
+  rate: number;
+  customs: number;
+  tax: number;
+}
+
+const emptyPriceLine = (): PriceLine => ({
+  product: '',
+  weight: 0,
+  cbm: 0,
+  rate: 0,
+  customs: 0,
+  tax: 0,
+});
+
 /* ─────────────────────────────────────────────
    Main New Shipment Page
 ───────────────────────────────────────────── */
@@ -206,27 +226,31 @@ export default function NewShipmentPage() {
   const [loading, setLoading] = useState(true);
 
   const [cargoLines, setCargoLines] = useState<CargoLine[]>([emptyCargoLine()]);
+  const [priceLines, setPriceLines] = useState<PriceLine[]>([emptyPriceLine()]);
+  const [products, setProducts] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     customerName: '', phone: '', batchId: 'UNASSIGNED',
-    weight: 0, cbm: 0, rate: 0, customs: 0, tax: 0, discount: 0,
-    paymentMethod: 'ZAAD', paidAmount: 0, notes: ''
+    discount: 0, paymentMethod: 'ZAAD', paidAmount: 0, notes: ''
   });
 
   // Fetch batches and customers in parallel on mount
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [batchRes, customerRes, quoteRes] = await Promise.all([
+        const [batchRes, customerRes, quoteRes, productRes] = await Promise.all([
           fetch('/api/batches'),
           fetch('/api/customers'),
           fetch('/api/quotations'),
+          fetch('/api/products'),
         ]);
         const batchData = batchRes.ok ? await batchRes.json() : [];
         const customerData = customerRes.ok ? await customerRes.json() : [];
         const quoteData = quoteRes.ok ? await quoteRes.json() : [];
+        const productData = productRes.ok ? await productRes.json() : [];
         setBatches(batchData);
         setCustomers(customerData);
         setQuotations(quoteData);
+        setProducts(Array.isArray(productData) ? productData : []);
       } catch (err) {
         console.error('Error fetching data:', err);
       } finally {
@@ -236,23 +260,24 @@ export default function NewShipmentPage() {
     loadData();
   }, []);
 
-  // Auto-calculate total weight/CBM from cargo lines
-  useEffect(() => {
-    const totalWeight = cargoLines.reduce(
-      (acc, line) => acc + (Number(line.weight) || 0) * (Number(line.qty) || 1),
-      0
-    );
-    const totalCbm = cargoLines.reduce(
-      (acc, line) => acc + (Number(line.cbm) || 0) * (Number(line.qty) || 1),
-      0
-    );
-    setFormData((prev) => ({ ...prev, weight: totalWeight, cbm: totalCbm }));
-  }, [cargoLines]);
-
-  // Computed values
-  const freightTotal = shipmentType === 'AIR' ? formData.weight * formData.rate : formData.cbm * formData.rate;
-  const grandTotal = freightTotal + formData.customs + formData.tax - formData.discount;
+  // Computed values — one row per priced product, each with its own rate.
+  const isAir = shipmentType === 'AIR';
+  const lineFreight = (l: PriceLine) => (isAir ? Number(l.weight) || 0 : Number(l.cbm) || 0) * (Number(l.rate) || 0);
+  const freightTotal = priceLines.reduce((s, l) => s + lineFreight(l), 0);
+  const customsTotal = isAir ? priceLines.reduce((s, l) => s + (Number(l.customs) || 0), 0) : 0;
+  const taxTotal = isAir ? priceLines.reduce((s, l) => s + (Number(l.tax) || 0), 0) : 0;
+  const totalUnits = priceLines.reduce((s, l) => s + (isAir ? Number(l.weight) || 0 : Number(l.cbm) || 0), 0);
+  const grandTotal = freightTotal + customsTotal + taxTotal - (Number(formData.discount) || 0);
   const balance = grandTotal - formData.paidAmount;
+
+  const addPriceLine = () => setPriceLines([...priceLines, emptyPriceLine()]);
+  const removePriceLine = (i: number) =>
+    setPriceLines(priceLines.length > 1 ? priceLines.filter((_, idx) => idx !== i) : [emptyPriceLine()]);
+  const updatePriceLine = (i: number, field: keyof PriceLine, value: string | number) => {
+    const next = [...priceLines];
+    next[i] = { ...next[i], [field]: value };
+    setPriceLines(next);
+  };
 
   // Build combobox options
   const customerOptions: ComboOption[] = customers.map((c: any) => ({
@@ -354,12 +379,22 @@ export default function NewShipmentPage() {
       total: grandTotal,
       batch: formData.batchId,
       date: new Date().toISOString().split('T')[0],
-      weight: formData.weight,
-      cbm: formData.cbm,
-      rate: formData.rate,
-      customs: formData.customs,
-      tax: formData.tax,
+      weight: priceLines.reduce((s, l) => s + (Number(l.weight) || 0), 0),
+      cbm: priceLines.reduce((s, l) => s + (Number(l.cbm) || 0), 0),
+      rate: priceLines[0]?.rate || 0,
+      customs: customsTotal,
+      tax: taxTotal,
       discount: formData.discount,
+      priceLines: priceLines
+        .filter((l) => l.product.trim())
+        .map((l) => ({
+          product: l.product.trim(),
+          weight: Number(l.weight) || 0,
+          cbm: Number(l.cbm) || 0,
+          rate: Number(l.rate) || 0,
+          customs: Number(l.customs) || 0,
+          tax: Number(l.tax) || 0,
+        })),
       paymentMethod: formData.paymentMethod,
       paidAmount: formData.paidAmount,
       notes: formData.notes,
@@ -545,50 +580,109 @@ export default function NewShipmentPage() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {shipmentType === 'AIR' ? (
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Weight (KG) [Auto-Calc]</label>
-                  <div className="relative">
-                    <Scale className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                    <input type="number" className="search-input !pl-10 font-bold text-[#F15D38]" value={formData.weight}
-                      onChange={(e) => setFormData({ ...formData, weight: Number(e.target.value) })} />
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Volume (CBM) [Auto-Calc]</label>
-                  <div className="relative">
-                    <Box className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                    <input type="number" className="search-input !pl-10 font-bold text-emerald-400" value={formData.cbm}
-                      onChange={(e) => setFormData({ ...formData, cbm: Number(e.target.value) })} />
-                  </div>
-                </div>
-              )}
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Rate per Unit ($)</label>
-                <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                  <input type="number" className="search-input !pl-10 font-bold text-[#F15D38]" value={formData.rate}
-                    onChange={(e) => setFormData({ ...formData, rate: Number(e.target.value) })} />
-                </div>
+            {/* Per-product pricing — each product has its own rate. Sea hides Customs & Tax. */}
+            <div>
+              <div className="flex justify-between items-center mb-3">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Pricing · {isAir ? 'Weight × Rate' : 'CBM × Rate'} per product
+                </label>
+                <button
+                  type="button"
+                  onClick={addPriceLine}
+                  className="btn bg-[#F15D38]/10 text-[#F15D38] border border-[#F15D38]/20 hover:bg-[#F15D38]/20 py-1.5 px-3 text-xs font-bold flex items-center gap-2"
+                >
+                  <Plus size={14} /> Add Product
+                </button>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Customs & Extra</label>
-                <div className="relative">
-                  <Plus className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                  <input type="number" className="search-input !pl-10" value={formData.customs}
-                    onChange={(e) => setFormData({ ...formData, customs: Number(e.target.value) })} />
-                </div>
+
+              <div className="space-y-3">
+                {priceLines.map((line, index) => {
+                  const lineTotal = lineFreight(line) + (isAir ? (Number(line.customs) || 0) + (Number(line.tax) || 0) : 0);
+                  return (
+                    <div
+                      key={index}
+                      className="grid grid-cols-2 md:grid-cols-12 gap-3 p-4 bg-[#0B0F19] rounded-2xl border border-slate-800 relative group"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => removePriceLine(index)}
+                        className="absolute -right-2 -top-2 p-1.5 bg-[#131B2E] border border-slate-700 text-rose-500 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label="Remove product"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+
+                      <div className="col-span-2 md:col-span-4">
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Product Name</label>
+                        <input
+                          type="text"
+                          list="product-suggestions"
+                          className="search-input !py-2 !px-3 min-w-0"
+                          placeholder="e.g. Bags"
+                          value={line.product}
+                          onChange={(e) => updatePriceLine(index, 'product', e.target.value)}
+                        />
+                      </div>
+
+                      <div className={isAir ? 'md:col-span-2' : 'md:col-span-3'}>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{isAir ? 'Weight (KG)' : 'CBM'}</label>
+                        <input
+                          type="number" min={0} step="any"
+                          className="search-input !py-2 !px-3 min-w-0 font-bold text-[#F15D38]"
+                          value={isAir ? line.weight : line.cbm}
+                          onChange={(e) => updatePriceLine(index, isAir ? 'weight' : 'cbm', Number(e.target.value))}
+                        />
+                      </div>
+
+                      <div className={isAir ? 'md:col-span-2' : 'md:col-span-3'}>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Rate ($)</label>
+                        <input
+                          type="number" min={0} step="any"
+                          className="search-input !py-2 !px-3 min-w-0 font-bold text-[#F15D38]"
+                          value={line.rate}
+                          onChange={(e) => updatePriceLine(index, 'rate', Number(e.target.value))}
+                        />
+                      </div>
+
+                      {isAir && (
+                        <>
+                          <div className="md:col-span-2">
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Customs</label>
+                            <input
+                              type="number" min={0} step="any"
+                              className="search-input !py-2 !px-3 min-w-0"
+                              value={line.customs}
+                              onChange={(e) => updatePriceLine(index, 'customs', Number(e.target.value))}
+                            />
+                          </div>
+                          <div className="md:col-span-1">
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tax</label>
+                            <input
+                              type="number" min={0} step="any"
+                              className="search-input !py-2 !px-3 min-w-0"
+                              value={line.tax}
+                              onChange={(e) => updatePriceLine(index, 'tax', Number(e.target.value))}
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      <div className={`flex flex-col justify-end ${isAir ? 'md:col-span-1' : 'md:col-span-2'}`}>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 text-right">Total</label>
+                        <p className="text-sm font-black text-emerald-400 text-right py-2">${lineTotal.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Tax</label>
-                <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                  <input type="number" className="search-input !pl-10" value={formData.tax}
-                    onChange={(e) => setFormData({ ...formData, tax: Number(e.target.value) })} />
-                </div>
-              </div>
+              <datalist id="product-suggestions">
+                {products.map((p) => (
+                  <option key={p} value={p} />
+                ))}
+              </datalist>
+              <p className="text-[10px] text-slate-500 mt-3 font-medium">
+                One row per product — group goods (e.g. all bags) into a single line with its own {isAir ? 'weight' : 'CBM'} and rate. Total {isAir ? 'weight' : 'volume'}: <span className="font-bold text-slate-300">{totalUnits.toLocaleString()} {isAir ? 'KG' : 'CBM'}</span>.
+              </p>
             </div>
           </div>
 
@@ -609,9 +703,10 @@ export default function NewShipmentPage() {
             </div>
 
             <div className="hidden md:grid md:grid-cols-12 gap-3 mb-2 px-1">
-              <span className="md:col-span-6 text-[10px] font-bold text-slate-500 uppercase">Goods</span>
-              <span className="md:col-span-4 text-[10px] font-bold text-slate-500 uppercase">Tracking #</span>
+              <span className="md:col-span-5 text-[10px] font-bold text-slate-500 uppercase">Goods</span>
+              <span className="md:col-span-3 text-[10px] font-bold text-slate-500 uppercase">Tracking #</span>
               <span className="md:col-span-1 text-[10px] font-bold text-slate-500 uppercase">Qty</span>
+              <span className="md:col-span-2 text-[10px] font-bold text-slate-500 uppercase">{shipmentType === 'AIR' ? 'Weight (KG)' : 'CBM'}</span>
               <span className="md:col-span-1" />
             </div>
 
@@ -629,7 +724,7 @@ export default function NewShipmentPage() {
                   >
                     <Trash2 size={14} />
                   </button>
-                  <div className="md:col-span-6">
+                  <div className="md:col-span-5">
                     <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 md:sr-only">Goods</label>
                     <input
                       type="text"
@@ -639,7 +734,7 @@ export default function NewShipmentPage() {
                       onChange={(e) => updateCargoLine(index, 'description', e.target.value)}
                     />
                   </div>
-                  <div className="md:col-span-4">
+                  <div className="md:col-span-3">
                     <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 md:sr-only">Tracking #</label>
                     <input
                       type="text"
@@ -657,6 +752,18 @@ export default function NewShipmentPage() {
                       className="search-input !py-2 !px-3 min-w-0"
                       value={line.qty}
                       onChange={(e) => updateCargoLine(index, 'qty', Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 md:sr-only">{shipmentType === 'AIR' ? 'Weight (KG)' : 'CBM'}</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      className="search-input !py-2 !px-3 min-w-0"
+                      placeholder={shipmentType === 'AIR' ? 'KG' : 'CBM'}
+                      value={shipmentType === 'AIR' ? line.weight : line.cbm}
+                      onChange={(e) => updateCargoLine(index, shipmentType === 'AIR' ? 'weight' : 'cbm', Number(e.target.value))}
                     />
                   </div>
                 </div>
@@ -678,17 +785,21 @@ export default function NewShipmentPage() {
                 <span className="text-sm text-slate-400">Freight Charges</span>
                 <span className="font-bold text-lg text-slate-100">${freightTotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-slate-400">Customs & Extra</span>
-                <span className="font-bold text-emerald-400">+${formData.customs.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-slate-400">Tax</span>
-                <span className="font-bold text-emerald-400">+${formData.tax.toFixed(2)}</span>
-              </div>
+              {isAir && (
+                <>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-400">Customs & Extra</span>
+                    <span className="font-bold text-emerald-400">+${customsTotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-400">Tax</span>
+                    <span className="font-bold text-emerald-400">+${taxTotal.toFixed(2)}</span>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between items-center">
                 <span className="text-sm text-slate-400">Discount</span>
-                <span className="font-bold text-rose-400">-${formData.discount.toFixed(2)}</span>
+                <span className="font-bold text-rose-400">-${(Number(formData.discount) || 0).toFixed(2)}</span>
               </div>
               <div className="pt-6 border-t border-slate-800/40 flex justify-between items-center">
                 <span className="text-lg font-bold text-slate-200">Grand Total</span>

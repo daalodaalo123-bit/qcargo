@@ -4,7 +4,7 @@ import Shipment from '@/lib/models/Shipment';
 import { generateReceiptPdf } from '@/lib/generate-receipt-pdf';
 import { buildShipmentInvoiceItems } from '@/lib/build-shipment-invoice-items';
 import { buildShipmentGoods } from '@/lib/build-shipment-goods';
-import { buildShipmentQuotationPdf } from '@/lib/build-shipment-pdf';
+import { buildShipmentQuotationPdf, shipmentFreightSummary } from '@/lib/build-shipment-pdf';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -29,14 +29,7 @@ export async function GET(
     }
 
     const goods = buildShipmentGoods(shipment);
-    const isAir = shipment.type === 'AIR';
-    const freightSummary = [
-      isAir
-        ? { label: 'Chargeable Weight', value: `${shipment.weight ?? 0} KG` }
-        : { label: 'Total Volume', value: `${shipment.cbm ?? 0} CBM` },
-      { label: 'Rate', value: `$${(shipment.rate ?? 0).toFixed(2)} / ${isAir ? 'KG' : 'CBM'}` },
-      { label: 'Batch', value: shipment.batch || 'UNASSIGNED' },
-    ];
+    const freightSummary = shipmentFreightSummary(shipment);
     const charges = buildShipmentInvoiceItems({
       type: shipment.type,
       shipmentNumber: shipment.shipmentNumber,
@@ -47,6 +40,7 @@ export async function GET(
       discount: shipment.discount,
       tax: shipment.tax,
       total: shipment.total,
+      priceLines: shipment.priceLines,
     });
     const subtotal = charges.reduce((sum, it) => sum + it.lineTotal, 0);
 

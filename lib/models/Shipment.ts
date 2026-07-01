@@ -22,6 +22,17 @@ export interface IShipmentItem {
   warehouseNotes?: IProductNote[];
 }
 
+// One priced product line — groups goods (e.g. all "Bags") under a shared rate.
+// AIR uses weight (KG); SEA uses cbm. Customs/tax only apply to AIR.
+export interface IPriceLine {
+  product: string;
+  weight?: number;
+  cbm?: number;
+  rate?: number;
+  customs?: number;
+  tax?: number;
+}
+
 export interface ICourierPackage {
   courier: string;
   trackingNumber: string;
@@ -56,6 +67,7 @@ export interface IShipment extends Document {
   paymentMethod?: string;
   paidAmount?: number;
   notes?: string;
+  priceLines?: IPriceLine[];
   items: IShipmentItem[];
   courierPackages: ICourierPackage[];
   takenAt?: Date;
@@ -82,6 +94,15 @@ const ShipmentItemSchema = new Schema<IShipmentItem>({
   measuredCbm: { type: Number },
   warehouseNotes: { type: [ProductNoteSchema], default: [] },
 });
+
+const PriceLineSchema = new Schema<IPriceLine>({
+  product: { type: String, required: true },
+  weight: { type: Number },
+  cbm: { type: Number },
+  rate: { type: Number },
+  customs: { type: Number },
+  tax: { type: Number },
+}, { _id: false });
 
 const CourierPackageSchema = new Schema<ICourierPackage>({
   courier: { type: String },
@@ -116,6 +137,7 @@ const ShipmentSchema = new Schema<IShipment>({
   paymentMethod: { type: String },
   paidAmount: { type: Number },
   notes: { type: String },
+  priceLines: { type: [PriceLineSchema], default: [] },
   items: [ShipmentItemSchema],
   courierPackages: [CourierPackageSchema],
   takenAt: { type: Date },

@@ -1,5 +1,14 @@
 import type { ReceiptLineItem } from '@/lib/generate-receipt-pdf';
 
+export type PriceLineInput = {
+  product: string;
+  weight?: number;
+  cbm?: number;
+  rate?: number;
+  customs?: number;
+  tax?: number;
+};
+
 export type ShipmentChargeInput = {
   type: 'AIR' | 'SEA';
   shipmentNumber: string;
@@ -10,14 +19,25 @@ export type ShipmentChargeInput = {
   discount?: number;
   tax?: number;
   total: number;
+  priceLines?: PriceLineInput[];
 };
 
 function money(n: number) {
   return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-/** Invoice line items from shipment freight breakdown (not cargo goods). */
+/**
+ * Charge line items for shipment documents. When the shipment has per-product
+ * priced lines, each product becomes its own freight row (with its own rate),
+ * then customs/tax/discount are added. Falls back to the single-freight-line
+ * breakdown for older shipments that have no priceLines.
+ */
 export function buildShipmentInvoiceItems(shipment: ShipmentChargeInput): ReceiptLineItem[] {
+  const lines = (shipment.priceLines || []).filter((l) => l.product && l.product.trim());
+  if (lines.length > 0) {
+    return buildPricedLineItems(shipment, lines);
+  }
+
   const rate = shipment.rate ?? 0;
   const isAir = shipment.type === 'AIR';
   const units = isAir ? shipment.weight ?? 0 : shipment.cbm ?? 0;
@@ -87,6 +107,52 @@ export function buildShipmentInvoiceItems(shipment: ShipmentChargeInput): Receip
       price: diff,
       lineTotal: diff,
     });
+  }
+
+  return items;
+}
+
+/** One freight row per priced product, plus customs/tax (AIR) and discount. */
+function buildPricedLineItems(shipment: ShipmentChargeInput, lines: PriceLineInput[]): ReceiptLineItem[] {
+  const isAir = shipment.type === 'AIR';
+  const unit = isAir ? 'KG' : 'CBM';
+  const items: ReceiptLineItem[] = [];
+  let customsTotal = 0;
+  let taxTotal = 0;
+
+  for (const l of lines) {
+    const units = isAir ? l.weight ?? 0 : l.cbm ?? 0;
+    const rate = l.rate ?? 0;
+    items.push({
+      description: `${l.product.trim()} — ${units.toLocaleString()} ${unit} @ ${money(rate)}/${unit}`,
+      qty: units > 0 ? units : 1,
+      price: rate,
+      lineTotal: units * rate,
+    });
+    // Customs & tax only apply to AIR (hidden on SEA in the form).
+    if (isAir) {
+      customsTotal += l.customs ?? 0;
+      taxTotal += l.tax ?? 0;
+    }
+  }
+
+  if (customsTotal > 0) {
+    items.push({ description: 'Customs & extra charges', qty: 1, price: customsTotal, lineTotal: customsTotal });
+  }
+  if (taxTotal > 0) {
+    items.push({ description: 'Tax', qty: 1, price: taxTotal, lineTotal: taxTotal });
+  }
+
+  const discount = shipment.discount ?? 0;
+  if (discount > 0) {
+    items.push({ description: 'Discount', qty: 1, price: -discount, lineTotal: -discount });
+  }
+
+  // Reconcile any rounding gap so the printed rows always sum to the stored total.
+  const computed = items.reduce((sum, it) => sum + it.lineTotal, 0);
+  const diff = shipment.total - computed;
+  if (Math.abs(diff) >= 0.01) {
+    items.push({ description: 'Adjustment', qty: 1, price: diff, lineTotal: diff });
   }
 
   return items;

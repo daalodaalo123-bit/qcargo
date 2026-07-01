@@ -17,6 +17,13 @@ export interface ShipmentRow {
   batch: string;
   date: string;
   notes?: string;
+  weight?: number;
+  cbm?: number;
+  rate?: number;
+  customs?: number;
+  tax?: number;
+  discount?: number;
+  priceLines?: RawLine[];
   items?: RawLine[];
   courierPackages?: RawLine[];
 }
@@ -29,6 +36,18 @@ interface CargoLine {
   cbm: number;
   value: number;
 }
+
+// One priced product line — product name + measure (KG/CBM) + rate (+ customs/tax for AIR).
+interface PriceLine {
+  product: string;
+  weight: number;
+  cbm: number;
+  rate: number;
+  customs: number;
+  tax: number;
+}
+
+const emptyPriceLine = (): PriceLine => ({ product: '', weight: 0, cbm: 0, rate: 0, customs: 0, tax: 0 });
 
 interface EditShipmentModalProps {
   shipment: ShipmentRow | null;
@@ -75,6 +94,31 @@ function buildLines(shipment: ShipmentRow): CargoLine[] {
   return lines.length > 0 ? lines : [emptyLine()];
 }
 
+// Pre-fill the pricing table. New shipments carry priceLines; older ones are
+// reconstructed as a single line from the flat freight fields so editing works.
+function buildPriceLines(shipment: ShipmentRow): PriceLine[] {
+  const raw = shipment.priceLines || [];
+  if (raw.length > 0) {
+    return raw.map((l) => ({
+      product: str(l.product),
+      weight: numOf(l.weight),
+      cbm: numOf(l.cbm),
+      rate: numOf(l.rate),
+      customs: numOf(l.customs),
+      tax: numOf(l.tax),
+    }));
+  }
+  const firstGoods = str((shipment.items?.[0] as RawLine | undefined)?.description) || 'Cargo';
+  return [{
+    product: firstGoods,
+    weight: numOf(shipment.weight),
+    cbm: numOf(shipment.cbm),
+    rate: numOf(shipment.rate),
+    customs: numOf(shipment.customs),
+    tax: numOf(shipment.tax),
+  }];
+}
+
 // Warehouse-set fields we must NOT wipe when the goods list is edited.
 const PRESERVE = ['measuredWeight', 'measuredCbm', 'warehouseNotes', 'received', 'receivedAt'] as const;
 function carryOver(target: RawLine, source: RawLine | undefined): RawLine {
@@ -88,11 +132,13 @@ export default function EditShipmentModal({ shipment, onClose, onSaved }: EditSh
   const [type, setType] = useState<'AIR' | 'SEA'>('SEA');
   const [status, setStatus] = useState<'ARRIVED' | 'IN_TRANSIT' | 'PENDING'>('PENDING');
   const [payment, setPayment] = useState<'PAID' | 'UNPAID'>('UNPAID');
-  const [total, setTotal] = useState('');
+  const [discount, setDiscount] = useState('0');
   const [batch, setBatch] = useState('UNASSIGNED');
   const [date, setDate] = useState('');
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<CargoLine[]>([emptyLine()]);
+  const [priceLines, setPriceLines] = useState<PriceLine[]>([emptyPriceLine()]);
+  const [products, setProducts] = useState<string[]>([]);
   const [batches, setBatches] = useState<string[]>(['UNASSIGNED']);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -104,11 +150,12 @@ export default function EditShipmentModal({ shipment, onClose, onSaved }: EditSh
     setType(shipment.type);
     setStatus(shipment.status);
     setPayment(shipment.payment);
-    setTotal(String(shipment.total));
+    setDiscount(String(shipment.discount ?? 0));
     setBatch(shipment.batch || 'UNASSIGNED');
     setDate(shipment.date);
     setNotes(shipment.notes || '');
     setLines(buildLines(shipment));
+    setPriceLines(buildPriceLines(shipment));
     setError('');
 
     fetch('/api/batches')
@@ -118,6 +165,11 @@ export default function EditShipmentModal({ shipment, onClose, onSaved }: EditSh
         setBatches([...new Set(ids)]);
       })
       .catch(() => setBatches(['UNASSIGNED', shipment.batch].filter(Boolean)));
+
+    fetch('/api/products')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setProducts(Array.isArray(data) ? data : []))
+      .catch(() => setProducts([]));
   }, [shipment]);
 
   if (!shipment) return null;
@@ -129,6 +181,18 @@ export default function EditShipmentModal({ shipment, onClose, onSaved }: EditSh
   const removeLine = (i: number) => setLines((prev) => (prev.length === 1 ? [emptyLine()] : prev.filter((_, idx) => idx !== i)));
 
   const isAir = type === 'AIR';
+
+  const updatePriceLine = (i: number, field: keyof PriceLine, value: string | number) =>
+    setPriceLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, [field]: value } : l)));
+  const addPriceLine = () => setPriceLines((prev) => [...prev, emptyPriceLine()]);
+  const removePriceLine = (i: number) =>
+    setPriceLines((prev) => (prev.length === 1 ? [emptyPriceLine()] : prev.filter((_, idx) => idx !== i)));
+
+  const lineFreight = (l: PriceLine) => (isAir ? Number(l.weight) || 0 : Number(l.cbm) || 0) * (Number(l.rate) || 0);
+  const freightTotal = priceLines.reduce((s, l) => s + lineFreight(l), 0);
+  const customsTotal = isAir ? priceLines.reduce((s, l) => s + (Number(l.customs) || 0), 0) : 0;
+  const taxTotal = isAir ? priceLines.reduce((s, l) => s + (Number(l.tax) || 0), 0) : 0;
+  const grandTotal = freightTotal + customsTotal + taxTotal - (Number(discount) || 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,7 +246,23 @@ export default function EditShipmentModal({ shipment, onClose, onSaved }: EditSh
           type,
           status,
           payment,
-          total: parseFloat(total) || 0,
+          total: grandTotal,
+          weight: priceLines.reduce((s, l) => s + (Number(l.weight) || 0), 0),
+          cbm: priceLines.reduce((s, l) => s + (Number(l.cbm) || 0), 0),
+          rate: priceLines[0]?.rate || 0,
+          customs: customsTotal,
+          tax: taxTotal,
+          discount: Number(discount) || 0,
+          priceLines: priceLines
+            .filter((l) => l.product.trim())
+            .map((l) => ({
+              product: l.product.trim(),
+              weight: Number(l.weight) || 0,
+              cbm: Number(l.cbm) || 0,
+              rate: Number(l.rate) || 0,
+              customs: Number(l.customs) || 0,
+              tax: Number(l.tax) || 0,
+            })),
           batch,
           date,
           notes: notes.trim() || undefined,
@@ -260,14 +340,14 @@ export default function EditShipmentModal({ shipment, onClose, onSaved }: EditSh
               </select>
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Total (USD)</label>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Discount (USD)</label>
               <input
                 type="number"
                 step="0.01"
                 min={0}
                 className="search-input w-full"
-                value={total}
-                onChange={(e) => setTotal(e.target.value)}
+                value={discount}
+                onChange={(e) => setDiscount(e.target.value)}
               />
             </div>
           </div>
@@ -285,6 +365,102 @@ export default function EditShipmentModal({ shipment, onClose, onSaved }: EditSh
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Date</label>
               <input type="date" className="search-input w-full" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+          </div>
+
+          {/* Pricing — one row per product, each with its own rate (Sea hides Customs & Tax) */}
+          <div className="border border-slate-800 rounded-xl p-4 bg-[#0B0F19]/40">
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-[10px] font-black text-slate-300 uppercase tracking-wider">
+                Pricing · {isAir ? 'Weight × Rate' : 'CBM × Rate'} per product
+              </label>
+              <button
+                type="button"
+                onClick={addPriceLine}
+                className="flex items-center gap-1.5 px-3 py-1.5 border-2 border-dashed border-slate-700 hover:border-[#F15D38] text-slate-400 hover:text-[#F15D38] rounded-lg text-[11px] font-bold transition-all"
+              >
+                <Plus size={13} /> Add product
+              </button>
+            </div>
+
+            <div className="space-y-2.5">
+              {priceLines.map((line, i) => {
+                const lineTotal = lineFreight(line) + (isAir ? (Number(line.customs) || 0) + (Number(line.tax) || 0) : 0);
+                return (
+                  <div key={i} className="bg-[#131B2E] border border-slate-800 rounded-xl p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        list="edit-product-suggestions"
+                        value={line.product}
+                        onChange={(e) => updatePriceLine(i, 'product', e.target.value)}
+                        placeholder="Product name (e.g. Bags)"
+                        className="search-input flex-1 !py-2 !text-xs"
+                      />
+                      <span className="shrink-0 text-xs font-black text-emerald-400 w-20 text-right">${lineTotal.toFixed(2)}</span>
+                      <button
+                        type="button"
+                        onClick={() => removePriceLine(i)}
+                        className="shrink-0 p-2 text-slate-500 hover:text-rose-400 transition-colors"
+                        title="Remove product"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                    <div className={`grid gap-2 ${isAir ? 'grid-cols-4' : 'grid-cols-2'}`}>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider">{isAir ? 'Weight (KG)' : 'CBM'}</span>
+                        <input
+                          type="number" min={0} step="any"
+                          value={isAir ? line.weight : line.cbm}
+                          onChange={(e) => updatePriceLine(i, isAir ? 'weight' : 'cbm', Number(e.target.value))}
+                          className="search-input w-full !py-1.5 !text-xs text-center"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider">Rate $</span>
+                        <input
+                          type="number" min={0} step="any"
+                          value={line.rate}
+                          onChange={(e) => updatePriceLine(i, 'rate', Number(e.target.value))}
+                          className="search-input w-full !py-1.5 !text-xs text-center"
+                        />
+                      </label>
+                      {isAir && (
+                        <>
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider">Customs $</span>
+                            <input
+                              type="number" min={0} step="any"
+                              value={line.customs}
+                              onChange={(e) => updatePriceLine(i, 'customs', Number(e.target.value))}
+                              className="search-input w-full !py-1.5 !text-xs text-center"
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider">Tax $</span>
+                            <input
+                              type="number" min={0} step="any"
+                              value={line.tax}
+                              onChange={(e) => updatePriceLine(i, 'tax', Number(e.target.value))}
+                              className="search-input w-full !py-1.5 !text-xs text-center"
+                            />
+                          </label>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <datalist id="edit-product-suggestions">
+              {products.map((p) => (
+                <option key={p} value={p} />
+              ))}
+            </datalist>
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-800">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Grand Total</span>
+              <span className="text-lg font-black text-[#F15D38]">${grandTotal.toFixed(2)}</span>
             </div>
           </div>
 
@@ -328,7 +504,7 @@ export default function EditShipmentModal({ shipment, onClose, onSaved }: EditSh
                     placeholder="Tracking number (optional)"
                     className="search-input w-full font-mono !py-2 !text-xs"
                   />
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <label className="flex flex-col gap-1">
                       <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider">Qty</span>
                       <input
@@ -339,20 +515,11 @@ export default function EditShipmentModal({ shipment, onClose, onSaved }: EditSh
                       />
                     </label>
                     <label className="flex flex-col gap-1">
-                      <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider">KG</span>
+                      <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider">{isAir ? 'Weight (KG)' : 'CBM'}</span>
                       <input
                         type="number" min={0} step="any"
-                        value={line.weight}
-                        onChange={(e) => updateLine(i, 'weight', Number(e.target.value))}
-                        className="search-input w-full !py-1.5 !text-xs text-center"
-                      />
-                    </label>
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider">CBM</span>
-                      <input
-                        type="number" min={0} step="any"
-                        value={line.cbm}
-                        onChange={(e) => updateLine(i, 'cbm', Number(e.target.value))}
+                        value={isAir ? line.weight : line.cbm}
+                        onChange={(e) => updateLine(i, isAir ? 'weight' : 'cbm', Number(e.target.value))}
                         className="search-input w-full !py-1.5 !text-xs text-center"
                       />
                     </label>

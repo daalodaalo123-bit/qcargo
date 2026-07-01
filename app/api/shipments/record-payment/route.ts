@@ -5,6 +5,7 @@ import Customer from '@/lib/models/Customer';
 import Invoice from '@/lib/models/Invoice';
 import { deliverReceiptWhatsApp } from '@/lib/deliver-receipt-whatsapp';
 import { buildShipmentInvoiceItems } from '@/lib/build-shipment-invoice-items';
+import { shipmentFreightSummary } from '@/lib/build-shipment-pdf';
 import { buildShipmentGoods } from '@/lib/build-shipment-goods';
 import { BRAND_NAME } from '@/lib/brand';
 import { getSessionUser } from '@/lib/sessionUser';
@@ -105,6 +106,7 @@ export async function POST(request: Request) {
       discount: shipment.discount,
       tax: shipment.tax,
       total: shipment.total,
+      priceLines: shipment.priceLines,
     });
     const subtotal = lineItems.reduce((sum, it) => sum + it.lineTotal, 0);
     const totalDue = shipment.total;
@@ -204,13 +206,7 @@ export async function POST(request: Request) {
         goodsSummary,
         items: lineItems,
         goods: buildShipmentGoods(shipment),
-        freightSummary: [
-          shipment.type === 'AIR'
-            ? { label: 'Chargeable Weight', value: `${shipment.weight ?? 0} KG` }
-            : { label: 'Total Volume', value: `${shipment.cbm ?? 0} CBM` },
-          { label: 'Rate', value: `$${(shipment.rate ?? 0).toFixed(2)} / ${shipment.type === 'AIR' ? 'KG' : 'CBM'}` },
-          { label: 'Batch', value: shipment.batch || 'UNASSIGNED' },
-        ],
+        freightSummary: shipmentFreightSummary(shipment),
         subtotal,
         totalAmount: totalDue,
         amountPaid: thisPayment,
