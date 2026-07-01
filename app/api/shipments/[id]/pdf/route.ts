@@ -29,6 +29,14 @@ export async function GET(
     }
 
     const goods = buildShipmentGoods(shipment);
+    const isAir = shipment.type === 'AIR';
+    const freightSummary = [
+      isAir
+        ? { label: 'Chargeable Weight', value: `${shipment.weight ?? 0} KG` }
+        : { label: 'Total Volume', value: `${shipment.cbm ?? 0} CBM` },
+      { label: 'Rate', value: `$${(shipment.rate ?? 0).toFixed(2)} / ${isAir ? 'KG' : 'CBM'}` },
+      { label: 'Batch', value: shipment.batch || 'UNASSIGNED' },
+    ];
     const charges = buildShipmentInvoiceItems({
       type: shipment.type,
       shipmentNumber: shipment.shipmentNumber,
@@ -69,6 +77,7 @@ export async function GET(
         goodsSummary: goods.map((g) => g.description).join(', '),
         items: charges,
         goods,
+        freightSummary,
         subtotal,
         totalAmount: shipment.total,
         amountPaid,
@@ -89,6 +98,7 @@ export async function GET(
         freightType: shipment.type,
         items: charges.map((c) => ({ description: c.description, qty: c.qty, price: c.price })),
         goods,
+        freightSummary,
         total: shipment.total,
         status: shipment.status === 'ARRIVED' ? 'ARRIVED' : 'SENT',
         paymentStatus: shipment.paymentStatus,

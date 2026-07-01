@@ -20,8 +20,7 @@ import {
   Pencil,
   Trash2,
   Download,
-  FileText,
-  Receipt
+  FileText
 } from 'lucide-react';
 import Link from 'next/link';
 import EditShipmentModal, { type ShipmentRow } from './EditShipmentModal';
@@ -348,15 +347,6 @@ export default function ShipmentsPage() {
                         title="Download Quotation PDF (goods + cost)"
                       >
                         <FileText size={16} />
-                      </a>
-                      <a
-                        href={`/api/shipments/${ship.id}/pdf?type=invoice`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-2 hover:bg-[#F15D38]/10 text-slate-400 hover:text-[#F15D38] rounded-lg transition-colors"
-                        title="Download Invoice PDF (goods + cost)"
-                      >
-                        <Receipt size={16} />
                       </a>
                       {ship.paymentStatus !== 'PAID' && (
                         <button

@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { BRAND_FOOTER, BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
-import { drawGoodsSection, type PdfGood } from '@/lib/pdf-goods-section';
+import { drawGoodsSection, drawDetailStrip, type PdfGood } from '@/lib/pdf-goods-section';
 import fs from 'fs';
 import path from 'path';
 
@@ -32,6 +32,8 @@ export interface ReceiptData {
   itemsTitle?: string;
   /** Optional product goods list (shipment documents) shown above the charges. */
   goods?: PdfGood[];
+  /** Optional freight-detail chips (type, weight/CBM, rate) for shipment docs. */
+  freightSummary?: { label: string; value: string }[];
 }
 
 const MARGIN = 48;
@@ -179,6 +181,11 @@ export async function generateReceiptPdf(data: ReceiptData): Promise<Uint8Array>
 
   y = panelTop - panelH - 32;
 
+  // Freight-detail strip (shipment documents) — weight/CBM, rate, batch.
+  if (data.freightSummary && data.freightSummary.length > 0) {
+    y = drawDetailStrip({ page, font, fontBold, x: MARGIN, y, width: contentW, fields: data.freightSummary });
+  }
+
   // Goods list (shipment documents only) — the actual products above the charges.
   if (data.goods && data.goods.length > 0) {
     y = drawGoodsSection({ page, font, fontBold, x: MARGIN, y, width: contentW, goods: data.goods });
@@ -306,18 +313,24 @@ export async function generateReceiptPdf(data: ReceiptData): Promise<Uint8Array>
     color: data.paymentStatus === 'PAID' ? rgb(0.12, 0.55, 0.35) : BRAND_DARK,
   });
 
-  // Stamp — original black Stamp.jpeg, bottom-right corner, above footer
+  // Stamp — flexible: fit it into the space between the last content and the
+  // footer so it never overlaps long text; shrink or skip when there's no room.
   try {
     const stampPath = path.join(process.cwd(), 'public', 'Stamp.jpeg');
     const stampBytes = fs.readFileSync(stampPath);
     const stampImg = await doc.embedJpg(stampBytes);
-    const stampDims = stampImg.scaleToFit(90, 90);
-    page.drawImage(stampImg, {
-      x: width - MARGIN - stampDims.width,
-      y: 84,
-      width: stampDims.width,
-      height: stampDims.height,
-    });
+    const footerTop = 80;
+    const available = (ty - 28) - footerTop;
+    const size = Math.min(90, available);
+    if (size >= 45) {
+      const stampDims = stampImg.scaleToFit(size, size);
+      page.drawImage(stampImg, {
+        x: width - MARGIN - stampDims.width,
+        y: footerTop,
+        width: stampDims.width,
+        height: stampDims.height,
+      });
+    }
   } catch { /* stamp optional */ }
 
   // ── Footer ──
