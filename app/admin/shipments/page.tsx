@@ -19,7 +19,9 @@ import {
   Calendar,
   Pencil,
   Trash2,
-  Download
+  Download,
+  FileText,
+  Receipt
 } from 'lucide-react';
 import Link from 'next/link';
 import EditShipmentModal, { type ShipmentRow } from './EditShipmentModal';
@@ -338,6 +340,24 @@ export default function ShipmentsPage() {
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex items-center justify-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                      <a
+                        href={`/api/shipments/${ship.id}/pdf?type=quotation`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 hover:bg-slate-800 text-slate-400 hover:text-teal-400 rounded-lg transition-colors"
+                        title="Download Quotation PDF (goods + cost)"
+                      >
+                        <FileText size={16} />
+                      </a>
+                      <a
+                        href={`/api/shipments/${ship.id}/pdf?type=invoice`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 hover:bg-[#F15D38]/10 text-slate-400 hover:text-[#F15D38] rounded-lg transition-colors"
+                        title="Download Invoice PDF (goods + cost)"
+                      >
+                        <Receipt size={16} />
+                      </a>
                       {ship.paymentStatus !== 'PAID' && (
                         <button
                           onClick={() =>

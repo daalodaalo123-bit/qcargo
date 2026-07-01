@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { BRAND_FOOTER, BRAND_NAME } from '@/lib/brand';
+import { drawGoodsSection, type PdfGood } from '@/lib/pdf-goods-section';
 import fs from 'fs';
 import path from 'path';
 
@@ -23,6 +24,10 @@ export interface QuotationPdfData {
   paymentStatus?: string;
   commissionRate?: number;
   commissionAmount?: number;
+  /** Optional product goods list (shipment documents) shown above the charges. */
+  goods?: PdfGood[];
+  /** Title for the charges/items table (default "Description of Goods"). */
+  itemsTitle?: string;
 }
 
 const MARGIN = 48;
@@ -293,8 +298,14 @@ export async function generateQuotationPdf(data: QuotationPdfData): Promise<Uint
 
   y = panelTop - panelH - 32;
 
-  // Items table
-  page.drawText('Description of Goods', { x: MARGIN, y, size: 11, font: fontBold, color: INK });
+  // Goods list (shipment documents only) — the actual products above the charges.
+  if (data.goods && data.goods.length > 0) {
+    y = drawGoodsSection({ page, font, fontBold, x: MARGIN, y, width: contentW, goods: data.goods });
+    y -= 10;
+  }
+
+  // Items / charges table
+  page.drawText(data.itemsTitle || 'Description of Goods', { x: MARGIN, y, size: 11, font: fontBold, color: INK });
   y -= 22;
 
   const tableX = MARGIN;

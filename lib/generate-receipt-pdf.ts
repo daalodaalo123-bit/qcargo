@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { BRAND_FOOTER, BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
+import { drawGoodsSection, type PdfGood } from '@/lib/pdf-goods-section';
 import fs from 'fs';
 import path from 'path';
 
@@ -29,6 +30,8 @@ export interface ReceiptData {
   shipmentNumber?: string;
   dateLabel?: string;
   itemsTitle?: string;
+  /** Optional product goods list (shipment documents) shown above the charges. */
+  goods?: PdfGood[];
 }
 
 const MARGIN = 48;
@@ -175,6 +178,12 @@ export async function generateReceiptPdf(data: ReceiptData): Promise<Uint8Array>
   );
 
   y = panelTop - panelH - 32;
+
+  // Goods list (shipment documents only) — the actual products above the charges.
+  if (data.goods && data.goods.length > 0) {
+    y = drawGoodsSection({ page, font, fontBold, x: MARGIN, y, width: contentW, goods: data.goods });
+    y -= 10;
+  }
 
   // ── Line items table ──
   page.drawText(data.itemsTitle || 'Items & Services', { x: MARGIN, y, size: 11, font: fontBold, color: INK });

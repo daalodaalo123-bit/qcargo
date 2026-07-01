@@ -5,6 +5,7 @@ import Customer from '@/lib/models/Customer';
 import Invoice from '@/lib/models/Invoice';
 import { deliverReceiptWhatsApp } from '@/lib/deliver-receipt-whatsapp';
 import { buildShipmentInvoiceItems } from '@/lib/build-shipment-invoice-items';
+import { buildShipmentGoods } from '@/lib/build-shipment-goods';
 import { BRAND_NAME } from '@/lib/brand';
 import { getSessionUser } from '@/lib/sessionUser';
 
@@ -202,6 +203,7 @@ export async function POST(request: Request) {
         freightType: shipment.type,
         goodsSummary,
         items: lineItems,
+        goods: buildShipmentGoods(shipment),
         subtotal,
         totalAmount: totalDue,
         amountPaid: thisPayment,
