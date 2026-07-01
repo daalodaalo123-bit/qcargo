@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   TrendingUp, DollarSign, CreditCard, Search, MoreVertical,
   Download, Building2, PieChart, CheckCircle2, AlertCircle, BarChart3,
-  Landmark, Users, Trash2, Scale, Wallet, Percent, Settings, Banknote,
+  Landmark, Users, Trash2, Scale, Wallet, Percent, Settings, Banknote, Send,
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -173,6 +173,24 @@ export default function AccountingPage() {
       if (!res.ok) throw new Error('Failed to delete');
       setInvoices(prev => prev.filter(i => i.mongoId !== mongoId));
     } catch (e) { alert('Failed to delete invoice'); }
+  };
+
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const handleResendReceipt = async (mongoId: string, invoiceNum: string) => {
+    setResendingId(mongoId);
+    try {
+      const res = await fetch(`/api/invoices/${mongoId}/send-receipt`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && (data.pdfSent || data.whatsappSent)) {
+        alert(`Receipt ${invoiceNum} sent on WhatsApp${data.pdfSent ? ' (PDF attached).' : ' (text link).'}`);
+      } else {
+        alert(`Could not send receipt ${invoiceNum}: ${data.whatsappError || data.error || data.details || 'unknown error'}`);
+      }
+    } catch (e) {
+      alert(`Failed to send receipt ${invoiceNum}.`);
+    } finally {
+      setResendingId(null);
+    }
   };
 
   useEffect(() => { loadBills(); loadInvoices(); loadShipments(); loadCustomers(); loadSettings(); }, []);
@@ -651,10 +669,19 @@ export default function AccountingPage() {
                       </td>
                       <td className="px-6 py-5">
                         {inv.mongoId && (
-                          <a href={`/api/invoices/${inv.mongoId}/pdf`} target="_blank" rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all" title="Open PDF">
-                            <Download size={13} /> PDF
-                          </a>
+                          <div className="inline-flex items-center gap-2">
+                            <a href={`/api/invoices/${inv.mongoId}/pdf`} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all" title="Open PDF">
+                              <Download size={13} /> PDF
+                            </a>
+                            <button
+                              onClick={() => handleResendReceipt(inv.mongoId!, inv.id)}
+                              disabled={resendingId === inv.mongoId}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-900/40 hover:bg-emerald-800/60 text-emerald-300 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all disabled:opacity-50"
+                              title="Resend receipt on WhatsApp">
+                              <Send size={13} /> {resendingId === inv.mongoId ? 'Sending…' : 'Receipt'}
+                            </button>
+                          </div>
                         )}
                       </td>
                       <td className="px-6 py-5">
