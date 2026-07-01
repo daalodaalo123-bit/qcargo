@@ -307,7 +307,16 @@ export async function generateQuotationPdf(data: QuotationPdfData): Promise<Uint
 
   // Goods list (shipment documents only) — the actual products above the charges.
   if (data.goods && data.goods.length > 0) {
-    y = drawGoodsSection({ page, font, fontBold, x: MARGIN, y, width: contentW, goods: data.goods });
+    y = drawGoodsSection({
+      page,
+      font,
+      fontBold,
+      x: MARGIN,
+      y,
+      width: contentW,
+      goods: data.goods,
+      unit: data.freightType === 'AIR' ? 'KG' : 'CBM',
+    });
     y -= 10;
   }
 
@@ -388,20 +397,22 @@ export async function generateQuotationPdf(data: QuotationPdfData): Promise<Uint
   page.drawText('This is an estimate only.', { x: MARGIN, y: noteY, size: 8, font, color: MUTED });
   page.drawText('Final price may vary based on weight, dimensions and customs charges.', { x: MARGIN, y: noteY - 14, size: 8, font, color: MUTED });
 
-  // Stamp — flexible: fit it into the space between the last content and the
-  // footer so it never overlaps long text; shrink or skip when there's no room.
+  // Stamp — fully flexible: it floats in whatever free space is left between the
+  // last content and the footer, centred in that gap. It shrinks as the product
+  // list grows and only disappears when there is genuinely no room.
   try {
     const stampPath = path.join(process.cwd(), 'public', 'Stamp.jpeg');
     const stampBytes = fs.readFileSync(stampPath);
     const stampImg = await doc.embedJpg(stampBytes);
     const footerTop = 80;
-    const available = (noteY - 14) - footerTop;
-    const size = Math.min(90, available);
-    if (size >= 45) {
+    const gapTop = noteY - 14;
+    const available = gapTop - footerTop;
+    if (available >= 30) {
+      const size = Math.min(90, available - 4);
       const stampDims = stampImg.scaleToFit(size, size);
       page.drawImage(stampImg, {
         x: width - MARGIN - stampDims.width,
-        y: footerTop,
+        y: footerTop + (available - stampDims.height) / 2,
         width: stampDims.width,
         height: stampDims.height,
       });

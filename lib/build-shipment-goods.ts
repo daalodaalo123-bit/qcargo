@@ -1,13 +1,5 @@
 import type { PdfGood } from '@/lib/pdf-goods-section';
 
-/** Combine measured/entered weight + CBM into a short "· 12 KG · 0.8 CBM" detail. */
-function measure(weight?: number, cbm?: number): string | undefined {
-  const parts: string[] = [];
-  if (weight && weight > 0) parts.push(`${weight} KG`);
-  if (cbm && cbm > 0) parts.push(`${cbm} CBM`);
-  return parts.length ? parts.join(' · ') : undefined;
-}
-
 type GoodsSource = {
   items?: {
     description?: string;
@@ -38,7 +30,8 @@ export function buildShipmentGoods(shipment: GoodsSource): PdfGood[] {
     goods.push({
       description: it.description,
       qty: it.qty ?? 1,
-      detail: measure(it.measuredWeight ?? it.weight, it.measuredCbm ?? it.cbm),
+      weight: it.measuredWeight ?? it.weight,
+      cbm: it.measuredCbm ?? it.cbm,
     });
   }
 
@@ -47,7 +40,8 @@ export function buildShipmentGoods(shipment: GoodsSource): PdfGood[] {
     goods.push({
       description: p.goods,
       qty: p.qty ?? 1,
-      detail: measure(p.measuredWeight, p.measuredCbm),
+      weight: p.measuredWeight,
+      cbm: p.measuredCbm,
     });
   }
 

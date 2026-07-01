@@ -3,7 +3,8 @@ import { rgb, type PDFFont, type PDFPage } from 'pdf-lib';
 export interface PdfGood {
   description: string;
   qty: number;
-  detail?: string;
+  weight?: number;
+  cbm?: number;
 }
 
 const INK = rgb(0.1, 0.12, 0.18);
@@ -62,20 +63,28 @@ export function drawGoodsSection(opts: {
   y: number;
   width: number;
   goods: PdfGood[];
+  /** Which measure column to show: KG (air freight) or CBM (sea freight). */
+  unit: 'KG' | 'CBM';
   title?: string;
 }): number {
-  const { page, font, fontBold, x, width, goods } = opts;
+  const { page, font, fontBold, x, width, goods, unit } = opts;
   let y = opts.y;
   const shown = goods.slice(0, MAX_ROWS);
+
+  const colQtyX = x + width * 0.62;
+  const colMeasureRight = x + width - 12;
+  const maxDescW = colQtyX - (x + 12) - 8;
 
   page.drawText(opts.title || 'Description of Goods', { x, y, size: 11, font: fontBold, color: INK });
   y -= 20;
 
+  // Header row: Product | Qty | Weight/Volume
   page.drawRectangle({ x, y: y - 4, width, height: 20, color: HEADER_BG });
-  page.drawText('Item', { x: x + 12, y: y + 2, size: 8, font: fontBold, color: MUTED });
-  const qtyHead = 'Qty / Measure';
-  page.drawText(qtyHead, {
-    x: x + width - 12 - fontBold.widthOfTextAtSize(qtyHead, 8),
+  page.drawText('Product', { x: x + 12, y: y + 2, size: 8, font: fontBold, color: MUTED });
+  page.drawText('Qty', { x: colQtyX, y: y + 2, size: 8, font: fontBold, color: MUTED });
+  const measHead = unit === 'KG' ? 'Weight (KG)' : 'Volume (CBM)';
+  page.drawText(measHead, {
+    x: colMeasureRight - fontBold.widthOfTextAtSize(measHead, 8),
     y: y + 2,
     size: 8,
     font: fontBold,
@@ -85,18 +94,28 @@ export function drawGoodsSection(opts: {
 
   shown.forEach((g, i) => {
     if (i % 2 === 1) page.drawRectangle({ x, y: y - 4, width, height: 20, color: ALT });
+
     let desc = g.description;
-    while (desc.length > 1 && font.widthOfTextAtSize(desc, 10) > width * 0.6) desc = desc.slice(0, -1);
+    while (desc.length > 1 && font.widthOfTextAtSize(desc, 10) > maxDescW) desc = desc.slice(0, -1);
     if (desc.length < g.description.length) desc = `${desc.slice(0, -1)}…`;
     page.drawText(desc, { x: x + 12, y: y + 2, size: 10, font, color: INK });
 
-    const right = `${g.qty} pcs${g.detail ? ` · ${g.detail}` : ''}`;
-    page.drawText(right, {
-      x: x + width - 12 - font.widthOfTextAtSize(right, 9),
+    page.drawText(String(g.qty), { x: colQtyX, y: y + 2, size: 10, font, color: INK });
+
+    const measVal =
+      unit === 'KG'
+        ? g.weight && g.weight > 0
+          ? `${g.weight} KG`
+          : '—'
+        : g.cbm && g.cbm > 0
+          ? `${g.cbm} CBM`
+          : '—';
+    page.drawText(measVal, {
+      x: colMeasureRight - font.widthOfTextAtSize(measVal, 10),
       y: y + 2,
-      size: 9,
+      size: 10,
       font,
-      color: MUTED,
+      color: INK,
     });
     y -= 20;
   });

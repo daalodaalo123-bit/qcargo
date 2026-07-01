@@ -188,7 +188,16 @@ export async function generateReceiptPdf(data: ReceiptData): Promise<Uint8Array>
 
   // Goods list (shipment documents only) — the actual products above the charges.
   if (data.goods && data.goods.length > 0) {
-    y = drawGoodsSection({ page, font, fontBold, x: MARGIN, y, width: contentW, goods: data.goods });
+    y = drawGoodsSection({
+      page,
+      font,
+      fontBold,
+      x: MARGIN,
+      y,
+      width: contentW,
+      goods: data.goods,
+      unit: data.freightType === 'AIR' ? 'KG' : 'CBM',
+    });
     y -= 10;
   }
 
@@ -313,20 +322,22 @@ export async function generateReceiptPdf(data: ReceiptData): Promise<Uint8Array>
     color: data.paymentStatus === 'PAID' ? rgb(0.12, 0.55, 0.35) : BRAND_DARK,
   });
 
-  // Stamp — flexible: fit it into the space between the last content and the
-  // footer so it never overlaps long text; shrink or skip when there's no room.
+  // Stamp — fully flexible: it floats in whatever free space is left between the
+  // last content and the footer, centred in that gap. It shrinks as the product
+  // list grows and only disappears when there is genuinely no room.
   try {
     const stampPath = path.join(process.cwd(), 'public', 'Stamp.jpeg');
     const stampBytes = fs.readFileSync(stampPath);
     const stampImg = await doc.embedJpg(stampBytes);
     const footerTop = 80;
-    const available = (ty - 28) - footerTop;
-    const size = Math.min(90, available);
-    if (size >= 45) {
+    const gapTop = ty - 28;
+    const available = gapTop - footerTop;
+    if (available >= 30) {
+      const size = Math.min(90, available - 4);
       const stampDims = stampImg.scaleToFit(size, size);
       page.drawImage(stampImg, {
         x: width - MARGIN - stampDims.width,
-        y: footerTop,
+        y: footerTop + (available - stampDims.height) / 2,
         width: stampDims.width,
         height: stampDims.height,
       });
