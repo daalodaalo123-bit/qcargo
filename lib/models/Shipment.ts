@@ -29,6 +29,7 @@ export interface IPriceLine {
   weight?: number;
   cbm?: number;
   rate?: number;
+  amount?: number; // freight subtotal (units × rate, or a flat total when no units)
   customs?: number;
   tax?: number;
 }
@@ -100,6 +101,7 @@ const PriceLineSchema = new Schema<IPriceLine>({
   weight: { type: Number },
   cbm: { type: Number },
   rate: { type: Number },
+  amount: { type: Number },
   customs: { type: Number },
   tax: { type: Number },
 }, { _id: false });

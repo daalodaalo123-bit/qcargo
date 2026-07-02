@@ -193,12 +193,16 @@ const emptyCargoLine = (): CargoLine => ({
 });
 
 // One priced product line — a product name + its measure (KG/CBM) + rate,
-// plus customs/tax for AIR. Each product carries its own rate.
+// plus customs/tax for AIR. Each product carries its own rate. `amount` is the
+// line's freight subtotal (units × rate) and is the source of truth for the
+// total: you can type the rate (amount fills in) OR type the amount (rate is
+// worked out), and lines with no weight/CBM can carry a flat amount.
 interface PriceLine {
   product: string;
   weight: number;
   cbm: number;
   rate: number;
+  amount: number;
   customs: number;
   tax: number;
 }
@@ -208,9 +212,12 @@ const emptyPriceLine = (): PriceLine => ({
   weight: 0,
   cbm: 0,
   rate: 0,
+  amount: 0,
   customs: 0,
   tax: 0,
 });
+
+const round2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
 
 /* ─────────────────────────────────────────────
    Main New Shipment Page
@@ -262,7 +269,12 @@ export default function NewShipmentPage() {
 
   // Computed values — one row per priced product, each with its own rate.
   const isAir = shipmentType === 'AIR';
-  const lineFreight = (l: PriceLine) => (isAir ? Number(l.weight) || 0 : Number(l.cbm) || 0) * (Number(l.rate) || 0);
+  // Freight for a line is its stored amount; fall back to units × rate for any
+  // older line that predates the amount field.
+  const lineFreight = (l: PriceLine) =>
+    l.amount != null && l.amount !== 0
+      ? Number(l.amount) || 0
+      : (isAir ? Number(l.weight) || 0 : Number(l.cbm) || 0) * (Number(l.rate) || 0);
   const freightTotal = priceLines.reduce((s, l) => s + lineFreight(l), 0);
   const customsTotal = isAir ? priceLines.reduce((s, l) => s + (Number(l.customs) || 0), 0) : 0;
   const taxTotal = isAir ? priceLines.reduce((s, l) => s + (Number(l.tax) || 0), 0) : 0;
@@ -273,9 +285,30 @@ export default function NewShipmentPage() {
   const addPriceLine = () => setPriceLines([...priceLines, emptyPriceLine()]);
   const removePriceLine = (i: number) =>
     setPriceLines(priceLines.length > 1 ? priceLines.filter((_, idx) => idx !== i) : [emptyPriceLine()]);
+  // Update a price line, keeping rate ⇄ amount in sync:
+  //  • edit Rate   → amount = units × rate
+  //  • edit Weight/CBM → amount = units × rate (rate kept)
+  //  • edit Amount → rate = amount ÷ units (rate cleared when there are no units)
   const updatePriceLine = (i: number, field: keyof PriceLine, value: string | number) => {
     const next = [...priceLines];
-    next[i] = { ...next[i], [field]: value };
+    const line: PriceLine = { ...next[i], [field]: value } as PriceLine;
+    const units = Number(isAir ? line.weight : line.cbm) || 0;
+    if (field === 'rate') {
+      line.amount = round2(units * (Number(line.rate) || 0));
+    } else if (field === 'weight' || field === 'cbm') {
+      const rate = Number(line.rate) || 0;
+      const amt = Number(line.amount) || 0;
+      // Rate known → total follows. Only a total set → derive the rate but keep
+      // the total (so adding units later never wipes a typed total).
+      if (rate > 0) line.amount = round2(units * rate);
+      else if (units > 0 && amt > 0) line.rate = round2(amt / units);
+      else line.amount = round2(units * rate);
+    } else if (field === 'amount') {
+      const amt = Number(value) || 0;
+      line.amount = amt;
+      line.rate = units > 0 ? round2(amt / units) : 0;
+    }
+    next[i] = line;
     setPriceLines(next);
   };
 
@@ -392,6 +425,7 @@ export default function NewShipmentPage() {
           weight: Number(l.weight) || 0,
           cbm: Number(l.cbm) || 0,
           rate: Number(l.rate) || 0,
+          amount: lineFreight(l),
           customs: Number(l.customs) || 0,
           tax: Number(l.tax) || 0,
         })),
@@ -597,7 +631,6 @@ export default function NewShipmentPage() {
 
               <div className="space-y-3">
                 {priceLines.map((line, index) => {
-                  const lineTotal = lineFreight(line) + (isAir ? (Number(line.customs) || 0) + (Number(line.tax) || 0) : 0);
                   return (
                     <div
                       key={index}
@@ -668,8 +701,14 @@ export default function NewShipmentPage() {
                       )}
 
                       <div className={`flex flex-col justify-end ${isAir ? 'md:col-span-1' : 'md:col-span-2'}`}>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 text-right">Total</label>
-                        <p className="text-sm font-black text-emerald-400 text-right py-2">${lineTotal.toFixed(2)}</p>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 text-right">Total ($)</label>
+                        <input
+                          type="number" min={0} step="any"
+                          className="search-input !py-2 !px-3 min-w-0 font-black text-emerald-400 text-right"
+                          value={line.amount}
+                          onChange={(e) => updatePriceLine(index, 'amount', Number(e.target.value))}
+                          title="Type the total to set it directly — the rate is worked out for you"
+                        />
                       </div>
                     </div>
                   );
@@ -681,7 +720,7 @@ export default function NewShipmentPage() {
                 ))}
               </datalist>
               <p className="text-[10px] text-slate-500 mt-3 font-medium">
-                One row per product — group goods (e.g. all bags) into a single line with its own {isAir ? 'weight' : 'CBM'} and rate. Total {isAir ? 'weight' : 'volume'}: <span className="font-bold text-slate-300">{totalUnits.toLocaleString()} {isAir ? 'KG' : 'CBM'}</span>.
+                One row per product. Type the <span className="font-bold text-slate-300">Rate</span> and the Total fills in — or type the <span className="font-bold text-slate-300">Total</span> and the rate is worked out. You can also leave {isAir ? 'weight' : 'CBM'} blank and just enter a Total. Total {isAir ? 'weight' : 'volume'}: <span className="font-bold text-slate-300">{totalUnits.toLocaleString()} {isAir ? 'KG' : 'CBM'}</span>.
               </p>
             </div>
           </div>

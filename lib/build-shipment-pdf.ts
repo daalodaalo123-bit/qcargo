@@ -34,10 +34,13 @@ export function shipmentFreightSummary(shipment: ShipmentPdfSource): { label: st
   let rateLabel: string;
   if (lines.length > 0) {
     units = lines.reduce((s, l) => s + (isAir ? l.weight ?? 0 : l.cbm ?? 0), 0);
-    const rates = [...new Set(lines.map((l) => l.rate ?? 0))];
-    rateLabel = rates.length === 1
-      ? `$${rates[0].toFixed(2)} / ${isAir ? 'KG' : 'CBM'}`
-      : 'Multiple rates';
+    // Only lines that actually have units carry a per-unit rate; flat-total lines don't.
+    const rates = [...new Set(lines.filter((l) => (isAir ? l.weight : l.cbm)).map((l) => l.rate ?? 0))];
+    rateLabel = units === 0
+      ? '—'
+      : rates.length === 1
+        ? `$${rates[0].toFixed(2)} / ${isAir ? 'KG' : 'CBM'}`
+        : 'Multiple rates';
   } else {
     units = isAir ? shipment.weight ?? 0 : shipment.cbm ?? 0;
     rateLabel = `$${(shipment.rate ?? 0).toFixed(2)} / ${isAir ? 'KG' : 'CBM'}`;

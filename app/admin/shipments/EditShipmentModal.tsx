@@ -43,11 +43,14 @@ interface PriceLine {
   weight: number;
   cbm: number;
   rate: number;
+  amount: number; // freight subtotal (units × rate); source of truth for the total
   customs: number;
   tax: number;
 }
 
-const emptyPriceLine = (): PriceLine => ({ product: '', weight: 0, cbm: 0, rate: 0, customs: 0, tax: 0 });
+const emptyPriceLine = (): PriceLine => ({ product: '', weight: 0, cbm: 0, rate: 0, amount: 0, customs: 0, tax: 0 });
+
+const round2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
 
 interface EditShipmentModalProps {
   shipment: ShipmentRow | null;
@@ -97,23 +100,29 @@ function buildLines(shipment: ShipmentRow): CargoLine[] {
 // Pre-fill the pricing table. New shipments carry priceLines; older ones are
 // reconstructed as a single line from the flat freight fields so editing works.
 function buildPriceLines(shipment: ShipmentRow): PriceLine[] {
+  const isAir = shipment.type === 'AIR';
   const raw = shipment.priceLines || [];
   if (raw.length > 0) {
-    return raw.map((l) => ({
-      product: str(l.product),
-      weight: numOf(l.weight),
-      cbm: numOf(l.cbm),
-      rate: numOf(l.rate),
-      customs: numOf(l.customs),
-      tax: numOf(l.tax),
-    }));
+    return raw.map((l) => {
+      const weight = numOf(l.weight);
+      const cbm = numOf(l.cbm);
+      const rate = numOf(l.rate);
+      const units = isAir ? weight : cbm;
+      // Use the stored amount; fall back to units × rate for older lines.
+      const amount = numOf((l as RawLine).amount) || round2(units * rate);
+      return { product: str(l.product), weight, cbm, rate, amount, customs: numOf(l.customs), tax: numOf(l.tax) };
+    });
   }
   const firstGoods = str((shipment.items?.[0] as RawLine | undefined)?.description) || 'Cargo';
+  const weight = numOf(shipment.weight);
+  const cbm = numOf(shipment.cbm);
+  const rate = numOf(shipment.rate);
   return [{
     product: firstGoods,
-    weight: numOf(shipment.weight),
-    cbm: numOf(shipment.cbm),
-    rate: numOf(shipment.rate),
+    weight,
+    cbm,
+    rate,
+    amount: round2((isAir ? weight : cbm) * rate),
     customs: numOf(shipment.customs),
     tax: numOf(shipment.tax),
   }];
@@ -182,13 +191,38 @@ export default function EditShipmentModal({ shipment, onClose, onSaved }: EditSh
 
   const isAir = type === 'AIR';
 
+  // Keep rate ⇄ amount in sync: edit Rate/units → amount recalculates; edit the
+  // Total → rate is worked out (cleared when the line has no weight/CBM).
   const updatePriceLine = (i: number, field: keyof PriceLine, value: string | number) =>
-    setPriceLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, [field]: value } : l)));
+    setPriceLines((prev) => prev.map((l, idx) => {
+      if (idx !== i) return l;
+      const line: PriceLine = { ...l, [field]: value } as PriceLine;
+      const units = Number(isAir ? line.weight : line.cbm) || 0;
+      if (field === 'rate') {
+        line.amount = round2(units * (Number(line.rate) || 0));
+      } else if (field === 'weight' || field === 'cbm') {
+        const rate = Number(line.rate) || 0;
+        const amt = Number(line.amount) || 0;
+        // Rate known → total follows. Only a total set → derive the rate but keep
+        // the total (so adding units later never wipes a typed total).
+        if (rate > 0) line.amount = round2(units * rate);
+        else if (units > 0 && amt > 0) line.rate = round2(amt / units);
+        else line.amount = round2(units * rate);
+      } else if (field === 'amount') {
+        const amt = Number(value) || 0;
+        line.amount = amt;
+        line.rate = units > 0 ? round2(amt / units) : 0;
+      }
+      return line;
+    }));
   const addPriceLine = () => setPriceLines((prev) => [...prev, emptyPriceLine()]);
   const removePriceLine = (i: number) =>
     setPriceLines((prev) => (prev.length === 1 ? [emptyPriceLine()] : prev.filter((_, idx) => idx !== i)));
 
-  const lineFreight = (l: PriceLine) => (isAir ? Number(l.weight) || 0 : Number(l.cbm) || 0) * (Number(l.rate) || 0);
+  const lineFreight = (l: PriceLine) =>
+    l.amount != null && l.amount !== 0
+      ? Number(l.amount) || 0
+      : (isAir ? Number(l.weight) || 0 : Number(l.cbm) || 0) * (Number(l.rate) || 0);
   const freightTotal = priceLines.reduce((s, l) => s + lineFreight(l), 0);
   const customsTotal = isAir ? priceLines.reduce((s, l) => s + (Number(l.customs) || 0), 0) : 0;
   const taxTotal = isAir ? priceLines.reduce((s, l) => s + (Number(l.tax) || 0), 0) : 0;
@@ -260,6 +294,7 @@ export default function EditShipmentModal({ shipment, onClose, onSaved }: EditSh
               weight: Number(l.weight) || 0,
               cbm: Number(l.cbm) || 0,
               rate: Number(l.rate) || 0,
+              amount: lineFreight(l),
               customs: Number(l.customs) || 0,
               tax: Number(l.tax) || 0,
             })),
@@ -407,7 +442,7 @@ export default function EditShipmentModal({ shipment, onClose, onSaved }: EditSh
                         <Trash2 size={15} />
                       </button>
                     </div>
-                    <div className={`grid gap-2 ${isAir ? 'grid-cols-4' : 'grid-cols-2'}`}>
+                    <div className={`grid gap-2 ${isAir ? 'grid-cols-5' : 'grid-cols-3'}`}>
                       <label className="flex flex-col gap-1">
                         <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider">{isAir ? 'Weight (KG)' : 'CBM'}</span>
                         <input
@@ -424,6 +459,16 @@ export default function EditShipmentModal({ shipment, onClose, onSaved }: EditSh
                           value={line.rate}
                           onChange={(e) => updatePriceLine(i, 'rate', Number(e.target.value))}
                           className="search-input w-full !py-1.5 !text-xs text-center"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[8px] font-black text-emerald-500 uppercase tracking-wider">Total $</span>
+                        <input
+                          type="number" min={0} step="any"
+                          value={line.amount}
+                          onChange={(e) => updatePriceLine(i, 'amount', Number(e.target.value))}
+                          className="search-input w-full !py-1.5 !text-xs text-center font-black text-emerald-400"
+                          title="Type the total to set it directly — the rate is worked out for you"
                         />
                       </label>
                       {isAir && (

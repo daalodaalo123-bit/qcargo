@@ -27,6 +27,7 @@ export const ShipmentSchema = z.object({
     weight: num.optional(),
     cbm: num.optional(),
     rate: num.optional(),
+    amount: num.optional(),
     customs: num.optional(),
     tax: num.optional(),
   })).optional(),

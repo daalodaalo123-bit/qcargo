@@ -5,6 +5,7 @@ export type PriceLineInput = {
   weight?: number;
   cbm?: number;
   rate?: number;
+  amount?: number;
   customs?: number;
   tax?: number;
 };
@@ -123,11 +124,17 @@ function buildPricedLineItems(shipment: ShipmentChargeInput, lines: PriceLineInp
   for (const l of lines) {
     const units = isAir ? l.weight ?? 0 : l.cbm ?? 0;
     const rate = l.rate ?? 0;
+    // Freight for the line is its stored amount; older lines fall back to units × rate.
+    const freight = l.amount != null && l.amount !== 0 ? l.amount : units * rate;
+    // Show the rate breakdown when there are units; otherwise it's a flat total.
+    const description = units > 0
+      ? `${l.product.trim()} — ${units.toLocaleString()} ${unit} @ ${money(rate)}/${unit}`
+      : l.product.trim();
     items.push({
-      description: `${l.product.trim()} — ${units.toLocaleString()} ${unit} @ ${money(rate)}/${unit}`,
+      description,
       qty: units > 0 ? units : 1,
-      price: rate,
-      lineTotal: units * rate,
+      price: units > 0 ? rate : freight,
+      lineTotal: freight,
     });
     // Customs & tax only apply to AIR (hidden on SEA in the form).
     if (isAir) {
