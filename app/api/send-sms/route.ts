@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { sendWhatsAppMessage } from '@/lib/whatsapp';
 import { connectDB } from '@/lib/mongoose';
 import Shipment from '@/lib/models/Shipment';
 import { Batch } from '@/lib/models/Batch';
@@ -7,34 +6,37 @@ import { Batch } from '@/lib/models/Batch';
 // Force dynamic rendering so environment variables are read at request time
 export const dynamic = 'force-dynamic';
 
+// Updates a batch's tracking status and cascades it to every shipment in the
+// batch (so the Inventory page, public track sheet and customer dashboard all
+// agree). It does NOT message customers: proactive customer WhatsApp only works
+// reliably through an approved template, so that is handled separately by the
+// arrival broadcast (/api/batches/notify-arrival) which the caller triggers
+// explicitly. This keeps status changes instant and reliable.
 export async function POST(request: Request) {
   try {
     await connectDB();
-    const { batchId, status, phone } = (await request.json()) as {
-      batchId: string; // This could be batchId string (e.g. FLT-2026-001) or _id
+    const { batchId, status } = (await request.json()) as {
+      batchId: string; // batchId string (e.g. FLT-2026-001) or Mongo _id
       status: string;
-      phone?: string;
     };
 
     if (!batchId || !status) {
       return NextResponse.json({ success: false, error: 'batchId and status are required' }, { status: 400 });
     }
 
-    // First try to find the batch in MongoDB to get its human-readable batchId string
+    // Resolve to the human-readable batchId and persist the batch status.
     let resolvedBatchId = batchId;
     const batchDoc = await Batch.findOne({ $or: [{ _id: batchId }, { batchId: batchId }] });
-    if (batchDoc) {
-      resolvedBatchId = batchDoc.batchId;
-      // Let's also update the batch status in the database!
-      batchDoc.status = status as any;
-      await batchDoc.save();
+    if (!batchDoc) {
+      return NextResponse.json({ success: false, error: 'Batch not found' }, { status: 404 });
     }
+    resolvedBatchId = batchDoc.batchId;
+    batchDoc.status = status as any;
+    await batchDoc.save();
 
-    // Cascade the batch status down to every shipment in the batch, so the
-    // Inventory page, public track sheet and customer dashboard all reflect it
-    // (this is the "update all individual shipments at once" the UI promises).
-    // Shipment statuses are PENDING | IN_TRANSIT | ARRIVED; map the batch's
-    // LOADING onto IN_TRANSIT.
+    // Cascade the batch status down to every shipment in the batch. Shipment
+    // statuses are PENDING | IN_TRANSIT | ARRIVED; map the batch's LOADING onto
+    // IN_TRANSIT.
     const SHIPMENT_STATUS: Record<string, 'PENDING' | 'IN_TRANSIT' | 'ARRIVED'> = {
       PENDING: 'PENDING',
       IN_TRANSIT: 'IN_TRANSIT',
@@ -42,45 +44,13 @@ export async function POST(request: Request) {
       ARRIVED: 'ARRIVED',
     };
     const mappedStatus = SHIPMENT_STATUS[status];
+    let updatedShipments = 0;
     if (mappedStatus) {
-      await Shipment.updateMany({ batch: resolvedBatchId }, { $set: { status: mappedStatus } });
+      const res = await Shipment.updateMany({ batch: resolvedBatchId }, { $set: { status: mappedStatus } });
+      updatedShipments = res.modifiedCount ?? 0;
     }
 
-    // Query for shipments belonging to this batch
-    const shipments = await Shipment.find({ batch: resolvedBatchId });
-
-    if (shipments.length > 0) {
-      console.log(`Found ${shipments.length} shipments for batch ${resolvedBatchId}. Sending WhatsApp notifications...`);
-      
-      const results = [];
-      for (const ship of shipments) {
-        if (!ship.phone) continue;
-        
-        const message = `Asc ${ship.customer}, Q CARGO tracking update: Your shipment ${ship.shipmentNumber} in batch ${resolvedBatchId} is now ${status}. Thank you for choosing Q CARGO.`;
-        
-        console.log(`Sending WhatsApp to ${ship.phone} (${ship.customer})`);
-        const result = await sendWhatsAppMessage(ship.phone, message);
-        results.push({ customer: ship.customer, phone: ship.phone, success: result.success });
-      }
-      
-      return NextResponse.json({ success: true, count: results.length, details: results });
-    }
-
-    // Fallback: if no shipments found in MongoDB for this batch, check phone param or default number
-    console.log(`No shipments found for batch ${resolvedBatchId} in DB. Using fallback recipient.`);
-    const recipient = phone || process.env.DEFAULT_WHATSAPP_NUMBER;
-
-    if (!recipient) {
-      return NextResponse.json({ success: false, error: 'No shipments found for batch and no fallback phone number provided' }, { status: 400 });
-    }
-
-    const fallbackMessage = `Your batch ${resolvedBatchId} status has been updated to ${status}.`;
-    const result = await sendWhatsAppMessage(recipient, fallbackMessage);
-
-    if (result.success) {
-      return NextResponse.json({ success: true, fallback: true });
-    }
-    return NextResponse.json({ success: false, error: result.error }, { status: 500 });
+    return NextResponse.json({ success: true, batchId: resolvedBatchId, updatedShipments });
   } catch (err: any) {
     console.error('Error in /api/send-sms:', err);
     return NextResponse.json({ success: false, error: err.message || 'Unexpected error' }, { status: 500 });

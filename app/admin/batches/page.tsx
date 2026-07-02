@@ -75,18 +75,50 @@ const [searchTerm, setSearchTerm] = useState('');
   }, []);
 
 
-  // Update status and trigger SMS
+  // Update the batch status (cascades to every shipment). On ARRIVED, offer to
+  // notify customers via the reliable WhatsApp template broadcast.
   const handleStatusChange = async (id: string, newStatus: Batch['status']) => {
+    const snapshot = batches;
     setBatches(prev => prev.map(b => (b.id === id ? { ...b, status: newStatus } : b)));
-    // Send SMS via API
+
+    // 1. Persist the status + cascade to shipments (reliable, no messaging).
     try {
-      await fetch('/api/send-sms', {
+      const res = await fetch('/api/send-sms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ batchId: id, status: newStatus }),
       });
+      if (!res.ok) throw new Error('status update failed');
     } catch (e) {
-      console.error('SMS send failed', e);
+      console.error('Batch status update failed', e);
+      setBatches(snapshot); // revert the optimistic change
+      alert('Could not update the batch status. Please try again.');
+      return;
+    }
+
+    // 2. On arrival, ask before messaging customers (mass send costs money and
+    //    is intentional). Uses the same reliable template path as the
+    //    "Notify Customers" button on the batch detail page.
+    if (newStatus === 'ARRIVED') {
+      if (!confirm('Batch marked as ARRIVED.\n\nNotify all customers in this batch on WhatsApp now? Each gets their shipment document.')) {
+        return;
+      }
+      try {
+        const res = await fetch('/api/batches/notify-arrival', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert(`WhatsApp: notified ${data.sent} of ${data.total} customer(s).`);
+        } else {
+          alert(`Could not notify customers: ${data.error || 'Unknown error'}`);
+        }
+      } catch (e) {
+        console.error('Arrival notify failed', e);
+        alert('Could not notify customers. Please try again.');
+      }
     }
   };
 
@@ -505,7 +537,7 @@ const [searchTerm, setSearchTerm] = useState('');
       <div className="mt-8 flex items-center gap-3 bg-[#F15D38]/10 p-6 rounded-[2rem] border border-[#F15D38]/20">
         <AlertCircle className="text-[#F15D38]" size={24} />
         <p className="text-xs font-medium text-slate-300 leading-relaxed">
-          Master batches allow you to update tracking status for all individual shipments at once. Changing the status of a batch will automatically notify all linked customers.
+          Master batches let you update the tracking status of every shipment in the batch at once. When you set a batch to ARRIVED, you&apos;ll be asked whether to notify all its customers on WhatsApp (each receives their shipment document).
         </p>
       </div>
     </div>
