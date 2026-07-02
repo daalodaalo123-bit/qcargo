@@ -6,6 +6,7 @@ import {
   Plus,
   Trash2,
   User,
+  Users,
   Calendar,
   AlertTriangle,
   CheckCircle2,
@@ -21,24 +22,35 @@ interface Task {
   id: string;
   title: string;
   description: string;
-  assignee: 'Khalid' | 'Sakariye';
+  assignee: string;
   status: 'Pending' | 'In_Progress' | 'Completed';
   priority: 'High' | 'Medium' | 'Low';
   dueDate: string;
   createdAt: string;
 }
 
+interface Person {
+  id: string;
+  name: string;
+}
+
 // Demo fallback data removed — real tasks come only from the database.
 
 export default function TodoPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [filterAssignee, setFilterAssignee] = useState<'All' | 'Khalid' | 'Sakariye'>('All');
-  
+  const [filterAssignee, setFilterAssignee] = useState<string>('All');
+
+  // People (assignees) — managed by the office
+  const [people, setPeople] = useState<Person[]>([]);
+  const [showManagePeople, setShowManagePeople] = useState(false);
+  const [newPersonName, setNewPersonName] = useState('');
+  const [addingPerson, setAddingPerson] = useState(false);
+
   // New Task Form State
   const [isAdding, setIsAdding] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [assignee, setAssignee] = useState<'Khalid' | 'Sakariye'>('Khalid');
+  const [assignee, setAssignee] = useState<string>('');
   const [priority, setPriority] = useState<'High' | 'Medium' | 'Low'>('Medium');
   const [dueDate, setDueDate] = useState('');
 
@@ -69,9 +81,54 @@ export default function TodoPage() {
     }
   };
 
+  const loadPeople = async () => {
+    try {
+      const res = await fetch('/api/todo-people');
+      if (!res.ok) throw new Error('Failed to load people');
+      const data = await res.json();
+      const list: Person[] = data.map((p: any) => ({ id: p._id || p.id, name: p.name }));
+      setPeople(list);
+      setAssignee((prev) => prev || list[0]?.name || '');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     loadTasks();
+    loadPeople();
   }, []);
+
+  const handleAddPerson = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPersonName.trim()) return;
+    setAddingPerson(true);
+    try {
+      const res = await fetch('/api/todo-people', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newPersonName.trim() }),
+      });
+      if (!res.ok) throw new Error('Failed to add person');
+      setNewPersonName('');
+      await loadPeople();
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setAddingPerson(false);
+    }
+  };
+
+  const handleRemovePerson = async (id: string) => {
+    if (!confirm('Remove this person from the assignee list? Their existing tasks are kept.')) return;
+    try {
+      const res = await fetch(`/api/todo-people?id=${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to remove person');
+      setPeople((prev) => prev.filter((p) => p.id !== id));
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    }
+  };
 
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,7 +163,7 @@ export default function TodoPage() {
     // Reset Form
     setTitle('');
     setDescription('');
-    setAssignee('Khalid');
+    setAssignee(people[0]?.name || '');
     setPriority('Medium');
     setDueDate('');
     setIsAdding(false);
@@ -188,31 +245,35 @@ export default function TodoPage() {
             <CheckSquare className="text-[#F15D38]" size={32} />
             Co-Ops Task Board
           </h1>
-          <p className="text-slate-400 font-medium">Daily operations manifest for Khalid & Sakariye</p>
+          <p className="text-slate-400 font-medium">Daily operations manifest for your team</p>
         </div>
-        <div className="flex gap-3 w-full md:w-auto">
-          <div className="flex bg-[#131B2E] border border-slate-800 rounded-xl p-1">
-            <button 
-              onClick={() => setFilterAssignee('All')} 
+        <div className="flex flex-wrap gap-3 w-full md:w-auto">
+          <div className="flex flex-wrap bg-[#131B2E] border border-slate-800 rounded-xl p-1">
+            <button
+              onClick={() => setFilterAssignee('All')}
               className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all ${filterAssignee === 'All' ? 'bg-[#F15D38] text-white' : 'text-slate-400 hover:text-slate-200'}`}
             >
               All
             </button>
-            <button 
-              onClick={() => setFilterAssignee('Khalid')} 
-              className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all ${filterAssignee === 'Khalid' ? 'bg-[#F15D38] text-white' : 'text-slate-400 hover:text-slate-200'}`}
-            >
-              Khalid
-            </button>
-            <button 
-              onClick={() => setFilterAssignee('Sakariye')} 
-              className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all ${filterAssignee === 'Sakariye' ? 'bg-[#F15D38] text-white' : 'text-slate-400 hover:text-slate-200'}`}
-            >
-              Sakariye
-            </button>
+            {people.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setFilterAssignee(p.name)}
+                className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all ${filterAssignee === p.name ? 'bg-[#F15D38] text-white' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                {p.name}
+              </button>
+            ))}
           </div>
-          <button 
-            onClick={() => setIsAdding(!isAdding)} 
+          <button
+            onClick={() => setShowManagePeople(true)}
+            className="btn bg-[#131B2E] border border-slate-800 text-slate-300 hover:bg-slate-800 flex items-center justify-center gap-2"
+          >
+            <Users size={18} />
+            People
+          </button>
+          <button
+            onClick={() => setIsAdding(!isAdding)}
             className="btn btn-primary flex items-center justify-center gap-2 shadow-lg"
           >
             <Plus size={18} />
@@ -248,13 +309,15 @@ export default function TodoPage() {
             </div>
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Assign To</label>
-              <select 
+              <select
                 className="search-input w-full"
                 value={assignee}
-                onChange={e => setAssignee(e.target.value as 'Khalid' | 'Sakariye')}
+                onChange={e => setAssignee(e.target.value)}
               >
-                <option value="Khalid">Khalid (Hargeisa Office)</option>
-                <option value="Sakariye">Sakariye (Operations Lead)</option>
+                {people.length === 0 && <option value="">Add a person first…</option>}
+                {people.map((p) => (
+                  <option key={p.id} value={p.name}>{p.name}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -475,6 +538,68 @@ export default function TodoPage() {
         </div>
 
       </div>
+
+      {/* Manage People Modal */}
+      {showManagePeople && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setShowManagePeople(false)}>
+          <div
+            className="w-full max-w-md bg-[#131B2E] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#0B0F19]">
+              <h2 className="text-sm font-black text-slate-100 uppercase tracking-wider flex items-center gap-2">
+                <Users size={16} className="text-[#F15D38]" /> Manage People
+              </h2>
+              <button type="button" onClick={() => setShowManagePeople(false)} className="p-2 text-slate-400 hover:text-slate-200 rounded-lg">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <form onSubmit={handleAddPerson} className="flex gap-2">
+                <input
+                  type="text"
+                  value={newPersonName}
+                  onChange={(e) => setNewPersonName(e.target.value)}
+                  placeholder="New person's name (e.g. salesperson)"
+                  className="search-input flex-1"
+                />
+                <button
+                  type="submit"
+                  disabled={addingPerson || !newPersonName.trim()}
+                  className="btn btn-primary flex items-center gap-2 disabled:opacity-60 shrink-0"
+                >
+                  {addingPerson ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
+                  Add
+                </button>
+              </form>
+
+              <div className="space-y-2">
+                {people.length === 0 && (
+                  <p className="text-xs text-slate-500 text-center py-4">No people yet — add someone above.</p>
+                )}
+                {people.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between bg-[#0B0F19] border border-slate-800 rounded-xl px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <User size={14} className="text-[#F15D38]" />
+                      <span className="text-sm font-bold text-slate-200">{p.name}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePerson(p.id)}
+                      className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors"
+                      title="Remove person"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-slate-500">Removing a person only takes them off the assignee list — tasks already assigned to them are kept.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Task Detail / Description Modal */}
       {viewTask && (
