@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongoose';
 import AgentUser from '@/lib/models/AgentUser';
+import DirectMessage from '@/lib/models/DirectMessage';
 import bcrypt from 'bcryptjs';
 
 export const dynamic = 'force-dynamic';
@@ -41,5 +42,8 @@ export async function DELETE(req: Request) {
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
   await connectDB();
   await AgentUser.findByIdAndDelete(id);
+  // Remove the agent's chat history too, so no orphaned/unreadable messages
+  // stay behind and inflate the sourcing badge.
+  await DirectMessage.deleteMany({ agentId: id });
   return NextResponse.json({ success: true });
 }
