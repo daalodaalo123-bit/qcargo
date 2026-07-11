@@ -5,6 +5,7 @@ import { generateReceiptPdf } from '@/lib/generate-receipt-pdf';
 import { buildShipmentInvoiceItems } from '@/lib/build-shipment-invoice-items';
 import { buildShipmentGoods } from '@/lib/build-shipment-goods';
 import { buildShipmentQuotationPdf, shipmentFreightSummary } from '@/lib/build-shipment-pdf';
+import { personalizedPdfFilename } from '@/lib/pdf-filename';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -82,10 +83,10 @@ export async function GET(
         dateLabel: 'Shipment Date',
         itemsTitle: 'Shipment Charges',
       });
-      filename = `Invoice-${shipment.shipmentNumber}.pdf`;
+      filename = personalizedPdfFilename(shipment.customer, `Invoice-${shipment.shipmentNumber}`);
     } else {
       bytes = await buildShipmentQuotationPdf(shipment);
-      filename = `Quotation-${shipment.shipmentNumber}.pdf`;
+      filename = personalizedPdfFilename(shipment.customer, `Quotation-${shipment.shipmentNumber}`);
     }
 
     return new NextResponse(Buffer.from(bytes), {
