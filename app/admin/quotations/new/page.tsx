@@ -24,6 +24,9 @@ interface QuotationItem {
   qty: string;
   price: string;
   totalPrice: string;
+  // Which of the two linked fields the user typed last, so qty changes
+  // recompute the other one instead of overwriting what was typed.
+  priceSource: 'unit' | 'total';
 }
 
 function lineTotal(item: QuotationItem): number {
@@ -46,7 +49,7 @@ export default function NewQuotation() {
   const [phone, setPhone] = useState('');
   const [customerOptions, setCustomerOptions] = useState<{ name: string; phone: string }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [items, setItems] = useState<QuotationItem[]>([{ description: '', notes: '', specification: '', qty: '1', price: '', totalPrice: '' }]);
+  const [items, setItems] = useState<QuotationItem[]>([{ description: '', notes: '', specification: '', qty: '1', price: '', totalPrice: '', priceSource: 'total' }]);
   const [estimatedPrice, setEstimatedPrice] = useState('');
   const [freightType, setFreightType] = useState('SEA');
   const [commissionRate, setCommissionRate] = useState('10');
@@ -192,15 +195,30 @@ export default function NewQuotation() {
     router.push('/admin/quotations');
   };
 
-  const addItem = () => setItems([...items, { description: '', notes: '', specification: '', qty: '1', price: '', totalPrice: '' }]);
+  const addItem = () => setItems([...items, { description: '', notes: '', specification: '', qty: '1', price: '', totalPrice: '', priceSource: 'total' }]);
 
   const updateItem = (index: number, field: keyof QuotationItem, value: string) => {
     const newItems = items.map((item, i) => {
       if (i !== index) return item;
       const updated = { ...item, [field]: value };
-      const total = parseFloat(updated.totalPrice) || 0;
       const qty = parseFloat(updated.qty) || 1;
-      updated.price = total > 0 ? (total / qty).toFixed(2) : '';
+      if (field === 'price') {
+        const unit = parseFloat(value);
+        updated.totalPrice = isNaN(unit) ? '' : (unit * qty).toFixed(2);
+        updated.priceSource = 'unit';
+      } else if (field === 'totalPrice') {
+        const total = parseFloat(value);
+        updated.price = isNaN(total) ? '' : (total / qty).toFixed(2);
+        updated.priceSource = 'total';
+      } else if (field === 'qty') {
+        if (updated.priceSource === 'unit') {
+          const unit = parseFloat(updated.price);
+          if (!isNaN(unit)) updated.totalPrice = (unit * qty).toFixed(2);
+        } else {
+          const total = parseFloat(updated.totalPrice);
+          if (!isNaN(total)) updated.price = (total / qty).toFixed(2);
+        }
+      }
       return updated;
     });
     setItems(newItems);
@@ -236,8 +254,9 @@ export default function NewQuotation() {
       qty: String(it.qty),
       price: String(it.price),
       totalPrice: (it.qty * it.price).toFixed(2),
+      priceSource: 'unit' as const,
     }));
-    setItems(newItems.length > 0 ? newItems : [{ description: '', notes: '', specification: '', qty: '1', price: '', totalPrice: '' }]);
+    setItems(newItems.length > 0 ? newItems : [{ description: '', notes: '', specification: '', qty: '1', price: '', totalPrice: '', priceSource: 'total' }]);
     if (importPreview.customerName && !customerName.trim()) {
       setCustomerName(importPreview.customerName);
     }
@@ -362,10 +381,12 @@ export default function NewQuotation() {
                     <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Unit Price</label>
                     <input
                       type="number"
-                      readOnly
+                      min={0}
+                      step="0.01"
                       placeholder="0.00"
-                      className="search-input !py-2.5 min-w-0 opacity-50 cursor-not-allowed bg-slate-900/50"
+                      className="search-input !py-2.5 min-w-0"
                       value={item.price}
+                      onChange={e => updateItem(idx, 'price', e.target.value)}
                     />
                   </div>
                   <div className="sm:col-span-2">
