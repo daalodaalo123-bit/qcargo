@@ -170,7 +170,7 @@ export default function TrackingPage() {
                 No shipment found for <span className="font-bold text-slate-800">"{trackingId}"</span>. Check the number and try again, or contact our office.
               </p>
               <a
-                href="https://wa.me/252633901811"
+                href="https://wa.me/252638884835"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-emerald-600 transition-all"
@@ -355,7 +355,7 @@ export default function TrackingPage() {
                   <h4 className="text-sm font-bold opacity-40 uppercase tracking-widest mb-6">Need Support?</h4>
                   <div className="space-y-5">
                     <a
-                      href={`https://wa.me/252633901811?text=I need updates on shipment ${result.id}`}
+                      href={`https://wa.me/252638884835?text=I need updates on shipment ${result.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-full flex items-center gap-4 group"
@@ -389,7 +389,7 @@ export default function TrackingPage() {
                     Missing items or damaged cargo? Contact us immediately for investigation.
                   </p>
                   <a
-                    href="https://wa.me/252633901811?text=I want to report an issue with my shipment"
+                    href="https://wa.me/252638884835?text=I want to report an issue with my shipment"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs font-bold text-rose-900 underline decoration-2 underline-offset-4"
@@ -406,8 +406,8 @@ export default function TrackingPage() {
                   <p className="text-xs text-slate-500 leading-relaxed font-medium">
                     Call us or visit our office at Hadhwanaag Mall, Hargeisa.
                   </p>
-                  <a href="tel:+252633901811" className="text-xs font-bold text-blue-600 flex items-center gap-1 group hover:underline">
-                    +252 63 390 1811
+                  <a href="tel:+252638884835" className="text-xs font-bold text-blue-600 flex items-center gap-1 group hover:underline">
+                    +252 63 888 4835
                     <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
                   </a>
                 </div>
@@ -455,13 +455,19 @@ export default function TrackingPage() {
                 <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
                   <Phone size={18} />
                 </div>
-                <div className="text-sm font-bold text-slate-900">+252 63 390 1811</div>
+                <div className="text-sm font-bold text-slate-900">Sales: +252 63 888 4837</div>
+              </li>
+              <li className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
+                  <Phone size={18} />
+                </div>
+                <div className="text-sm font-bold text-slate-900">Operations: +252 63 888 4835</div>
               </li>
               <li className="flex items-center gap-4">
                 <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
                   <Mail size={18} />
                 </div>
-                <div className="text-sm font-bold text-slate-900">qcargoshipping@gmail.com</div>
+                <div className="text-sm font-bold text-slate-900">info@qcargologistics.com</div>
               </li>
               <li className="flex items-center gap-4">
                 <a href={CONTACT_SITE_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 group">
@@ -478,11 +484,11 @@ export default function TrackingPage() {
                 <div className="text-[11px] font-bold text-slate-900 leading-tight uppercase tracking-tight">Hargeisa, Somaliland<br />Hadhwanaag Mall</div>
               </li>
               <li className="flex items-center gap-4">
-                <a href="https://wa.me/252633901811" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 group">
+                <a href="https://wa.me/252638884835" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 group">
                   <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm group-hover:bg-emerald-500 group-hover:text-white transition-all">
                     <MessageCircle size={18} />
                   </div>
-                  <div className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">WhatsApp: +252 63 390 1811</div>
+                  <div className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">WhatsApp: +252 63 888 4835</div>
                 </a>
               </li>
             </ul>

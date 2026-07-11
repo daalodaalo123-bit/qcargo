@@ -131,7 +131,7 @@ export default function CustomerLoginPage() {
 
           <p className="text-center text-xs text-slate-400 mt-8 font-medium">
             Don't have an account?{' '}
-            <a href="https://wa.me/252633901811" target="_blank" rel="noopener noreferrer" className="text-blue-600 font-bold hover:underline">
+            <a href="https://wa.me/252638884837" target="_blank" rel="noopener noreferrer" className="text-blue-600 font-bold hover:underline">
               Contact us on WhatsApp
             </a>
           </p>

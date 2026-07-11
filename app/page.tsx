@@ -277,7 +277,7 @@ export default function Home() {
                 <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-blue-400 hover:border-blue-600/40 transition-all cursor-pointer">
                   <Share2 size={16} />
                 </div>
-                <a href="https://wa.me/252633901811" target="_blank" rel="noopener noreferrer"
+                <a href="https://wa.me/252638884837" target="_blank" rel="noopener noreferrer"
                   className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:border-emerald-600/40 transition-all">
                   <MessageCircle size={16} />
                 </a>
@@ -301,7 +301,7 @@ export default function Home() {
               <ul className="space-y-3 text-sm font-medium text-slate-400">
                 <li><Link href="/tracking" className="hover:text-blue-400 transition-colors">Track Shipment</Link></li>
                 <li><Link href="/customer" className="hover:text-blue-400 transition-colors">Customer Portal</Link></li>
-                <li><a href="https://wa.me/252633901811" target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors">WhatsApp Support</a></li>
+                <li><a href="https://wa.me/252638884835" target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors">WhatsApp Support</a></li>
               </ul>
             </div>
 
@@ -313,13 +313,19 @@ export default function Home() {
                   <div className="w-8 h-8 bg-slate-800 border border-slate-700 rounded-lg flex items-center justify-center text-blue-400 flex-shrink-0">
                     <Phone size={14} />
                   </div>
-                  <span className="text-sm text-slate-300">+252 63 390 1811</span>
+                  <span className="text-sm text-slate-300">Sales: +252 63 888 4837</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-slate-800 border border-slate-700 rounded-lg flex items-center justify-center text-blue-400 flex-shrink-0">
+                    <Phone size={14} />
+                  </div>
+                  <span className="text-sm text-slate-300">Operations: +252 63 888 4835</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-slate-800 border border-slate-700 rounded-lg flex items-center justify-center text-blue-400 flex-shrink-0">
                     <Mail size={14} />
                   </div>
-                  <span className="text-xs text-slate-300 break-all">qcargoshipping@gmail.com</span>
+                  <span className="text-xs text-slate-300 break-all">info@qcargologistics.com</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <a href={CONTACT_SITE_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 group">
@@ -336,7 +342,7 @@ export default function Home() {
                   <span className="text-xs text-slate-400 leading-snug">Hadhwanaag Mall<br />Hargeisa, Somaliland</span>
                 </li>
                 <li>
-                  <a href="https://wa.me/252633901811" target="_blank" rel="noopener noreferrer"
+                  <a href="https://wa.me/252638884837" target="_blank" rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 bg-emerald-600/10 border border-emerald-600/20 text-emerald-400 text-xs font-bold px-4 py-2 rounded-xl hover:bg-emerald-600/20 transition-all">
                     <MessageCircle size={14} />
                     WhatsApp Us
@@ -348,7 +354,7 @@ export default function Home() {
 
           <div className="pt-8 border-t border-slate-800 text-center">
             <p className="text-[10px] text-slate-600 font-bold uppercase tracking-[0.3em]">
-              © 2024 Q Cargo Logistics Ltd. All rights reserved.
+              © 2026 Q Cargo Logistics Ltd. All rights reserved.
             </p>
           </div>
         </div>

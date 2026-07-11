@@ -139,7 +139,7 @@ export default function CustomerDashboardPage() {
               ${totalBalance.toLocaleString()}
             </p>
             {totalBalance > 0 && (
-              <a href="https://wa.me/252633901811?text=I want to make a payment" target="_blank" rel="noopener noreferrer"
+              <a href="https://wa.me/252638884835?text=I want to make a payment" target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 mt-3 text-xs font-bold text-rose-700 hover:underline">
                 <MessageCircle size={12} /> Pay via WhatsApp
               </a>
@@ -155,7 +155,7 @@ export default function CustomerDashboardPage() {
             <div className="bg-white rounded-[2rem] p-12 text-center border border-slate-100">
               <Package size={40} className="text-slate-300 mx-auto mb-4" />
               <p className="text-slate-500 font-bold">No shipments found.</p>
-              <a href="https://wa.me/252633901811" target="_blank" rel="noopener noreferrer"
+              <a href="https://wa.me/252638884837" target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 mt-4 text-xs font-bold text-blue-600 hover:underline">
                 <MessageCircle size={14} /> Contact us to start shipping
               </a>
@@ -248,7 +248,7 @@ export default function CustomerDashboardPage() {
         <div className="mt-10 bg-slate-900 rounded-[2rem] p-8 text-white">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Need Help?</p>
           <div className="flex flex-col sm:flex-row gap-4">
-            <a href="https://wa.me/252633901811" target="_blank" rel="noopener noreferrer"
+            <a href="https://wa.me/252638884835" target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-3 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl font-bold text-sm transition-colors">
               <MessageCircle size={18} /> WhatsApp Support
             </a>
