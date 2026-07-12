@@ -1,0 +1,28 @@
+import { NextResponse } from 'next/server';
+import cloudinary from '@/lib/cloudinary';
+
+export const dynamic = 'force-dynamic';
+
+// Upload a supplier document (license, certificate, catalog, factory photo…)
+// to Cloudinary and return the hosted URL.
+export async function POST(req: Request) {
+  try {
+    const formData = await req.formData();
+    const file = formData.get('file') as File | null;
+    if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    const base64 = `data:${file.type};base64,${buffer.toString('base64')}`;
+
+    const result = await cloudinary.uploader.upload(base64, {
+      folder: 'qcargo-suppliers',
+      resource_type: 'auto',
+    });
+
+    return NextResponse.json({ url: result.secure_url, name: file.name });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Upload failed';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

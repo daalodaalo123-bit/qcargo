@@ -5,9 +5,16 @@ import { getSessionUser } from '@/lib/sessionUser';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await connectDB();
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (id) {
+      const supplier = await Supplier.findById(id);
+      if (!supplier) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return NextResponse.json(supplier);
+    }
     const suppliers = await Supplier.find({}).sort({ name: 1 });
     return NextResponse.json(suppliers);
   } catch (err: unknown) {

@@ -52,6 +52,11 @@ export default function PurchasesPage() {
   const [activeTab, setActiveTab] = useState<PurchaseTab>('orders');
   const [cnyRate, setCnyRate] = useState(7.1);
 
+  // Allow deep-linking straight to the Suppliers tab (?tab=suppliers).
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('tab') === 'suppliers') setActiveTab('suppliers');
+  }, []);
+
   // Record-payment modal state
   const [payingOrder, setPayingOrder] = useState<Order | null>(null);
   const [payAmount, setPayAmount] = useState('');

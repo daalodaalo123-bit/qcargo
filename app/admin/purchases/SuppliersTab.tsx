@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Plus, Search, Pencil, Trash2, X, MapPin, Phone, MessageCircle,
-  ExternalLink, Building2, Package, Copy, Check, Loader2, User,
+  ExternalLink, Building2, Package, Copy, Check, Loader2, User, ShieldCheck,
 } from 'lucide-react';
 
 interface Supplier {
@@ -17,7 +18,14 @@ interface Supplier {
   storeLink: string;
   contactPerson: string;
   notes: string;
+  verificationStatus?: 'NOT_VERIFIED' | 'DOCS_REQUESTED' | 'VERIFIED';
 }
+
+const VERIFY_BADGE: Record<string, { label: string; cls: string }> = {
+  NOT_VERIFIED: { label: 'Not Verified', cls: 'bg-slate-800 text-slate-500 border-slate-700' },
+  DOCS_REQUESTED: { label: 'Docs Requested', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/30' },
+  VERIFIED: { label: 'Verified', cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' },
+};
 
 interface OrderLite { supplier: string; totalUSD: number; date: string; }
 
@@ -34,6 +42,7 @@ function WeChatCopy({ id }: { id: string }) {
 }
 
 export default function SuppliersTab() {
+  const router = useRouter();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [orders, setOrders] = useState<OrderLite[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,19 +128,26 @@ export default function SuppliersTab() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {shown.map(s => {
             const h = historyOf[s.name.toLowerCase()];
+            const badge = VERIFY_BADGE[s.verificationStatus || 'NOT_VERIFIED'] || VERIFY_BADGE.NOT_VERIFIED;
             return (
-              <div key={s._id} className="shipment-card border border-slate-800 bg-[#131B2E]">
+              <div key={s._id} onClick={() => router.push(`/admin/purchases/suppliers/${s._id}`)}
+                className="shipment-card border border-slate-800 bg-[#131B2E] cursor-pointer hover:border-slate-600 transition-colors">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <div className="w-9 h-9 rounded-xl bg-[#F15D38]/10 border border-[#F15D38]/20 flex items-center justify-center text-[#F15D38] shrink-0"><Building2 size={16} /></div>
                       <div className="min-w-0">
-                        <p className="font-black text-slate-100 truncate">{s.name}</p>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <p className="font-black text-slate-100 truncate">{s.name}</p>
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black border shrink-0 flex items-center gap-1 ${badge.cls}`}>
+                            {s.verificationStatus === 'VERIFIED' && <ShieldCheck size={10} />}{badge.label}
+                          </span>
+                        </div>
                         {s.location && <p className="text-[11px] font-bold text-slate-500 flex items-center gap-1"><MapPin size={10} />{s.location}</p>}
                       </div>
                     </div>
                   </div>
-                  <div className="flex gap-1 shrink-0">
+                  <div className="flex gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                     <button onClick={() => openEdit(s)} className="p-1.5 text-slate-500 hover:text-slate-200 rounded-lg"><Pencil size={14} /></button>
                     <button onClick={() => remove(s._id)} className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg"><Trash2 size={14} /></button>
                   </div>
@@ -142,7 +158,7 @@ export default function SuppliersTab() {
                 )}
 
                 {/* Contact row */}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3" onClick={e => e.stopPropagation()}>
                   {s.wechat && <WeChatCopy id={s.wechat} />}
                   {s.phone && <a href={`tel:${s.phone}`} className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-300 hover:text-white"><Phone size={11} />{s.phone}</a>}
                   {s.whatsapp && <a href={`https://wa.me/${s.whatsapp.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300"><MessageCircle size={11} />WhatsApp</a>}
