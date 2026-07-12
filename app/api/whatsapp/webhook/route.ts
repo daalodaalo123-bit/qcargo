@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import { connectDB } from '@/lib/mongoose';
 import WhatsAppSettings, { IWhatsAppSettings } from '@/lib/models/WhatsAppSettings';
 import {
@@ -52,8 +53,32 @@ async function handleEvent(payload: unknown) {
   const value = (payload as never as {
     entry?: { changes?: { value?: WaValue }[] }[];
   })?.entry?.[0]?.changes?.[0]?.value;
+
+  // Record delivery statuses (sent/delivered/read/failed) so a message that
+  // Meta accepts but never delivers leaves a readable reason in the DB
+  // (collection: wamessagestatuses).
+  if (value?.statuses?.length) {
+    await connectDB();
+    const col = mongoose.connection.db!.collection('wamessagestatuses');
+    for (const st of value.statuses) {
+      const doc = {
+        messageId: st.id || '',
+        recipient: st.recipient_id || '',
+        status: st.status || '',
+        timestamp: st.timestamp ? new Date(Number(st.timestamp) * 1000) : new Date(),
+        errors: st.errors || [],
+        receivedAt: new Date(),
+      };
+      await col.insertOne(doc);
+      if (st.status === 'failed') {
+        console.error('[WhatsApp status] FAILED for', st.recipient_id, JSON.stringify(st.errors));
+      }
+    }
+    return;
+  }
+
   const msg = value?.messages?.[0];
-  if (!msg || !value) return; // delivery/status callbacks etc. — ignore
+  if (!msg || !value) return;
 
   await connectDB();
   const s = await WhatsAppSettings.findOne({});
@@ -127,5 +152,12 @@ interface WaValue {
       list_reply?: { id?: string };
       button_reply?: { id?: string };
     };
+  }[];
+  statuses?: {
+    id?: string;
+    recipient_id?: string;
+    status?: string;
+    timestamp?: string;
+    errors?: { code?: number; title?: string; message?: string; error_data?: { details?: string } }[];
   }[];
 }
