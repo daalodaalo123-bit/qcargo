@@ -33,6 +33,7 @@ interface Invoice {
   id: string;
   mongoId?: string;
   customer: string;
+  phone?: string;
   date: string;
   due: string;
   amount: number;
@@ -120,7 +121,7 @@ export default function AccountingPage() {
       if (!res.ok) return;
       const data = await res.json();
       setInvoices(data.map((inv: {
-        _id: string; invoiceNumber: string; customerName: string;
+        _id: string; invoiceNumber: string; customerName: string; customerPhone?: string;
         paymentDate: string; totalAmount: number; amountPaid?: number;
         balanceDue?: number; paymentStatus: string; paymentMethod?: string;
         receiptPdfUrl?: string; createdAt?: string;
@@ -128,6 +129,7 @@ export default function AccountingPage() {
         id:                  inv.invoiceNumber,
         mongoId:             inv._id,
         customer:            inv.customerName,
+        phone:               inv.customerPhone || '',
         date:                inv.paymentDate || inv.createdAt?.split('T')[0] || '',
         due:                 inv.paymentDate || '',
         amount:              inv.totalAmount || 0,
@@ -629,7 +631,7 @@ export default function AccountingPage() {
 
           <div className="relative group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#F15D38] transition-colors" size={20} />
-            <input type="text" placeholder="Search by customer name…" className="search-input !pl-12 w-full" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+            <input type="text" placeholder="Search by customer name or phone…" className="search-input !pl-12 w-full" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
           </div>
 
           <div className="shipment-card !p-0 overflow-hidden border border-slate-800">
@@ -643,7 +645,12 @@ export default function AccountingPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
-                  {invoices.filter(inv => inv.customer.toLowerCase().includes(searchTerm.toLowerCase())).map(inv => (
+                  {invoices.filter(inv => {
+                    const term = searchTerm.toLowerCase();
+                    const digits = searchTerm.replace(/\D/g, '');
+                    return inv.customer.toLowerCase().includes(term) ||
+                      (!!digits && (inv.phone || '').replace(/\D/g, '').includes(digits));
+                  }).map(inv => (
                     <tr key={inv.id} className="hover:bg-slate-800/20 transition-all">
                       <td className="px-6 py-5 font-mono text-sm font-black text-[#F15D38]">{inv.id}</td>
                       <td className="px-6 py-5">

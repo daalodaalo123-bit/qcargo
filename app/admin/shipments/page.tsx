@@ -133,10 +133,13 @@ export default function ShipmentsPage() {
   };
 
   const filteredShipments = shipments.filter(ship => {
+    const term = searchTerm.toLowerCase();
+    const digits = searchTerm.replace(/\D/g, '');
     const matchesSearch =
-      ship.shipmentNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ship.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ship.batch.toLowerCase().includes(searchTerm.toLowerCase());
+      ship.shipmentNumber.toLowerCase().includes(term) ||
+      ship.customer.toLowerCase().includes(term) ||
+      ship.batch.toLowerCase().includes(term) ||
+      (!!digits && (ship.phone || '').replace(/\D/g, '').includes(digits));
     const matchesStatus = !filterStatus || ship.status === filterStatus;
     const matchesPayment = !filterPayment || ship.paymentStatus === filterPayment;
     const shipDate = ship.date ? new Date(ship.date) : null;
@@ -226,7 +229,7 @@ export default function ShipmentsPage() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#F15D38] transition-colors" size={20} />
           <input
             type="text"
-            placeholder="Search Shipment #, Customer, or Batch..."
+            placeholder="Search Shipment #, Customer, Phone, or Batch..."
             className="search-input !pl-12 w-full"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}

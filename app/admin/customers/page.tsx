@@ -207,7 +207,7 @@ export default function CustomersPage() {
   };
   const filteredCustomers = useMemo(() => customers.filter(c =>
     matchesTier(c) &&
-    (c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm) || c.city.toLowerCase().includes(searchTerm.toLowerCase()))
+    (c.name.toLowerCase().includes(searchTerm.toLowerCase()) || (!!searchTerm.replace(/\D/g, '') && (c.phone || '').replace(/\D/g, '').includes(searchTerm.replace(/\D/g, ''))) || c.city.toLowerCase().includes(searchTerm.toLowerCase()))
   ), [customers, searchTerm, tierFilter]);
   const leadsBy = useMemo(() => (stage: LeadStage) => leads.filter(l => l.stage === stage), [leads]);
   const pendingFollowups = followups.filter(f => f.status === 'PENDING');
