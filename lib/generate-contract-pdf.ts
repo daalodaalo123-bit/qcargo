@@ -496,7 +496,7 @@ export async function generateContractPdf(data: ContractPdfData): Promise<Uint8A
   }
 
   // ── SIGNATURES ── (keep together on a fresh page if not enough room)
-  if (y - 200 < FOOTER_TOP + 12) newPage();
+  if (y - 320 < FOOTER_TOP + 12) newPage();
   sectionHeader('SIGNATURES');
   paragraph('Signed by the parties in acceptance of this Agreement and its Terms and Conditions.', font, 9, INK);
   y -= 12;
@@ -509,7 +509,6 @@ export async function generateContractPdf(data: ContractPdfData): Promise<Uint8A
   page.drawText(BRAND_NAME, { x: sigLeft, y: y - 8, size: 10, font: fontBold, color: INK });
   page.drawText(safe(data.customerName) || '—', { x: sigRight, y: y - 8, size: 10, font: fontBold, color: INK });
   y -= 40;
-  const sigTop = y;
   // Company signs with Name/Title/Date; the customer with Name/Signature/Date (as in the signed sample).
   const sigRows: [string, string][] = [['Name:', 'Name:'], ['Title:', 'Signature:'], ['Date:', 'Date:']];
   for (const [labelL, labelR] of sigRows) {
@@ -520,16 +519,19 @@ export async function generateContractPdf(data: ContractPdfData): Promise<Uint8A
     y -= 26;
   }
 
-  // Company stamp — centered over the Company (left) signature lines, like a real stamped agreement.
+  // Company stamp — at the end of the contract, below the Date line on the
+  // Company side, above the "Authorised Signatory & Company Stamp" caption.
   if (stampImg) {
     const sd = stampImg.scaleToFit(96, 96);
     page.drawImage(stampImg, {
       x: sigLeft + 55 + (sigColW - 55 - sd.width) / 2,
-      y: sigTop - 70,
+      y: y - sd.height + 2,
       width: sd.width,
       height: sd.height,
     });
+    y -= sd.height + 4;
     page.drawText('Authorised Signatory & Company Stamp', { x: sigLeft, y: y - 4, size: 6.5, font: fontItalic, color: MUTED });
+    y -= 10;
   }
 
   y -= 12;
