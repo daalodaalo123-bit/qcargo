@@ -82,6 +82,7 @@ const ROLE_PAGES: Record<StaffRole, string[]> = {
     '/admin/customers',
     '/admin/pricing',
     '/admin/quotations',
+    '/admin/contracts',
     '/admin/marketing',
     '/admin/expenses',
     '/admin/accounting',
@@ -91,6 +92,7 @@ const ROLE_PAGES: Record<StaffRole, string[]> = {
   sales_rep: [
     '/admin',
     '/admin/quotations',
+    '/admin/contracts',
     '/admin/customers',
     '/admin/marketing',
     '/admin/batches',
@@ -131,6 +133,7 @@ const ROLE_PAGES: Record<StaffRole, string[]> = {
     '/admin',
     '/admin/pricing',
     '/admin/quotations',
+    '/admin/contracts',
     '/admin/purchases',
     '/admin/todo',
   ],

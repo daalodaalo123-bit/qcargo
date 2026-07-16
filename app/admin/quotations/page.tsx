@@ -19,9 +19,11 @@ import {
   DollarSign,
   Pencil,
   X,
-  Loader2
+  Loader2,
+  FileSignature
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import RecordPaymentModal, { type PaymentQuotation } from './RecordPaymentModal';
 import EditQuotationModal, { type EditQuotationData } from './EditQuotationModal';
 import QuotationPreviewModal from './QuotationPreviewModal';
@@ -52,6 +54,25 @@ export default function QuotationsPage() {
   const [sendQuote, setSendQuote] = useState<Quotation | null>(null);
   const [sendPhone, setSendPhone] = useState('');
   const [sending, setSending] = useState(false);
+  const [genId, setGenId] = useState<string | null>(null);
+  const router = useRouter();
+
+  // Turn a quotation into a Cargo Service Agreement (reuses its goods, totals & commission).
+  const generateContract = async (id: string) => {
+    setGenId(id);
+    try {
+      const res = await fetch('/api/contracts', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quotationId: id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create contract');
+      const ref = data.contract?.ref;
+      const msg = data.existed ? `A contract already exists for this quotation (${ref}).` : `Contract ${ref} created.`;
+      if (confirm(`${msg}\n\nOpen the Contracts page?`)) router.push('/admin/contracts');
+    } catch (e: unknown) { alert(`Error: ${e instanceof Error ? e.message : e}`); }
+    finally { setGenId(null); }
+  };
 
   // Load quotations from MongoDB
   const loadQuotations = async () => {
@@ -149,13 +170,16 @@ export default function QuotationsPage() {
   };
 
   // Filter based on search + type
-  const filteredQuotations = quotations.filter(q =>
-    (typeFilter === 'ALL' || q.type === typeFilter) &&
-    (q.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    q.goods.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    q.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    q.status.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredQuotations = quotations.filter(q => {
+    const term = searchTerm.toLowerCase();
+    const digits = searchTerm.replace(/\D/g, '');
+    return (typeFilter === 'ALL' || q.type === typeFilter) &&
+      (q.customer.toLowerCase().includes(term) ||
+      q.goods.toLowerCase().includes(term) ||
+      q.type.toLowerCase().includes(term) ||
+      q.status.toLowerCase().includes(term) ||
+      (!!digits && (q.phone || '').replace(/\D/g, '').includes(digits)));
+  });
 
   // Stats calculation
   const totalValue = quotations.reduce((acc, q) => acc + q.price, 0);
@@ -235,7 +259,7 @@ export default function QuotationsPage() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#F15D38] transition-colors" size={20} />
             <input
               type="text"
-              placeholder="Search by customer, goods, status..."
+              placeholder="Search by customer, phone, goods, status..."
               className="search-input !pl-12 w-full"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -397,7 +421,15 @@ export default function QuotationsPage() {
                       >
                         <Download size={16} />
                       </a>
-                      <button 
+                      <button
+                        onClick={() => generateContract(quote.id)}
+                        disabled={genId === quote.id}
+                        className="p-2 hover:bg-teal-950/30 text-slate-400 hover:text-teal-400 rounded-lg transition-colors disabled:opacity-50"
+                        title="Generate Contract"
+                      >
+                        {genId === quote.id ? <Loader2 size={16} className="animate-spin" /> : <FileSignature size={16} />}
+                      </button>
+                      <button
                         onClick={() => handleDelete(quote.id)}
                         className="p-2 hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-lg transition-colors" 
                         title="Delete"

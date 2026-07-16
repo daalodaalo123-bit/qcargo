@@ -9,7 +9,7 @@ export function isCloudinaryConfigured(): boolean {
 }
 
 /** Upload receipt PDF to Cloudinary; returns a public HTTPS URL for WhatsApp delivery. */
-export async function uploadReceiptPdf(pdfBytes: Uint8Array, invoiceNumber: string): Promise<string> {
+export async function uploadReceiptPdf(pdfBytes: Uint8Array, invoiceNumber: string, folder = 'qcargo/receipts'): Promise<string> {
   if (!isCloudinaryConfigured()) {
     throw new Error('Cloudinary is not configured. Add CLOUDINARY_* variables to .env.local');
   }
@@ -24,7 +24,7 @@ export async function uploadReceiptPdf(pdfBytes: Uint8Array, invoiceNumber: stri
     const upload = cloudinary.uploader.upload_stream(
       {
         resource_type: 'raw',
-        folder: 'qcargo/receipts',
+        folder,
         public_id: safeId,
         access_mode: 'public',
         type: 'upload',

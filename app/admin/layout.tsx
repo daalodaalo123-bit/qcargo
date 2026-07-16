@@ -26,6 +26,7 @@ import {
   MessageSquare,
   Presentation,
   Trophy,
+  FileSignature,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -148,6 +149,7 @@ export default function AdminLayout({
       return;
     }
     const q = searchQuery.toLowerCase();
+    const qDigits = searchQuery.replace(/\D/g, '');
     const timer = setTimeout(async () => {
       try {
         const [custRes, shipRes] = await Promise.all([fetch('/api/customers'), fetch('/api/shipments')]);
@@ -155,9 +157,11 @@ export default function AdminLayout({
         const ships  = shipRes.ok  ? await shipRes.json()  : [];
         setSearchResults({
           customers: custs.filter((c: { name?: string; phone?: string }) =>
-            c.name?.toLowerCase().includes(q) || c.phone?.includes(q)).slice(0, 5),
-          shipments: ships.filter((s: { customer?: string; shipmentNumber?: string }) =>
-            s.customer?.toLowerCase().includes(q) || s.shipmentNumber?.toLowerCase().includes(q)).slice(0, 5),
+            c.name?.toLowerCase().includes(q) ||
+            (!!qDigits && (c.phone || '').replace(/\D/g, '').includes(qDigits))).slice(0, 5),
+          shipments: ships.filter((s: { customer?: string; shipmentNumber?: string; phone?: string }) =>
+            s.customer?.toLowerCase().includes(q) || s.shipmentNumber?.toLowerCase().includes(q) ||
+            (!!qDigits && (s.phone || '').replace(/\D/g, '').includes(qDigits))).slice(0, 5),
         });
       } catch { /* ignore */ }
     }, 300);
@@ -194,6 +198,7 @@ export default function AdminLayout({
     { name: 'Customers',  icon: Users,            href: '/admin/customers' },
     { name: 'Sourcing',   icon: Globe,            href: '/admin/pricing' },
     { name: 'Quotations', icon: FileText,         href: '/admin/quotations' },
+    { name: 'Contracts',  icon: FileSignature,    href: '/admin/contracts' },
     { name: 'Marketing',  icon: Megaphone,        href: '/admin/marketing' },
     { name: 'Expenses',   icon: CreditCard,       href: '/admin/expenses' },
     { name: 'Accounting', icon: BarChart3,        href: '/admin/accounting' },
@@ -370,7 +375,7 @@ export default function AdminLayout({
                 autoFocus
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search customers, shipments…"
+                placeholder="Search customers, phone, shipments…"
                 className="flex-1 bg-transparent text-slate-100 placeholder-slate-500 text-sm font-bold outline-none"
               />
               <span className="text-[9px] font-black text-slate-500 border border-slate-700 rounded px-1.5 py-0.5 cursor-pointer hover:border-slate-500"
