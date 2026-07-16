@@ -520,12 +520,12 @@ export async function generateContractPdf(data: ContractPdfData): Promise<Uint8A
     y -= 26;
   }
 
-  // Company stamp — placed over the Company signature block, like a real stamped agreement.
+  // Company stamp — centered over the Company (left) signature lines, like a real stamped agreement.
   if (stampImg) {
     const sd = stampImg.scaleToFit(96, 96);
     page.drawImage(stampImg, {
-      x: sigLeft + sigColW - sd.width + 6,
-      y: sigTop - 58,
+      x: sigLeft + 55 + (sigColW - 55 - sd.width) / 2,
+      y: sigTop - 70,
       width: sd.width,
       height: sd.height,
     });
