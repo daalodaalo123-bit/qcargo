@@ -10,8 +10,10 @@ export default function NewPurchasePage() {
   const [suppliers, setSuppliers] = useState<{ _id: string; name: string }[]>([]);
   const [customers, setCustomers] = useState<{ _id: string; name: string; phone?: string }[]>([]);
   const [allOrders, setAllOrders] = useState<any[]>([]);
+  const [invoices, setInvoices] = useState<any[]>([]);
   const [showCustList, setShowCustList] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [items, setItems] = useState([
     { productName: '', productUrl: '', quantity: 1, unitPriceCNY: 0 }
   ]);
@@ -28,7 +30,26 @@ export default function NewPurchasePage() {
     fetch('/api/suppliers').then(r => r.ok ? r.json() : []).then(d => setSuppliers(Array.isArray(d) ? d : [])).catch(() => {});
     fetch('/api/customers').then(r => r.ok ? r.json() : []).then(d => setCustomers(Array.isArray(d) ? d : [])).catch(() => {});
     fetch('/api/sourcing').then(r => r.ok ? r.json() : []).then(d => setAllOrders(Array.isArray(d) ? d : [])).catch(() => {});
+    fetch('/api/invoices').then(r => r.ok ? r.json() : []).then(d => setInvoices(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
+
+  // Phone comparison that survives spaces, dashes and country codes.
+  const phonesMatch = (a?: string, b?: string) => {
+    const da = (a || '').replace(/\D/g, '');
+    const db = (b || '').replace(/\D/g, '');
+    if (da.length < 6 || db.length < 6) return false;
+    return da.endsWith(db) || db.endsWith(da);
+  };
+
+  // A customer's PAID invoices (matched by name, phone as backup).
+  const paidInvoicesFor = (name: string, phone?: string) => {
+    const n = name.trim().toLowerCase();
+    if (!n) return [];
+    return invoices.filter(inv =>
+      inv.paymentStatus === 'PAID' &&
+      ((inv.customerName || '').trim().toLowerCase() === n || phonesMatch(inv.customerPhone, phone))
+    );
+  };
 
   // Customers matching what's typed (for the live dropdown).
   const custQuery = formData.customerName.trim().toLowerCase();
@@ -41,6 +62,11 @@ export default function NewPurchasePage() {
     ? allOrders.filter(o => (o.customer || '').trim().toLowerCase() === custQuery)
     : [];
   const historyTotal = customerHistory.reduce((s, o) => s + (o.totalUSD || 0), 0);
+
+  // The selected customer's PAID invoices — his real, settled orders.
+  const selectedCustomer = custQuery ? customers.find(c => c.name.trim().toLowerCase() === custQuery) : undefined;
+  const paidInvoices = paidInvoicesFor(formData.customerName, selectedCustomer?.phone);
+  const paidInvoicesTotal = paidInvoices.reduce((s, inv) => s + (inv.totalAmount || 0), 0);
 
   const addItem = () => setItems([...items, { productName: '', productUrl: '', quantity: 1, unitPriceCNY: 0 }]);
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
@@ -61,9 +87,26 @@ export default function NewPurchasePage() {
     setItems(lines.length > 0 ? lines : [{ productName: '', productUrl: '', quantity: 1, unitPriceCNY: 0 }]);
     if (order.supplier && order.supplier !== 'Unknown Supplier') setFormData(prev => ({ ...prev, supplierName: order.supplier }));
     setSelectedOrderId(order._id);
+    setSelectedInvoiceId(null);
   };
+
+  // Load a paid invoice's products into the form. The invoice price is the
+  // selling price in USD, so the Yuan buy price is left at 0 to be typed in.
+  const loadInvoiceIntoPurchase = (inv: any) => {
+    const lines = (inv.items || []).map((it: any) => ({
+      productName: it.description || '',
+      productUrl: '',
+      quantity: it.qty || 1,
+      unitPriceCNY: 0,
+    }));
+    setItems(lines.length > 0 ? lines : [{ productName: '', productUrl: '', quantity: 1, unitPriceCNY: 0 }]);
+    setSelectedInvoiceId(inv._id);
+    setSelectedOrderId(null);
+  };
+
   const clearLoadedOrder = () => {
     setSelectedOrderId(null);
+    setSelectedInvoiceId(null);
     setItems([{ productName: '', productUrl: '', quantity: 1, unitPriceCNY: 0 }]);
   };
 
@@ -171,7 +214,7 @@ export default function NewPurchasePage() {
                 {showCustList && matchingCustomers.length > 0 && (
                   <div className="absolute z-20 mt-1 w-full bg-[#0B0F19] border border-slate-800 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
                     {matchingCustomers.map(c => {
-                      const cOrders = allOrders.filter(o => (o.customer || '').trim().toLowerCase() === c.name.trim().toLowerCase());
+                      const cPaid = paidInvoicesFor(c.name, c.phone);
                       return (
                         <button key={c._id} type="button"
                           onMouseDown={(e) => { e.preventDefault(); setFormData({ ...formData, customerName: c.name }); setShowCustList(false); }}
@@ -180,7 +223,7 @@ export default function NewPurchasePage() {
                             <span className="block text-sm font-bold text-slate-100 truncate flex items-center gap-1.5"><User size={12} className="text-[#F15D38]" />{c.name}</span>
                             {c.phone && <span className="block text-[11px] font-bold text-slate-500 flex items-center gap-1 mt-0.5"><Phone size={10} />{c.phone}</span>}
                           </span>
-                          <span className="text-[10px] font-black text-slate-500 shrink-0">{cOrders.length} order{cOrders.length === 1 ? '' : 's'}</span>
+                          <span className={`text-[10px] font-black shrink-0 ${cPaid.length > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>{cPaid.length} paid order{cPaid.length === 1 ? '' : 's'}</span>
                         </button>
                       );
                     })}
@@ -197,6 +240,60 @@ export default function NewPurchasePage() {
                 <p className="text-[10px] text-slate-500 mt-1">New names are added to your Supplier Directory automatically.</p>
               </div>
             </div>
+
+            {/* Customer's PAID invoices — load his settled products into this purchase */}
+            {paidInvoices.length > 0 && (
+              <div className="mt-6 p-5 rounded-2xl bg-teal-950/10 border border-teal-800/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <ClipboardCheck size={16} className="text-teal-400" />
+                  <h4 className="text-xs font-black text-teal-400 uppercase tracking-wider">
+                    {paidInvoices.length} Paid Invoice{paidInvoices.length !== 1 ? 's' : ''} · ${paidInvoicesTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })} total
+                  </h4>
+                </div>
+                <p className="text-[11px] text-slate-400 mb-3">
+                  This customer&apos;s paid orders. Click one to load its products into this purchase — you then enter the Yuan buying price for each item.
+                </p>
+                <div className="space-y-2">
+                  {paidInvoices.map((inv: any) => (
+                    <button
+                      key={inv._id}
+                      type="button"
+                      onClick={() => loadInvoiceIntoPurchase(inv)}
+                      className={`w-full flex items-center justify-between gap-3 p-3 rounded-xl border text-left transition-all ${
+                        selectedInvoiceId === inv._id
+                          ? 'bg-[#F15D38]/10 border-[#F15D38]/30'
+                          : 'bg-[#0B0F19] border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <FileText size={14} className="text-slate-500 shrink-0" />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <p className="text-sm font-bold text-slate-100 truncate">
+                              {(inv.items || []).map((it: any) => `${it.qty}x ${it.description}`).join(', ') || inv.invoiceNumber}
+                            </p>
+                            <span className="shrink-0 text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-emerald-950/40 text-emerald-400 border-emerald-800/30">
+                              Paid
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-500 font-bold mt-0.5">
+                            {inv.invoiceNumber} • {(inv.paymentDate || inv.createdAt || '').toString().slice(0, 10)} • {(inv.items || []).length} product{(inv.items || []).length === 1 ? '' : 's'} • ${(inv.totalAmount || 0).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                      <span className={`text-[9px] font-black uppercase shrink-0 ${selectedInvoiceId === inv._id ? 'text-[#F15D38]' : 'text-slate-400'}`}>
+                        {selectedInvoiceId === inv._id ? 'Loaded ✓' : 'Use Order'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {selectedInvoiceId && (
+                  <button type="button" onClick={clearLoadedOrder} className="mt-3 text-[10px] font-bold text-slate-500 hover:text-slate-300 underline">
+                    Clear loaded products
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Customer's past orders — history & one-click re-order */}
             {customerHistory.length > 0 && (
