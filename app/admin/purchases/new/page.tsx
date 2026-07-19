@@ -14,8 +14,9 @@ export default function NewPurchasePage() {
   const [showCustList, setShowCustList] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  // lineCNY is the TOTAL Yuan price for the whole line (not per unit).
   const [items, setItems] = useState([
-    { productName: '', productUrl: '', quantity: 1, unitPriceCNY: 0 }
+    { productName: '', productUrl: '', quantity: 1, lineCNY: 0 }
   ]);
   const [formData, setFormData] = useState({
     customerName: '', supplierName: '', paymentMethod: 'ZAAD', notes: ''
@@ -68,7 +69,7 @@ export default function NewPurchasePage() {
   const paidInvoices = paidInvoicesFor(formData.customerName, selectedCustomer?.phone);
   const paidInvoicesTotal = paidInvoices.reduce((s, inv) => s + (inv.totalAmount || 0), 0);
 
-  const addItem = () => setItems([...items, { productName: '', productUrl: '', quantity: 1, unitPriceCNY: 0 }]);
+  const addItem = () => setItems([...items, { productName: '', productUrl: '', quantity: 1, lineCNY: 0 }]);
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
   const updateItem = (index: number, field: string, value: any) => {
     const newItems = [...items];
@@ -82,9 +83,9 @@ export default function NewPurchasePage() {
       productName: it.productName || '',
       productUrl: it.productUrl || '',
       quantity: it.quantity || 1,
-      unitPriceCNY: it.unitPriceCNY || 0,
+      lineCNY: (it.unitPriceCNY || 0) * (it.quantity || 1),
     }));
-    setItems(lines.length > 0 ? lines : [{ productName: '', productUrl: '', quantity: 1, unitPriceCNY: 0 }]);
+    setItems(lines.length > 0 ? lines : [{ productName: '', productUrl: '', quantity: 1, lineCNY: 0 }]);
     if (order.supplier && order.supplier !== 'Unknown Supplier') setFormData(prev => ({ ...prev, supplierName: order.supplier }));
     setSelectedOrderId(order._id);
     setSelectedInvoiceId(null);
@@ -97,9 +98,9 @@ export default function NewPurchasePage() {
       productName: it.description || '',
       productUrl: '',
       quantity: it.qty || 1,
-      unitPriceCNY: 0,
+      lineCNY: 0,
     }));
-    setItems(lines.length > 0 ? lines : [{ productName: '', productUrl: '', quantity: 1, unitPriceCNY: 0 }]);
+    setItems(lines.length > 0 ? lines : [{ productName: '', productUrl: '', quantity: 1, lineCNY: 0 }]);
     setSelectedInvoiceId(inv._id);
     setSelectedOrderId(null);
   };
@@ -107,7 +108,7 @@ export default function NewPurchasePage() {
   const clearLoadedOrder = () => {
     setSelectedOrderId(null);
     setSelectedInvoiceId(null);
-    setItems([{ productName: '', productUrl: '', quantity: 1, unitPriceCNY: 0 }]);
+    setItems([{ productName: '', productUrl: '', quantity: 1, lineCNY: 0 }]);
   };
 
   // Friendly status badge so you can tell which orders he already received.
@@ -119,7 +120,7 @@ export default function NewPurchasePage() {
     }
   };
 
-  const totalUSD = items.reduce((sum, item) => sum + ((item.unitPriceCNY * item.quantity) / exchangeRate), 0);
+  const totalUSD = items.reduce((sum, item) => sum + (item.lineCNY / exchangeRate), 0);
 
   const handleSave = async () => {
     if (!formData.customerName.trim()) { alert('Please enter a customer name'); return; }
@@ -129,8 +130,9 @@ export default function NewPurchasePage() {
       productName: item.productName,
       productUrl: item.productUrl,
       quantity: item.quantity,
-      unitPriceCNY: item.unitPriceCNY,
-      totalUSD: parseFloat(((item.unitPriceCNY * item.quantity) / exchangeRate).toFixed(2))
+      // Stored per-unit for compatibility — derived from the typed line total.
+      unitPriceCNY: parseFloat((item.quantity > 0 ? item.lineCNY / item.quantity : item.lineCNY).toFixed(2)),
+      totalUSD: parseFloat((item.lineCNY / exchangeRate).toFixed(2))
     }));
 
     // Resolve the supplier against the directory — create it if it's new.
@@ -146,7 +148,7 @@ export default function NewPurchasePage() {
         } catch { /* non-fatal */ }
       }
     }
-    const totalCNY = items.reduce((sum, item) => sum + (item.unitPriceCNY * item.quantity), 0);
+    const totalCNY = items.reduce((sum, item) => sum + item.lineCNY, 0);
 
     const payload = {
       orderNumber,
@@ -390,15 +392,15 @@ export default function NewPurchasePage() {
                         onChange={(e) => updateItem(index, 'quantity', Number(e.target.value))} />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Price (¥ Yuan)</label>
-                      <input type="number" className="search-input !py-2.5" value={item.unitPriceCNY}
-                        onChange={(e) => updateItem(index, 'unitPriceCNY', Number(e.target.value))} />
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Total Price (¥ Yuan)</label>
+                      <input type="number" className="search-input !py-2.5" placeholder="Total ¥ for this line" value={item.lineCNY}
+                        onChange={(e) => updateItem(index, 'lineCNY', Number(e.target.value))} />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Total (USD)</label>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Est. Total (USD)</label>
                       <div className="search-input !py-2.5 text-emerald-400 font-black flex items-center gap-1">
                         <DollarSign size={13} />
-                        {((item.unitPriceCNY * item.quantity) / exchangeRate).toFixed(2)}
+                        {(item.lineCNY / exchangeRate).toFixed(2)}
                       </div>
                     </div>
                   </div>
