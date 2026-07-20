@@ -14,9 +14,10 @@ export default function NewPurchasePage() {
   const [showCustList, setShowCustList] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
-  // lineCNY is the TOTAL Yuan price for the whole line (not per unit).
+  // lineCNY / lineUSD are the TOTAL prices for the whole line (not per unit).
+  // The two are kept in sync through the exchange rate — type either one.
   const [items, setItems] = useState([
-    { productName: '', productUrl: '', quantity: 1, lineCNY: 0 }
+    { productName: '', productUrl: '', quantity: 1, lineCNY: 0, lineUSD: 0 }
   ]);
   const [formData, setFormData] = useState({
     customerName: '', supplierName: '', paymentMethod: 'ZAAD', notes: ''
@@ -69,7 +70,9 @@ export default function NewPurchasePage() {
   const paidInvoices = paidInvoicesFor(formData.customerName, selectedCustomer?.phone);
   const paidInvoicesTotal = paidInvoices.reduce((s, inv) => s + (inv.totalAmount || 0), 0);
 
-  const addItem = () => setItems([...items, { productName: '', productUrl: '', quantity: 1, lineCNY: 0 }]);
+  const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+  const addItem = () => setItems([...items, { productName: '', productUrl: '', quantity: 1, lineCNY: 0, lineUSD: 0 }]);
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
   const updateItem = (index: number, field: string, value: any) => {
     const newItems = [...items];
@@ -77,15 +80,39 @@ export default function NewPurchasePage() {
     setItems(newItems);
   };
 
+  // Type the total Yuan → the total Dollar fills in (Yuan ÷ rate).
+  const updateYuan = (index: number, value: number) => {
+    const newItems = [...items];
+    newItems[index] = { ...newItems[index], lineCNY: value, lineUSD: exchangeRate ? round2(value / exchangeRate) : 0 };
+    setItems(newItems);
+  };
+
+  // Type the total Dollar → the total Yuan fills in (Dollar × rate).
+  const updateUSD = (index: number, value: number) => {
+    const newItems = [...items];
+    newItems[index] = { ...newItems[index], lineUSD: value, lineCNY: round2(value * exchangeRate) };
+    setItems(newItems);
+  };
+
+  // Change the rate → re-convert every line's Dollar from its Yuan.
+  const handleRateChange = (newRate: number) => {
+    setExchangeRate(newRate);
+    setItems(prev => prev.map(it => ({ ...it, lineUSD: newRate ? round2(it.lineCNY / newRate) : 0 })));
+  };
+
   // Load a past order's products into the form (re-order from history).
   const loadOrderIntoPurchase = (order: any) => {
-    const lines = (order.items || []).map((it: any) => ({
-      productName: it.productName || '',
-      productUrl: it.productUrl || '',
-      quantity: it.quantity || 1,
-      lineCNY: (it.unitPriceCNY || 0) * (it.quantity || 1),
-    }));
-    setItems(lines.length > 0 ? lines : [{ productName: '', productUrl: '', quantity: 1, lineCNY: 0 }]);
+    const lines = (order.items || []).map((it: any) => {
+      const lineCNY = (it.unitPriceCNY || 0) * (it.quantity || 1);
+      return {
+        productName: it.productName || '',
+        productUrl: it.productUrl || '',
+        quantity: it.quantity || 1,
+        lineCNY,
+        lineUSD: exchangeRate ? round2(lineCNY / exchangeRate) : 0,
+      };
+    });
+    setItems(lines.length > 0 ? lines : [{ productName: '', productUrl: '', quantity: 1, lineCNY: 0, lineUSD: 0 }]);
     if (order.supplier && order.supplier !== 'Unknown Supplier') setFormData(prev => ({ ...prev, supplierName: order.supplier }));
     setSelectedOrderId(order._id);
     setSelectedInvoiceId(null);
@@ -99,8 +126,9 @@ export default function NewPurchasePage() {
       productUrl: '',
       quantity: it.qty || 1,
       lineCNY: 0,
+      lineUSD: 0,
     }));
-    setItems(lines.length > 0 ? lines : [{ productName: '', productUrl: '', quantity: 1, lineCNY: 0 }]);
+    setItems(lines.length > 0 ? lines : [{ productName: '', productUrl: '', quantity: 1, lineCNY: 0, lineUSD: 0 }]);
     setSelectedInvoiceId(inv._id);
     setSelectedOrderId(null);
   };
@@ -108,7 +136,7 @@ export default function NewPurchasePage() {
   const clearLoadedOrder = () => {
     setSelectedOrderId(null);
     setSelectedInvoiceId(null);
-    setItems([{ productName: '', productUrl: '', quantity: 1, lineCNY: 0 }]);
+    setItems([{ productName: '', productUrl: '', quantity: 1, lineCNY: 0, lineUSD: 0 }]);
   };
 
   // Friendly status badge so you can tell which orders he already received.
@@ -120,7 +148,8 @@ export default function NewPurchasePage() {
     }
   };
 
-  const totalUSD = items.reduce((sum, item) => sum + (item.lineCNY / exchangeRate), 0);
+  // Grand total is the sum of the typed/derived Dollar lines (your exact numbers).
+  const totalUSD = items.reduce((sum, item) => sum + (item.lineUSD || 0), 0);
 
   const handleSave = async () => {
     if (!formData.customerName.trim()) { alert('Please enter a customer name'); return; }
@@ -132,7 +161,8 @@ export default function NewPurchasePage() {
       quantity: item.quantity,
       // Stored per-unit for compatibility — derived from the typed line total.
       unitPriceCNY: parseFloat((item.quantity > 0 ? item.lineCNY / item.quantity : item.lineCNY).toFixed(2)),
-      totalUSD: parseFloat((item.lineCNY / exchangeRate).toFixed(2))
+      // Save the exact Dollar shown on the line (not a re-calculated value).
+      totalUSD: parseFloat((item.lineUSD || 0).toFixed(2))
     }));
 
     // Resolve the supplier against the directory — create it if it's new.
@@ -358,7 +388,7 @@ export default function NewPurchasePage() {
                 <RefreshCcw size={14} className="text-slate-400" />
                 <span className="text-xs font-bold text-slate-400">Rate: 1$ =</span>
                 <input type="number" className="w-14 bg-transparent text-xs font-bold text-[#F15D38] focus:outline-none"
-                  value={exchangeRate} onChange={(e) => setExchangeRate(Number(e.target.value))} />
+                  value={exchangeRate} onChange={(e) => handleRateChange(Number(e.target.value))} />
                 <span className="text-xs font-bold text-slate-400">Yuan</span>
               </div>
             </div>
@@ -394,13 +424,14 @@ export default function NewPurchasePage() {
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Total Price (¥ Yuan)</label>
                       <input type="number" className="search-input !py-2.5" placeholder="Total ¥ for this line" value={item.lineCNY}
-                        onChange={(e) => updateItem(index, 'lineCNY', Number(e.target.value))} />
+                        onChange={(e) => updateYuan(index, Number(e.target.value))} />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Est. Total (USD)</label>
-                      <div className="search-input !py-2.5 text-emerald-400 font-black flex items-center gap-1">
-                        <DollarSign size={13} />
-                        {(item.lineCNY / exchangeRate).toFixed(2)}
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Total Price ($ USD)</label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-400" size={13} />
+                        <input type="number" className="search-input !py-2.5 !pl-8 text-emerald-400 font-black" placeholder="Total $ for this line"
+                          value={item.lineUSD} onChange={(e) => updateUSD(index, Number(e.target.value))} />
                       </div>
                     </div>
                   </div>
