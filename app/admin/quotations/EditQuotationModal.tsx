@@ -5,6 +5,7 @@ import { X, User, Phone, Package, DollarSign, Loader2, Save } from 'lucide-react
 
 interface QuotationItem {
   description: string;
+  notes: string;
   specification: string;
   qty: string;
   price: string;
@@ -34,7 +35,7 @@ function lineTotal(item: QuotationItem): number {
 export default function EditQuotationModal({ quotation, onClose, onSuccess }: EditQuotationModalProps) {
   const [customer, setCustomer] = useState('');
   const [phone, setPhone] = useState('');
-  const [items, setItems] = useState<QuotationItem[]>([{ description: '', specification: '', qty: '1', price: '', totalPrice: '' }]);
+  const [items, setItems] = useState<QuotationItem[]>([{ description: '', notes: '', specification: '', qty: '1', price: '', totalPrice: '' }]);
   const [estimatedPrice, setEstimatedPrice] = useState('');
   const [commissionRate, setCommissionRate] = useState('0');
   const [discountAmount, setDiscountAmount] = useState('0');
@@ -62,8 +63,9 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
         const commAmt = data.commissionAmount || 0;
         if (data.items && data.items.length > 0) {
           setItems(
-            data.items.map((it: { description: string; specification?: string; qty: number; price: number }) => ({
+            data.items.map((it: { description: string; notes?: string; specification?: string; qty: number; price: number }) => ({
               description: it.description,
+              notes: it.notes || '',
               specification: it.specification || '',
               qty: String(it.qty),
               price: String(it.price),
@@ -78,12 +80,12 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
           setEstimatedPrice(total > 0 ? String(total) : String(Math.max(0, (data.price || quotation.price) - commAmt)));
         } else {
           const subtotalFallback = Math.max(0, (data.price || quotation.price) - commAmt);
-          setItems([{ description: data.goods || quotation.goods, specification: '', qty: '1', price: String(subtotalFallback), totalPrice: String(subtotalFallback) }]);
+          setItems([{ description: data.goods || quotation.goods, notes: '', specification: '', qty: '1', price: String(subtotalFallback), totalPrice: String(subtotalFallback) }]);
           setEstimatedPrice(String(subtotalFallback));
         }
       })
       .catch(() => {
-        setItems([{ description: quotation.goods, specification: '', qty: '1', price: String(quotation.price), totalPrice: String(quotation.price) }]);
+        setItems([{ description: quotation.goods, notes: '', specification: '', qty: '1', price: String(quotation.price), totalPrice: String(quotation.price) }]);
         setEstimatedPrice(String(quotation.price));
         setCommissionRate('0');
       })
@@ -116,7 +118,7 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
     }));
   };
 
-  const addItem = () => setItems([...items, { description: '', specification: '', qty: '1', price: '', totalPrice: '' }]);
+  const addItem = () => setItems([...items, { description: '', notes: '', specification: '', qty: '1', price: '', totalPrice: '' }]);
 
   const removeItem = (index: number) => {
     if (items.length > 1) setItems(items.filter((_, i) => i !== index));
@@ -149,6 +151,7 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
         .filter((it) => it.description.trim())
         .map((it) => ({
           description: it.description.trim(),
+          notes: it.notes.trim(),
           specification: it.specification.trim(),
           qty: parseFloat(it.qty) || 1,
           price: parseFloat(it.price) || 0,
@@ -296,6 +299,13 @@ export default function EditQuotationModal({ quotation, onClose, onSuccess }: Ed
                       </button>
                     </div>
                     </div>
+                    <input
+                      type="text"
+                      placeholder="Short description / notes for this item (optional)"
+                      className="search-input !py-2 w-full text-sm text-slate-400 placeholder:text-slate-600"
+                      value={item.notes}
+                      onChange={(e) => updateItem(idx, 'notes', e.target.value)}
+                    />
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
                         Full Product Specification (optional)

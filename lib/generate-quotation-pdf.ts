@@ -223,7 +223,7 @@ function addSpecificationPages(
 
 export async function generateQuotationPdf(data: QuotationPdfData): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  const page = doc.addPage([595, 842]);
+  let page = doc.addPage([595, 842]);
   const { width, height } = page.getSize();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -321,29 +321,64 @@ export async function generateQuotationPdf(data: QuotationPdfData): Promise<Uint
   }
 
   // Items / charges table
-  page.drawText(data.itemsTitle || 'Description of Goods', { x: MARGIN, y, size: 11, font: fontBold, color: INK });
-  y -= 22;
-
   const tableX = MARGIN;
   const tableW = contentW;
   const colQty = tableX + tableW * 0.58;
   const colUnit = tableX + tableW * 0.72;
   const colTotal = tableX + tableW;
-
-  page.drawRectangle({ x: tableX, y: y - 4, width: tableW, height: 22, color: rgb(0.93, 0.94, 0.96) });
-  page.drawText('Description', { x: tableX + 12, y: y + 2, size: 8, font: fontBold, color: MUTED });
-  page.drawText('Qty', { x: colQty, y: y + 2, size: 8, font: fontBold, color: MUTED });
-  page.drawText('Unit Price', { x: colUnit, y: y + 2, size: 8, font: fontBold, color: MUTED });
   const thTotal = 'Total';
-  page.drawText(thTotal, { x: colTotal - 12 - fontBold.widthOfTextAtSize(thTotal, 8), y: y + 2, size: 8, font: fontBold, color: MUTED });
-  y -= 26;
+
+  // Footer sits at y=72 (line) / 52 / 38. Rows must stay above this band.
+  const FOOTER_LINE_Y = 72;
+  const ROW_BOTTOM_LIMIT = 96;
+
+  // Shared footer (drawn on every page).
+  const drawPageFooter = () => {
+    page.drawLine({ start: { x: MARGIN, y: FOOTER_LINE_Y }, end: { x: width - MARGIN, y: FOOTER_LINE_Y }, thickness: 1, color: LINE });
+    page.drawText(BRAND_FOOTER, { x: MARGIN, y: 52, size: 8, font, color: MUTED });
+    page.drawText('To confirm this order, please contact us via WhatsApp or visit our office.', { x: MARGIN, y: 38, size: 8, font, color: MUTED });
+  };
+
+  // Column header bar for the table (reused on each continuation page).
+  const drawColHeader = () => {
+    page.drawRectangle({ x: tableX, y: y - 4, width: tableW, height: 22, color: rgb(0.93, 0.94, 0.96) });
+    page.drawText('Description', { x: tableX + 12, y: y + 2, size: 8, font: fontBold, color: MUTED });
+    page.drawText('Qty', { x: colQty, y: y + 2, size: 8, font: fontBold, color: MUTED });
+    page.drawText('Unit Price', { x: colUnit, y: y + 2, size: 8, font: fontBold, color: MUTED });
+    page.drawText(thTotal, { x: colTotal - 12 - fontBold.widthOfTextAtSize(thTotal, 8), y: y + 2, size: 8, font: fontBold, color: MUTED });
+    y -= 26;
+  };
+
+  // Slim dark header for continuation pages.
+  const slimHeader = () => {
+    const chH = 46;
+    page.drawRectangle({ x: 0, y: height - chH, width, height: chH, color: DARK });
+    page.drawRectangle({ x: 0, y: height - chH, width, height: 3, color: accentColor });
+    page.drawText(BRAND_NAME, { x: MARGIN, y: height - 30, size: 13, font: fontBold, color: WHITE });
+    const cont = `${data.quoteNumber}  -  continued`;
+    page.drawText(cont, { x: width - MARGIN - font.widthOfTextAtSize(cont, 8), y: height - 28, size: 8, font, color: rgb(0.6, 0.6, 0.6) });
+    y = height - chH - 30;
+  };
+
+  // Finish current page's footer and start a fresh continuation page.
+  const startNewPage = (withColHeader: boolean) => {
+    drawPageFooter();
+    page = doc.addPage([595, 842]);
+    slimHeader();
+    if (withColHeader) drawColHeader();
+  };
+
+  page.drawText(data.itemsTitle || 'Description of Goods', { x: MARGIN, y, size: 11, font: fontBold, color: INK });
+  y -= 22;
+  drawColHeader();
 
   const rows = data.items.length > 0
     ? data.items
-    : [{ description: 'General Cargo', qty: 1, price: data.total }];
+    : [{ description: 'General Cargo', qty: 1, price: data.total, notes: undefined as string | undefined }];
 
   rows.forEach((row, i) => {
     const rowH = row.notes?.trim() ? 36 : 24;
+    if (y - rowH < ROW_BOTTOM_LIMIT) startNewPage(true);
     if (i % 2 === 1) {
       page.drawRectangle({ x: tableX, y: y - rowH + 18, width: tableW, height: rowH, color: rgb(0.99, 0.99, 1) });
     }
@@ -360,6 +395,11 @@ export async function generateQuotationPdf(data: QuotationPdfData): Promise<Uint
     page.drawText(lineTotalStr, { x: colTotal - 12 - fontBold.widthOfTextAtSize(lineTotalStr, 10), y: y + 2, size: 10, font: fontBold, color: INK });
     y -= rowH;
   });
+
+  // Ensure the totals block + note + footer fit; else move them to a new page.
+  const totalsBoxH = ((data.commissionRate ?? 0) > 0 && (data.commissionAmount ?? 0) > 0) ? 76 : 52;
+  const totalsNeeded = 28 + totalsBoxH + 40;
+  if (y - totalsNeeded < FOOTER_LINE_Y) startNewPage(false);
 
   y -= 8;
   page.drawLine({ start: { x: tableX, y }, end: { x: tableX + tableW, y }, thickness: 1, color: LINE });
@@ -419,10 +459,8 @@ export async function generateQuotationPdf(data: QuotationPdfData): Promise<Uint
     }
   } catch { /* stamp optional */ }
 
-  // Footer
-  page.drawLine({ start: { x: MARGIN, y: 72 }, end: { x: width - MARGIN, y: 72 }, thickness: 1, color: LINE });
-  page.drawText(BRAND_FOOTER, { x: MARGIN, y: 52, size: 8, font, color: MUTED });
-  page.drawText('To confirm this order, please contact us via WhatsApp or visit our office.', { x: MARGIN, y: 38, size: 8, font, color: MUTED });
+  // Footer (final page)
+  drawPageFooter();
 
   // Append product specification sheet page(s) when any item has detailed specs
   addSpecificationPages(doc, font, fontBold, data);
